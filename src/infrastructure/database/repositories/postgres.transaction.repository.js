@@ -98,18 +98,30 @@ class PostgresTransactionRepository extends TransactionRepositoryInterface {
     this.TransactionModel = TransactionModel;
   }
 
-  async findById(id) {
-    const txModelInstance = await this.TransactionModel.findByPk(id);
+  async findById(id, options = {}) {
+    const queryOptions = {
+      transaction: options.transaction,
+      // Lock typically not needed for findById unless it's for update,
+      // but ProcessDepositUseCase uses it before updating wallet, not transaction.
+      // So, lock option might not be directly used here but can be supported.
+      lock: options.lock,
+    };
+    const txModelInstance = await this.TransactionModel.findByPk(id, queryOptions);
     return toDomainEntity(txModelInstance);
   }
 
-  async findByIdempotencyKey(idempotencyKey) {
-    if (!idempotencyKey) return null; // Or throw error if key is mandatory for this lookup
-    const txModelInstance = await this.TransactionModel.findOne({ where: { idempotencyKey } });
+  async findByIdempotencyKey(idempotencyKey, options = {}) {
+    if (!idempotencyKey) return null;
+    const queryOptions = {
+      where: { idempotencyKey },
+      transaction: options.transaction,
+      lock: options.lock,
+    };
+    const txModelInstance = await this.TransactionModel.findOne(queryOptions);
     return toDomainEntity(txModelInstance);
   }
 
-  async findAllByWalletId({ walletId, page = 1, limit = 10, filters = {}, sortBy = 'transactionDate', sortOrder = 'DESC' }) {
+  async findAllByWalletId({ walletId, page = 1, limit = 10, filters = {}, sortBy = 'transactionDate', sortOrder = 'DESC' }, options = {}) {
     const offset = (page - 1) * limit;
     const whereClause = { walletId };
 
@@ -128,6 +140,7 @@ class PostgresTransactionRepository extends TransactionRepositoryInterface {
       limit,
       offset,
       order: [[sortBy, sortOrder.toUpperCase()]],
+      transaction: options.transaction, // Support reading within a transaction
     });
 
     return {
@@ -150,6 +163,7 @@ class PostgresTransactionRepository extends TransactionRepositoryInterface {
       limit,
       offset,
       order: [[sortBy, sortOrder.toUpperCase()]],
+      transaction: options.transaction, // Support reading within a transaction
       // include: [{ model: WalletModel, as: 'wallet', include: [User] }] // If deep fetching needed
     });
 
@@ -173,7 +187,7 @@ class PostgresTransactionRepository extends TransactionRepositoryInterface {
       metadata: transactionEntityOrData.metadata,
       transactionDate: transactionEntityOrData.transactionDate || new Date(),
     };
-    const createdTxModel = await this.TransactionModel.create(txData);
+    const createdTxModel = await this.TransactionModel.create(txData, { transaction: options.transaction });
     return toDomainEntity(createdTxModel);
   }
 

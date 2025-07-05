@@ -169,7 +169,7 @@ class PostgresTournamentRepository extends TournamentRepositoryInterface {
     this.TournamentParticipantModel = tournamentParticipantModel;
   }
 
-  async create(tournamentEntity) {
+  async create(tournamentEntity, options = {}) {
     try {
       const tournamentData = {
         name: tournamentEntity.name,
@@ -189,7 +189,7 @@ class PostgresTournamentRepository extends TournamentRepositoryInterface {
       };
       if (tournamentEntity.id) tournamentData.id = tournamentEntity.id;
 
-      const tournamentModelInstance = await this.TournamentModel.create(tournamentData);
+      const tournamentModelInstance = await this.TournamentModel.create(tournamentData, { transaction: options.transaction });
       return tournamentModelInstance.toDomainEntity();
     } catch (error) {
       // logger.error('Error creating tournament in DB:', error);
@@ -197,82 +197,119 @@ class PostgresTournamentRepository extends TournamentRepositoryInterface {
     }
   }
 
-  async findById(tournamentId) {
+  async findById(tournamentId, options = {}) {
     const tournamentModelInstance = await this.TournamentModel.findByPk(tournamentId, {
-      // include: [{ model: UserModel, as: 'creator' }] // Example if creator association is set up
+      transaction: options.transaction,
+      // include: [{ model: UserModel, as: 'creator' }] // Example
     });
     return tournamentModelInstance ? tournamentModelInstance.toDomainEntity() : null;
   }
 
-  async updateById(tournamentId, updateData) {
-    // Be careful with what can be updated, e.g., currentParticipants should be managed by add/removeParticipant
+  async updateById(tournamentId, updateData, options = {}) {
     const allowedUpdates = { ...updateData };
-    delete allowedUpdates.currentParticipants; // Prevent direct update
-    delete allowedUpdates.id; // Cannot update ID
-    delete allowedUpdates.createdBy; // Cannot change creator
+    delete allowedUpdates.currentParticipants;
+    delete allowedUpdates.id;
+    delete allowedUpdates.createdBy;
 
     const [updateCount] = await this.TournamentModel.update(allowedUpdates, {
       where: { id: tournamentId },
+      transaction: options.transaction,
     });
 
     if (updateCount === 0) {
-      return null; // Or throw ApiError(httpStatus.NOT_FOUND, 'Tournament not found');
+      return null;
     }
-    return this.findById(tournamentId); // Re-fetch to get updated entity
+    // Re-fetch within the same transaction for consistency if needed, or just return based on update count.
+    // For simplicity, if update succeeded, the caller might re-fetch if it needs the full updated entity.
+    // Or, we fetch it here:
+    return this.findById(tournamentId, { transaction: options.transaction });
   }
 
-  async deleteById(tournamentId) {
-    // Consider soft delete or cascading deletes for related entities (matches, participants)
-    // This needs to be configured at DB level or handled here explicitly.
-    const deleteCount = await this.TournamentModel.destroy({ where: { id: tournamentId } });
+  async deleteById(tournamentId, options = {}) { // Added options for transaction
+    const deleteCount = await this.TournamentModel.destroy({
+      where: { id: tournamentId },
+      transaction: options.transaction,
+    });
     return deleteCount > 0;
   }
 
-  async findAll({ filters = {}, pagination = { limit: 10, offset: 0 }, sorting = { field: 'startDate', order: 'DESC' } } = {}) {
+  async findAll({ page = 1, limit = 10, filters = {}, sortBy = 'startDate', sortOrder = 'ASC' } = {}) {
+    const offset = (parseInt(page, 10) - 1) * parseInt(limit, 10);
     const whereClause = {};
     if (filters.status) whereClause.status = filters.status;
-    if (filters.gameType) whereClause.gameType = { [Op.iLike]: `%${filters.gameType}%` }; // Case-insensitive search
+    if (filters.gameType) whereClause.gameType = { [Op.iLike]: `%${filters.gameType}%` };
     if (filters.isRegistrationOpen) whereClause.status = TournamentStatus.REGISTRATION_OPEN;
-    // Add more filters
+    // Add more filters as needed
 
     const { count, rows } = await this.TournamentModel.findAndCountAll({
       where: whereClause,
-      limit: parseInt(pagination.limit, 10),
-      offset: parseInt(pagination.offset, 10),
-      order: [[sorting.field, sorting.order.toUpperCase()]],
-      // include: [{ model: UserModel, as: 'creator', attributes: ['id', 'username'] }]
+      limit: parseInt(limit, 10),
+      offset: offset,
+      order: [[sortBy, sortOrder.toUpperCase()]],
+      // include: [{ model: UserModel, as: 'creator', attributes: ['id', 'username'] }] // Example
     });
 
     return {
       tournaments: rows.map(model => model.toDomainEntity()),
       total: count,
+      page: parseInt(page, 10),
+      limit: parseInt(limit, 10),
     };
   }
 
   async addParticipant(tournamentId, participantId, participantType, options = {}) {
-    const tournament = await this.TournamentModel.findByPk(tournamentId);
-    if (!tournament) throw new ApiError(httpStatus.NOT_FOUND, 'Tournament not found.');
-    if (tournament.currentParticipants >= tournament.capacity) throw new ApiError(httpStatus.BAD_REQUEST, 'Tournament is full.');
-    if (tournament.status !== TournamentStatus.REGISTRATION_OPEN) throw new ApiError(httpStatus.BAD_REQUEST, 'Tournament registration is not open.');
+    const manageTransaction = !options.transaction;
+    const t = options.transaction || await sequelize.transaction();
 
-    // Check if participant already registered
-    const existingRegistration = await this.TournamentParticipantModel.findOne({
-        where: { tournamentId, participantId, participantType }
+    try {
+      const tournament = await this.TournamentModel.findByPk(tournamentId, { transaction: t });
+      if (!tournament) {
+        if (manageTransaction) await t.rollback();
+        throw new ApiError(httpStatus.NOT_FOUND, 'Tournament not found.');
+      }
+      if (tournament.currentParticipants >= tournament.capacity) {
+        if (manageTransaction) await t.rollback();
+        throw new ApiError(httpStatus.BAD_REQUEST, 'Tournament is full.');
+      }
+      if (tournament.status !== TournamentStatus.REGISTRATION_OPEN) {
+        if (manageTransaction) await t.rollback();
+        throw new ApiError(httpStatus.BAD_REQUEST, 'Tournament registration is not open.');
+      }
+
+      const existingRegistration = await this.TournamentParticipantModel.findOne({
+        where: { tournamentId, participantId, participantType },
+        transaction: t,
+      });
+      if (existingRegistration) {
+        if (manageTransaction) await t.rollback();
+        throw new ApiError(httpStatus.CONFLICT, 'Participant already registered.');
+      }
+
+      const registrationData = {
+        id: options.id || undefined, // Allow pre-defined ID for participant record if passed
+        tournamentId,
+        participantId,
+        participantType,
+        seed: options.seed,
+        registeredAt: options.registeredAt || new Date(),
+      };
+      const participantRecord = await this.TournamentParticipantModel.create(registrationData, { transaction: t });
+      await this.TournamentModel.increment('currentParticipants', { by: 1, where: { id: tournamentId }, transaction: t });
+
+      if (manageTransaction) await t.commit();
+      return participantRecord.toJSON(); // Or map to a domain entity
+    } catch (error) {
+      if (manageTransaction) await t.rollback();
+      throw error; // Re-throw error to be handled by the caller
+    }
+  }
+
+  async findParticipant(tournamentId, participantId, participantType, options = {}) {
+    const participantRecord = await this.TournamentParticipantModel.findOne({
+      where: { tournamentId, participantId, participantType },
+      transaction: options.transaction,
     });
-    if (existingRegistration) throw new ApiError(httpStatus.CONFLICT, 'Participant already registered.');
-
-
-    return sequelize.transaction(async (t) => {
-        const registrationData = {
-            tournamentId,
-            participantId,
-            participantType,
-            seed: options.seed,
-        };
-        const participantRecord = await this.TournamentParticipantModel.create(registrationData, { transaction: t });
-        await this.TournamentModel.increment('currentParticipants', { by: 1, where: { id: tournamentId }, transaction: t });
-        return participantRecord.toJSON(); // Or a domain entity if you have one for TournamentParticipant
-    });
+    return participantRecord ? participantRecord.toJSON() : null; // Or map to domain entity
   }
 
   async removeParticipant(tournamentId, participantId) { // participantId here is the ID of the TournamentParticipant record
@@ -303,45 +340,71 @@ class PostgresTournamentRepository extends TournamentRepositoryInterface {
   // Match methods
   async createMatch(matchEntity) {
     const matchData = { ...matchEntity }; // Spread to avoid modifying original
-    delete matchData.id; // Let DB generate UUID or use defaultValue
+    delete matchData.id;
 
-    if (matchEntity.id) matchData.id = matchEntity.id; // Allow pre-defined ID
+    if (matchEntity.id) matchData.id = matchEntity.id;
 
-    const matchModelInstance = await this.MatchModel.create(matchData);
+    const matchModelInstance = await this.MatchModel.create(matchData, { transaction: options.transaction });
     return matchModelInstance.toDomainEntity();
   }
 
-  async createMatchesBulk(matchEntities) {
+  async createMatchesBulk(matchEntities, options = {}) {
     const matchDataArray = matchEntities.map(entity => {
         const data = { ...entity };
-        if (!entity.id) delete data.id; // Use defaultValue UUID if no ID provided
+        // Ensure properties match model attributes for bulkCreate
+        // Domain entity Match uses scoreParticipant1, model uses participant1Score
+        // This mapping should occur here or before calling this method.
+        // For now, assuming names are aligned or mapped before this call.
+        if (data.scoreParticipant1 !== undefined) { data.participant1Score = data.scoreParticipant1; delete data.scoreParticipant1; }
+        if (data.scoreParticipant2 !== undefined) { data.participant2Score = data.scoreParticipant2; delete data.scoreParticipant2; }
+        if (data.resultScreenshotUrl !== undefined) { data.resultProofUrlP1 = data.resultScreenshotUrl; delete data.resultScreenshotUrl; }
+        // Add other mappings if necessary for roundNumber vs round etc.
+        // The Match entity was updated to align names, so direct spread might be okay now.
+        // Re-check Match entity properties vs MatchModel attributes.
+        // Match entity now has: participant1Score, participant2Score, resultProofUrlP1, resultProofUrlP2, round
+        // MatchModel has: participant1Score, participant2Score, resultProofUrlP1, resultProofUrlP2, round
+        // So names are aligned. Direct spread is fine.
+
+        if (!entity.id) delete data.id;
         return data;
     });
-    const matchModelInstances = await this.MatchModel.bulkCreate(matchDataArray);
+    const matchModelInstances = await this.MatchModel.bulkCreate(matchDataArray, { transaction: options.transaction });
     return matchModelInstances.map(model => model.toDomainEntity());
   }
 
-  async findMatchById(matchId) {
-    const matchModelInstance = await this.MatchModel.findByPk(matchId);
+  async findMatchById(matchId, options = {}) {
+    const matchModelInstance = await this.MatchModel.findByPk(matchId, { transaction: options.transaction });
     return matchModelInstance ? matchModelInstance.toDomainEntity() : null;
   }
 
-  async updateMatchById(matchId, updateData) {
-    const [updateCount] = await this.MatchModel.update(updateData, {
+  async updateMatchById(matchId, updateData, options = {}) {
+    // Map domain property names to model attribute names if they differ
+    const modelUpdateData = { ...updateData };
+    if (modelUpdateData.scoreParticipant1 !== undefined) { modelUpdateData.participant1Score = modelUpdateData.scoreParticipant1; delete modelUpdateData.scoreParticipant1; }
+    if (modelUpdateData.scoreParticipant2 !== undefined) { modelUpdateData.participant2Score = modelUpdateData.scoreParticipant2; delete modelUpdateData.scoreParticipant2; }
+    if (modelUpdateData.resultScreenshotUrl !== undefined) { modelUpdateData.resultProofUrlP1 = modelUpdateData.resultScreenshotUrl; delete modelUpdateData.resultScreenshotUrl; }
+    // Since Match entity was updated to align names, this mapping might be redundant.
+    // If Match entity now has participant1Score, resultProofUrlP1, etc., direct updateData is fine.
+    // The Match entity was indeed updated. So, direct use of updateData is fine.
+
+    const [updateCount] = await this.MatchModel.update(updateData, { // Use updateData directly
       where: { id: matchId },
+      transaction: options.transaction,
     });
     if (updateCount === 0) return null;
-    return this.findMatchById(matchId);
+    return this.findMatchById(matchId, { transaction: options.transaction }); // Re-fetch in same transaction
   }
 
-  async findMatchesByTournamentId(tournamentId, { round, status } = {}) {
+  async findMatchesByTournamentId(tournamentId, options = {}) {
     const whereClause = { tournamentId };
-    if (round) whereClause.round = round;
-    if (status) whereClause.status = status;
+    if (options.round) whereClause.round = options.round;
+    if (options.status) whereClause.status = options.status;
+    // Add other filters from options if needed
 
     const matches = await this.MatchModel.findAll({
       where: whereClause,
       order: [['round', 'ASC'], ['matchNumberInRound', 'ASC'], ['createdAt', 'ASC']],
+      transaction: options.transaction,
     });
     return matches.map(model => model.toDomainEntity());
   }
