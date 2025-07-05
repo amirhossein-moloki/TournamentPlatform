@@ -46,6 +46,15 @@ module.exports = {
       lastLogin: {
         type: DataTypes.DATE,
       },
+      verificationToken: { // For email verification or password reset
+        type: DataTypes.STRING,
+        allowNull: true,
+      },
+      tokenVersion: { // For JWT invalidation strategy
+        type: DataTypes.INTEGER,
+        allowNull: false,
+        defaultValue: 0,
+      },
       createdAt: {
         allowNull: false,
         type: DataTypes.DATE,
@@ -176,7 +185,7 @@ module.exports = {
         type: DataTypes.STRING,
         allowNull: false,
       },
-      gameName: { // E.g., "League of Legends", "Valorant"
+      gameType: { // Renamed from gameName
         type: DataTypes.STRING,
         allowNull: false,
       },
@@ -188,10 +197,10 @@ module.exports = {
         type: DataTypes.TEXT,
         allowNull: true,
       },
-      status: { // PENDING, REGISTRATION_OPEN, REGISTRATION_CLOSED, ONGOING, COMPLETED, CANCELED
+      status: { // Values from TournamentStatus domain enum; kept as STRING for flexibility
         type: DataTypes.STRING,
         allowNull: false,
-        defaultValue: 'PENDING',
+        defaultValue: 'UPCOMING', // Default status from domain
       },
       entryFee: {
         type: DataTypes.DECIMAL(10, 2),
@@ -203,7 +212,11 @@ module.exports = {
         allowNull: false,
         defaultValue: 0.00,
       },
-      maxParticipants: {
+      capacity: { // Added field
+        type: DataTypes.INTEGER,
+        allowNull: false,
+      },
+      maxParticipants: { // Kept, as model might use 'capacity' as the limit
         type: DataTypes.INTEGER,
         allowNull: false,
       },
@@ -220,15 +233,38 @@ module.exports = {
         type: DataTypes.DATE,
         allowNull: true,
       },
-      organizerId: { // Could be a User or a specific Organizer entity if extended
+      organizerId: {
         type: DataTypes.UUID,
-        allowNull: true, // Or false if always tied to a user
+        allowNull: true,
         references: {
           model: 'Users',
           key: 'id',
         },
         onUpdate: 'CASCADE',
         onDelete: 'SET NULL',
+      },
+      bannerImageUrl: { // Added field
+        type: DataTypes.STRING,
+        allowNull: true,
+      },
+      createdBy: { // Added field
+        type: DataTypes.UUID,
+        allowNull: true,
+        references: {
+          model: 'Users',
+          key: 'id',
+        },
+        onUpdate: 'CASCADE',
+        onDelete: 'SET NULL',
+      },
+      bracketType: { // Added field
+        type: DataTypes.STRING, // Using STRING for ENUM for migration simplicity
+        allowNull: false,
+        defaultValue: 'SINGLE_ELIMINATION',
+      },
+      settings: { // Added field
+        type: DataTypes.JSONB,
+        allowNull: true,
       },
       createdAt: {
         allowNull: false,
@@ -242,7 +278,7 @@ module.exports = {
       },
     });
     await queryInterface.addIndex('Tournaments', ['status']);
-    await queryInterface.addIndex('Tournaments', ['gameName']);
+    await queryInterface.addIndex('Tournaments', ['gameType']); // Changed from gameName
 
 
     // TournamentParticipants Table (Join table for Users and Tournaments)
@@ -263,28 +299,34 @@ module.exports = {
         onUpdate: 'CASCADE',
         onDelete: 'CASCADE',
       },
-      userId: {
+      participantId: { // Renamed from userId
         type: DataTypes.UUID,
         allowNull: false,
-        references: {
-          model: 'Users',
+        references: { // This FK might need to be more flexible or removed if participantType handles various entities
+          model: 'Users', // Assuming only user participants for now based on original FK
           key: 'id',
         },
         onUpdate: 'CASCADE',
         onDelete: 'CASCADE',
       },
-      teamId: { // Optional, if teams are a separate entity
-        type: DataTypes.UUID,
-        allowNull: true,
-        // references: { model: 'Teams', key: 'id' },
-        // onUpdate: 'CASCADE',
-        // onDelete: 'SET NULL',
+      participantType: { // Added field
+        type: DataTypes.STRING,
+        allowNull: false, // e.g., 'user', 'team'
       },
-      registrationDate: {
+      registeredAt: { // Renamed from registrationDate
         type: DataTypes.DATE,
         defaultValue: Sequelize.literal('CURRENT_TIMESTAMP'),
       },
-      status: { // REGISTERED, CHECKED_IN, DISQUALIFIED, ELIMINATED, WINNER
+      checkInStatus: { // Added field
+        type: DataTypes.BOOLEAN,
+        allowNull: false,
+        defaultValue: false,
+      },
+      seed: { // Added field
+        type: DataTypes.INTEGER,
+        allowNull: true,
+      },
+      status: { // Kept status field
         type: DataTypes.STRING,
         defaultValue: 'REGISTERED',
       },
@@ -299,10 +341,9 @@ module.exports = {
         defaultValue: Sequelize.literal('CURRENT_TIMESTAMP'),
       },
     });
-    await queryInterface.addIndex('TournamentParticipants', ['tournamentId', 'userId'], { unique: true });
+    await queryInterface.addIndex('TournamentParticipants', ['tournamentId', 'participantId', 'participantType'], { unique: true });
     await queryInterface.addIndex('TournamentParticipants', ['tournamentId']);
-    await queryInterface.addIndex('TournamentParticipants', ['userId']);
-    // await queryInterface.addIndex('TournamentParticipants', ['teamId']); // If using teams
+    await queryInterface.addIndex('TournamentParticipants', ['participantId']);
 
 
     // Matches Table
@@ -323,7 +364,7 @@ module.exports = {
         onUpdate: 'CASCADE',
         onDelete: 'CASCADE',
       },
-      roundNumber: { // E.g., 1, 2, 3 for rounds, or specific like "Quarter-final"
+      round: { // Renamed from roundNumber
         type: DataTypes.INTEGER,
         allowNull: false,
       },
@@ -331,24 +372,32 @@ module.exports = {
         type: DataTypes.INTEGER,
         allowNull: false,
       },
-      participant1Id: { // Could be UserId or TeamId
+      participant1Id: {
         type: DataTypes.UUID,
-        allowNull: true, // Null if BYE or TBD
-        references: { model: 'Users', key: 'id' }, // Or TournamentParticipants
+        allowNull: true,
+        references: { model: 'Users', key: 'id' },
         onUpdate: 'CASCADE',
         onDelete: 'SET NULL',
       },
-      participant2Id: { // Could be UserId or TeamId
+      participant1Type: { // Added field
+        type: DataTypes.STRING,
+        allowNull: true,
+      },
+      participant2Id: {
         type: DataTypes.UUID,
-        allowNull: true, // Null if BYE or TBD
-        references: { model: 'Users', key: 'id' }, // Or TournamentParticipants
+        allowNull: true,
+        references: { model: 'Users', key: 'id' },
         onUpdate: 'CASCADE',
         onDelete: 'SET NULL',
       },
-      status: { // SCHEDULED, IN_PROGRESS, COMPLETED, DISPUTED, CANCELED
+      participant2Type: { // Added field
+        type: DataTypes.STRING,
+        allowNull: true,
+      },
+      status: { // Values from MatchStatus domain enum; kept as STRING
         type: DataTypes.STRING,
         allowNull: false,
-        defaultValue: 'SCHEDULED',
+        defaultValue: 'PENDING', // Default status from domain
       },
       scheduledTime: {
         type: DataTypes.DATE,
@@ -362,35 +411,58 @@ module.exports = {
         type: DataTypes.DATE,
         allowNull: true,
       },
-      winnerId: { // Could be UserId or TeamId
+      winnerId: {
         type: DataTypes.UUID,
         allowNull: true,
-        references: { model: 'Users', key: 'id' }, // Or TournamentParticipants
+        references: { model: 'Users', key: 'id' },
         onUpdate: 'CASCADE',
         onDelete: 'SET NULL',
       },
-      scoreParticipant1: {
-        type: DataTypes.INTEGER,
-        allowNull: true,
-      },
-      scoreParticipant2: {
-        type: DataTypes.INTEGER,
-        allowNull: true,
-      },
-      resultScreenshotUrl: {
+      winnerType: { // Added field
         type: DataTypes.STRING,
         allowNull: true,
       },
-      isConfirmed: { // By losing team or admin
+      participant1Score: { // Renamed from scoreParticipant1
+        type: DataTypes.INTEGER,
+        allowNull: true,
+      },
+      participant2Score: { // Renamed from scoreParticipant2
+        type: DataTypes.INTEGER,
+        allowNull: true,
+      },
+      resultProofUrlP1: { // Renamed from resultScreenshotUrl
+        type: DataTypes.STRING,
+        allowNull: true,
+      },
+      resultProofUrlP2: { // Added field
+        type: DataTypes.STRING,
+        allowNull: true,
+      },
+      isConfirmed: {
         type: DataTypes.BOOLEAN,
         defaultValue: false,
       },
-      nextMatchId: { // For bracket progression
+      moderatorNotes: { // Added field
+        type: DataTypes.TEXT,
+        allowNull: true,
+      },
+      nextMatchId: {
         type: DataTypes.UUID,
         allowNull: true,
         references: { model: 'Matches', key: 'id' },
         onUpdate: 'CASCADE',
         onDelete: 'SET NULL',
+      },
+      nextMatchLoserId: { // Added field
+        type: DataTypes.UUID,
+        allowNull: true,
+        references: { model: 'Matches', key: 'id' },
+        onUpdate: 'CASCADE',
+        onDelete: 'SET NULL',
+      },
+      metadata: { // Added field
+        type: DataTypes.JSONB,
+        allowNull: true,
       },
       createdAt: {
         allowNull: false,

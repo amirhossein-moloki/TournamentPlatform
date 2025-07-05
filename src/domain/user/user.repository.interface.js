@@ -108,4 +108,13 @@ module.exports = UserRepositoryInterface;
 UserRepositoryInterface.prototype.findAll = async function({ page = 1, limit = 10, filters = {} } = {}) {
   throw new Error('Method "findAll" not implemented.');
 };
+
+  /**
+   * Finds a user by their verification token.
+   * @param {string} verificationToken - The verification token.
+   * @returns {Promise<User|null>} The User entity if found, otherwise null.
+   */
+  async findByVerificationToken(verificationToken) {
+    throw new Error('Method "findByVerificationToken" not implemented.');
+  }
 // This ensures any class attempting to use this interface must implement all methods.
