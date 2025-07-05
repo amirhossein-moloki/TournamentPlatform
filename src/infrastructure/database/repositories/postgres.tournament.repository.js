@@ -1,172 +1,31 @@
 // src/infrastructure/database/repositories/postgres.tournament.repository.js
-const { Tournament, TournamentStatus, BracketType } = require('../../../domain/tournament/tournament.entity');
-const { Match, MatchStatus } = require('../../../domain/tournament/match.entity'); // Assuming Match entity
 const TournamentRepositoryInterface = require('../../../domain/tournament/tournament.repository.interface');
-const { sequelize } = require('../postgres.connector');
-const { DataTypes, Model, Op } = require('sequelize');
+const { TournamentStatus } = require('../../../domain/tournament/tournament.entity'); // For status checks
 const ApiError = require('../../../utils/ApiError');
 const httpStatus = require('http-status');
-const { UserModel } = require('./postgres.user.repository'); // For createdBy association
-
-// Define Sequelize Tournament Model
-class TournamentModel extends Model {
-  toDomainEntity() {
-    return Tournament.fromPersistence(this.toJSON());
-  }
-}
-
-TournamentModel.init({
-  id: {
-    allowNull: false,
-    primaryKey: true,
-    type: DataTypes.UUID,
-    defaultValue: DataTypes.UUIDV4,
-  },
-  name: {
-    type: DataTypes.STRING,
-    allowNull: false,
-  },
-  gameType: {
-    type: DataTypes.STRING,
-    allowNull: false,
-  },
-  description: {
-    type: DataTypes.TEXT,
-    allowNull: true,
-  },
-  status: {
-    type: DataTypes.ENUM(...Object.values(TournamentStatus)),
-    allowNull: false,
-    defaultValue: TournamentStatus.UPCOMING,
-  },
-  capacity: {
-    type: DataTypes.INTEGER,
-    allowNull: false,
-  },
-  currentParticipants: {
-    type: DataTypes.INTEGER,
-    allowNull: false,
-    defaultValue: 0,
-  },
-  entryFee: {
-    type: DataTypes.DECIMAL(10, 2),
-    allowNull: false,
-    defaultValue: 0.00,
-  },
-  prizePool: {
-    type: DataTypes.DECIMAL(10, 2),
-    allowNull: false,
-    defaultValue: 0.00,
-  },
-  startDate: {
-    type: DataTypes.DATE,
-    allowNull: false,
-  },
-  endDate: {
-    type: DataTypes.DATE,
-    allowNull: true,
-  },
-  rules: {
-    type: DataTypes.TEXT,
-    allowNull: true,
-  },
-  bannerImageUrl: {
-    type: DataTypes.STRING,
-    allowNull: true,
-  },
-  createdBy: { // User ID of the creator/admin
-    type: DataTypes.UUID,
-    allowNull: true, // Or false if always required
-    references: {
-      model: 'Users', // Name of the Users table
-      key: 'id',
-    },
-    onUpdate: 'CASCADE',
-    onDelete: 'SET NULL',
-  },
-  bracketType: {
-    type: DataTypes.ENUM(...Object.values(BracketType)),
-    allowNull: false,
-    defaultValue: BracketType.SINGLE_ELIMINATION,
-  },
-  settings: {
-    type: DataTypes.JSONB,
-    allowNull: true,
-  },
-  // createdAt, updatedAt managed by Sequelize
-}, {
-  sequelize,
-  modelName: 'Tournament',
-  tableName: 'Tournaments',
-  timestamps: true,
-});
-
-// Define Sequelize Match Model (if not already in a separate file)
-// For simplicity, defining it here if it's tightly coupled or managed by TournamentRepo
-// Ideally, Match would have its own repository and model file.
-class MatchModel extends Model {
-    toDomainEntity() {
-        return Match.fromPersistence(this.toJSON());
-    }
-}
-MatchModel.init({
-    id: { allowNull: false, primaryKey: true, type: DataTypes.UUID, defaultValue: DataTypes.UUIDV4 },
-    tournamentId: { type: DataTypes.UUID, allowNull: false, references: { model: 'Tournaments', key: 'id' }, onUpdate: 'CASCADE', onDelete: 'CASCADE' },
-    round: { type: DataTypes.INTEGER, allowNull: false },
-    matchNumberInRound: { type: DataTypes.INTEGER },
-    participant1Id: { type: DataTypes.UUID, allowNull: true }, // Could be User or Team ID
-    participant1Type: { type: DataTypes.STRING, allowNull: true }, // 'user' or 'team'
-    participant2Id: { type: DataTypes.UUID, allowNull: true },
-    participant2Type: { type: DataTypes.STRING, allowNull: true },
-    participant1Score: { type: DataTypes.INTEGER },
-    participant2Score: { type: DataTypes.INTEGER },
-    winnerId: { type: DataTypes.UUID },
-    winnerType: { type: DataTypes.STRING },
-    status: { type: DataTypes.ENUM(...Object.values(MatchStatus)), allowNull: false, defaultValue: MatchStatus.PENDING },
-    scheduledTime: { type: DataTypes.DATE },
-    actualStartTime: { type: DataTypes.DATE },
-    actualEndTime: { type: DataTypes.DATE },
-    resultProofUrlP1: { type: DataTypes.STRING },
-    resultProofUrlP2: { type: DataTypes.STRING },
-    moderatorNotes: { type: DataTypes.TEXT },
-    nextMatchId: { type: DataTypes.UUID, references: { model: 'Matches', key: 'id' }, onDelete: 'SET NULL' },
-    nextMatchLoserId: { type: DataTypes.UUID, references: { model: 'Matches', key: 'id' }, onDelete: 'SET NULL' },
-    metadata: { type: DataTypes.JSONB },
-}, { sequelize, modelName: 'Match', tableName: 'Matches', timestamps: true });
-
-// Define TournamentParticipant Model (Join Table)
-class TournamentParticipantModel extends Model {}
-TournamentParticipantModel.init({
-    id: { allowNull: false, primaryKey: true, type: DataTypes.UUID, defaultValue: DataTypes.UUIDV4 },
-    tournamentId: { type: DataTypes.UUID, allowNull: false, references: { model: 'Tournaments', key: 'id' }, onUpdate: 'CASCADE', onDelete: 'CASCADE' },
-    participantId: { type: DataTypes.UUID, allowNull: false }, // User or Team ID
-    participantType: { type: DataTypes.STRING, allowNull: false }, // 'user' or 'team'
-    registeredAt: { type: DataTypes.DATE, defaultValue: DataTypes.NOW },
-    checkInStatus: { type: DataTypes.BOOLEAN, defaultValue: false },
-    seed: { type: DataTypes.INTEGER },
-}, { sequelize, modelName: 'TournamentParticipant', tableName: 'TournamentParticipants', timestamps: true });
-
-
-// Associations
-TournamentModel.hasMany(MatchModel, { foreignKey: 'tournamentId', as: 'matches' });
-MatchModel.belongsTo(TournamentModel, { foreignKey: 'tournamentId', as: 'tournament' });
-
-TournamentModel.hasMany(TournamentParticipantModel, { foreignKey: 'tournamentId', as: 'tournamentParticipants' });
-TournamentParticipantModel.belongsTo(TournamentModel, { foreignKey: 'tournamentId' });
-// Note: participantId in TournamentParticipantModel is polymorphic.
-// UserModel.hasMany(TournamentParticipantModel, { foreignKey: 'participantId', constraints: false, scope: { participantType: 'user' } });
-// TeamModel.hasMany(TournamentParticipantModel, { foreignKey: 'participantId', constraints: false, scope: { participantType: 'team' } });
-
+// Removed direct model definitions and sequelize imports from here
+// Models will be injected or imported from a central place.
 
 /**
  * @implements {TournamentRepositoryInterface}
  */
 class PostgresTournamentRepository extends TournamentRepositoryInterface {
-  constructor(tournamentModel, matchModel, tournamentParticipantModel) {
+  /**
+   * @param {object} models - An object containing the Sequelize models.
+   * @param {import('sequelize').ModelCtor<import('sequelize').Model>} models.TournamentModel
+   * @param {import('sequelize').ModelCtor<import('sequelize').Model>} models.TournamentParticipantModel
+   * @param {import('sequelize').ModelCtor<import('sequelize').Model>} [models.UserModel] - Optional, if needed for creator info
+   */
+  constructor(models) {
     super();
-    this.TournamentModel = tournamentModel;
-    this.MatchModel = matchModel; // For match-related operations
-    this.TournamentParticipantModel = tournamentParticipantModel;
+    if (!models || !models.TournamentModel || !models.TournamentParticipantModel) {
+        throw new Error('Required models (TournamentModel, TournamentParticipantModel) not provided to PostgresTournamentRepository');
+    }
+    this.TournamentModel = models.TournamentModel;
+    this.TournamentParticipantModel = models.TournamentParticipantModel;
+    this.UserModel = models.UserModel; // Optional, for future use with creator details
+    this.sequelize = models.TournamentModel.sequelize; // Get sequelize instance from one of the models
+    this.Op = this.sequelize.Op; // Get Op from sequelize instance
   }
 
   async create(tournamentEntity, options = {}) {
@@ -183,7 +42,7 @@ class PostgresTournamentRepository extends TournamentRepositoryInterface {
         endDate: tournamentEntity.endDate,
         rules: tournamentEntity.rules,
         bannerImageUrl: tournamentEntity.bannerImageUrl,
-        createdBy: tournamentEntity.createdBy,
+        createdBy: tournamentEntity.createdBy, // Assuming createdBy is part of entity
         bracketType: tournamentEntity.bracketType,
         settings: tournamentEntity.settings,
       };
@@ -198,82 +57,115 @@ class PostgresTournamentRepository extends TournamentRepositoryInterface {
   }
 
   async findById(tournamentId, options = {}) {
-    const tournamentModelInstance = await this.TournamentModel.findByPk(tournamentId, {
-      transaction: options.transaction,
-      // include: [{ model: UserModel, as: 'creator' }] // Example
-    });
-    return tournamentModelInstance ? tournamentModelInstance.toDomainEntity() : null;
+    try {
+      const includeOptions = [];
+      // Example: if (options.includeCreator && this.UserModel) {
+      //   includeOptions.push({ model: this.UserModel, as: 'creator' });
+      // }
+      const tournamentModelInstance = await this.TournamentModel.findByPk(tournamentId, {
+        transaction: options.transaction,
+        include: includeOptions,
+      });
+      return tournamentModelInstance ? tournamentModelInstance.toDomainEntity() : null;
+    } catch (error) {
+      // console.error(`Error in PostgresTournamentRepository.findById: ${error.message}`, error);
+      throw new ApiError(httpStatus.INTERNAL_SERVER_ERROR, `Database error finding tournament by ID: ${error.message}`);
+    }
   }
 
   async updateById(tournamentId, updateData, options = {}) {
-    const allowedUpdates = { ...updateData };
-    delete allowedUpdates.currentParticipants;
-    delete allowedUpdates.id;
-    delete allowedUpdates.createdBy;
+    try {
+      const allowedUpdates = { ...updateData };
+      delete allowedUpdates.currentParticipants;
+      delete allowedUpdates.id;
+      delete allowedUpdates.createdBy;
 
-    const [updateCount] = await this.TournamentModel.update(allowedUpdates, {
-      where: { id: tournamentId },
-      transaction: options.transaction,
-    });
+      const [updateCount] = await this.TournamentModel.update(allowedUpdates, {
+        where: { id: tournamentId },
+        transaction: options.transaction,
+        returning: false,
+      });
 
-    if (updateCount === 0) {
-      return null;
+      if (updateCount === 0) {
+        const exists = await this.TournamentModel.findByPk(tournamentId, { transaction: options.transaction, attributes: ['id'] });
+        return exists ? this.findById(tournamentId, { transaction: options.transaction }) : null;
+      }
+      return this.findById(tournamentId, { transaction: options.transaction });
+    } catch (error) {
+        if (error instanceof ApiError) throw error;
+        // console.error(`Error in PostgresTournamentRepository.updateById: ${error.message}`, error);
+        throw new ApiError(httpStatus.INTERNAL_SERVER_ERROR, `Database error updating tournament: ${error.message}`);
     }
-    // Re-fetch within the same transaction for consistency if needed, or just return based on update count.
-    // For simplicity, if update succeeded, the caller might re-fetch if it needs the full updated entity.
-    // Or, we fetch it here:
-    return this.findById(tournamentId, { transaction: options.transaction });
   }
 
-  async deleteById(tournamentId, options = {}) { // Added options for transaction
-    const deleteCount = await this.TournamentModel.destroy({
-      where: { id: tournamentId },
-      transaction: options.transaction,
-    });
-    return deleteCount > 0;
+  async deleteById(tournamentId, options = {}) {
+    try {
+      const deleteCount = await this.TournamentModel.destroy({
+        where: { id: tournamentId },
+        transaction: options.transaction,
+      });
+      return deleteCount > 0;
+    } catch (error) {
+        // console.error(`Error in PostgresTournamentRepository.deleteById: ${error.message}`, error);
+        throw new ApiError(httpStatus.INTERNAL_SERVER_ERROR, `Database error deleting tournament: ${error.message}`);
+    }
   }
 
-  async findAll({ page = 1, limit = 10, filters = {}, sortBy = 'startDate', sortOrder = 'ASC' } = {}) {
-    const offset = (parseInt(page, 10) - 1) * parseInt(limit, 10);
-    const whereClause = {};
-    if (filters.status) whereClause.status = filters.status;
-    if (filters.gameType) whereClause.gameType = { [Op.iLike]: `%${filters.gameType}%` };
-    if (filters.isRegistrationOpen) whereClause.status = TournamentStatus.REGISTRATION_OPEN;
-    // Add more filters as needed
+  async findAll({ page = 1, limit = 10, filters = {}, sortBy = 'startDate', sortOrder = 'ASC', options = {} } = {}) {
+    try {
+      const offset = (parseInt(page, 10) - 1) * parseInt(limit, 10);
+      const whereClause = {};
+      if (filters.status) whereClause.status = filters.status;
+      if (filters.gameType) whereClause.gameType = { [this.Op.iLike]: `%${filters.gameType}%` };
+      if (filters.isRegistrationOpen) whereClause.status = TournamentStatus.REGISTRATION_OPEN;
+      // Add more filters as needed
 
-    const { count, rows } = await this.TournamentModel.findAndCountAll({
-      where: whereClause,
-      limit: parseInt(limit, 10),
-      offset: offset,
-      order: [[sortBy, sortOrder.toUpperCase()]],
-      // include: [{ model: UserModel, as: 'creator', attributes: ['id', 'username'] }] // Example
-    });
+      const findOptions = {
+        where: whereClause,
+        limit: parseInt(limit, 10),
+        offset: offset,
+        order: [[sortBy, sortOrder.toUpperCase()]],
+        transaction: options.transaction,
+      };
+      // if (options.includeCreator && this.UserModel) {
+      //   findOptions.include = [{ model: this.UserModel, as: 'creator', attributes: ['id', 'username'] }];
+      // }
 
-    return {
-      tournaments: rows.map(model => model.toDomainEntity()),
-      total: count,
-      page: parseInt(page, 10),
-      limit: parseInt(limit, 10),
-    };
+      const { count, rows } = await this.TournamentModel.findAndCountAll(findOptions);
+
+      return {
+        tournaments: rows.map(model => model.toDomainEntity()),
+        total: count,
+        page: parseInt(page, 10),
+        limit: parseInt(limit, 10),
+      };
+    } catch (error) {
+        // console.error(`Error in PostgresTournamentRepository.findAll: ${error.message}`, error);
+        throw new ApiError(httpStatus.INTERNAL_SERVER_ERROR, `Database error finding all tournaments: ${error.message}`);
+    }
   }
 
   async addParticipant(tournamentId, participantId, participantType, options = {}) {
     const manageTransaction = !options.transaction;
-    const t = options.transaction || await sequelize.transaction();
+    let t = options.transaction;
+
+    if (manageTransaction) {
+        t = await this.sequelize.transaction();
+    }
 
     try {
       const tournament = await this.TournamentModel.findByPk(tournamentId, { transaction: t });
       if (!tournament) {
-        if (manageTransaction) await t.rollback();
+        if (manageTransaction && t) await t.rollback();
         throw new ApiError(httpStatus.NOT_FOUND, 'Tournament not found.');
       }
       if (tournament.currentParticipants >= tournament.capacity) {
-        if (manageTransaction) await t.rollback();
+        if (manageTransaction && t) await t.rollback();
         throw new ApiError(httpStatus.BAD_REQUEST, 'Tournament is full.');
       }
-      if (tournament.status !== TournamentStatus.REGISTRATION_OPEN) {
-        if (manageTransaction) await t.rollback();
-        throw new ApiError(httpStatus.BAD_REQUEST, 'Tournament registration is not open.');
+      if (tournament.status !== TournamentStatus.REGISTRATION_OPEN && tournament.status !== TournamentStatus.UPCOMING) { // Allow upcoming for pre-registration
+        if (manageTransaction && t) await t.rollback();
+        throw new ApiError(httpStatus.BAD_REQUEST, `Tournament registration is not open (status: ${tournament.status}).`);
       }
 
       const existingRegistration = await this.TournamentParticipantModel.findOne({
@@ -281,12 +173,12 @@ class PostgresTournamentRepository extends TournamentRepositoryInterface {
         transaction: t,
       });
       if (existingRegistration) {
-        if (manageTransaction) await t.rollback();
+        if (manageTransaction && t) await t.rollback();
         throw new ApiError(httpStatus.CONFLICT, 'Participant already registered.');
       }
 
       const registrationData = {
-        id: options.id || undefined, // Allow pre-defined ID for participant record if passed
+        id: options.id, // Allow pre-defined ID for participant record if passed
         tournamentId,
         participantId,
         participantType,
@@ -296,124 +188,83 @@ class PostgresTournamentRepository extends TournamentRepositoryInterface {
       const participantRecord = await this.TournamentParticipantModel.create(registrationData, { transaction: t });
       await this.TournamentModel.increment('currentParticipants', { by: 1, where: { id: tournamentId }, transaction: t });
 
-      if (manageTransaction) await t.commit();
-      return participantRecord.toJSON(); // Or map to a domain entity
+      if (manageTransaction && t) await t.commit();
+      return this.TournamentParticipantModel.toDomainEntity(participantRecord);
     } catch (error) {
-      if (manageTransaction) await t.rollback();
-      throw error; // Re-throw error to be handled by the caller
+      if (manageTransaction && t && !t.finished) { // Check if t exists and not already finished
+          await t.rollback();
+      }
+      if (error instanceof ApiError) throw error;
+      if (error.name === 'SequelizeUniqueConstraintError') { // Example for specific error
+        throw new ApiError(httpStatus.CONFLICT, 'Participant already registered for this tournament (unique constraint).');
+      }
+      // console.error(`Error in PostgresTournamentRepository.addParticipant: ${error.message}`, error);
+      throw new ApiError(httpStatus.INTERNAL_SERVER_ERROR, `Database error adding participant: ${error.message}`);
     }
   }
 
   async findParticipant(tournamentId, participantId, participantType, options = {}) {
-    const participantRecord = await this.TournamentParticipantModel.findOne({
-      where: { tournamentId, participantId, participantType },
-      transaction: options.transaction,
-    });
-    return participantRecord ? participantRecord.toJSON() : null; // Or map to domain entity
+    try {
+      const participantRecord = await this.TournamentParticipantModel.findOne({
+        where: { tournamentId, participantId, participantType },
+        transaction: options.transaction,
+      });
+      return this.TournamentParticipantModel.toDomainEntity(participantRecord);
+    } catch (error) {
+        // console.error(`Error in PostgresTournamentRepository.findParticipant: ${error.message}`, error);
+        throw new ApiError(httpStatus.INTERNAL_SERVER_ERROR, `Database error finding participant: ${error.message}`);
+    }
   }
 
-  async removeParticipant(tournamentId, participantId) { // participantId here is the ID of the TournamentParticipant record
-    const registration = await this.TournamentParticipantModel.findByPk(participantId); // Assuming participantId is the PK of the join table record
-    if (!registration || registration.tournamentId !== tournamentId) {
-        throw new ApiError(httpStatus.NOT_FOUND, 'Participant registration not found for this tournament.');
-    }
+  async removeParticipant(tournamentId, participantEntryId, options = {}) { // participantEntryId is the PK of TournamentParticipantModel
+    const t = options.transaction || await this.sequelize.transaction();
+    const manageTransaction = !options.transaction;
 
-    return sequelize.transaction(async (t) => {
+    try {
+        const registration = await this.TournamentParticipantModel.findOne({
+            where: { id: participantEntryId, tournamentId: tournamentId },
+            transaction: t,
+        });
+
+        if (!registration) {
+            if (manageTransaction && t) await t.rollback();
+            throw new ApiError(httpStatus.NOT_FOUND, 'Participant registration not found for this tournament.');
+        }
+
         await registration.destroy({ transaction: t });
         await this.TournamentModel.decrement('currentParticipants', { by: 1, where: { id: tournamentId }, transaction: t });
+
+        if (manageTransaction && t) await t.commit();
         return true;
-    });
+    } catch (error) {
+        if (manageTransaction && t && !t.finished) {
+            await t.rollback();
+        }
+        if (error instanceof ApiError) throw error;
+        // console.error(`Error in PostgresTournamentRepository.removeParticipant: ${error.message}`, error);
+        throw new ApiError(httpStatus.INTERNAL_SERVER_ERROR, `Database error removing participant: ${error.message}`);
+    }
   }
 
-  async findParticipantsByTournamentId(tournamentId) {
-    const participants = await this.TournamentParticipantModel.findAll({
-        where: { tournamentId },
-        // Include User/Team model if you want to fetch their names etc.
-        // This requires setting up polymorphic associations or querying separately.
-        order: [['seed', 'ASC'], ['registeredAt', 'ASC']],
-    });
-    // This returns raw TournamentParticipant records. Mapping to a simpler structure might be needed.
-    return participants.map(p => p.toJSON());
+  async findParticipantsByTournamentId(tournamentId, options = {}) {
+    try {
+      const participants = await this.TournamentParticipantModel.findAll({
+          where: { tournamentId },
+          order: [['seed', 'ASC'], ['registeredAt', 'ASC']],
+          transaction: options.transaction,
+      });
+      return participants.map(p => this.TournamentParticipantModel.toDomainEntity(p));
+    } catch (error) {
+        // console.error(`Error in PostgresTournamentRepository.findParticipantsByTournamentId: ${error.message}`, error);
+        throw new ApiError(httpStatus.INTERNAL_SERVER_ERROR, `Database error finding participants for tournament: ${error.message}`);
+    }
   }
 
 
-  // Match methods
-  async createMatch(matchEntity) {
-    const matchData = { ...matchEntity }; // Spread to avoid modifying original
-    delete matchData.id;
-
-    if (matchEntity.id) matchData.id = matchEntity.id;
-
-    const matchModelInstance = await this.MatchModel.create(matchData, { transaction: options.transaction });
-    return matchModelInstance.toDomainEntity();
-  }
-
-  async createMatchesBulk(matchEntities, options = {}) {
-    const matchDataArray = matchEntities.map(entity => {
-        const data = { ...entity };
-        // Ensure properties match model attributes for bulkCreate
-        // Domain entity Match uses scoreParticipant1, model uses participant1Score
-        // This mapping should occur here or before calling this method.
-        // For now, assuming names are aligned or mapped before this call.
-        if (data.scoreParticipant1 !== undefined) { data.participant1Score = data.scoreParticipant1; delete data.scoreParticipant1; }
-        if (data.scoreParticipant2 !== undefined) { data.participant2Score = data.scoreParticipant2; delete data.scoreParticipant2; }
-        if (data.resultScreenshotUrl !== undefined) { data.resultProofUrlP1 = data.resultScreenshotUrl; delete data.resultScreenshotUrl; }
-        // Add other mappings if necessary for roundNumber vs round etc.
-        // The Match entity was updated to align names, so direct spread might be okay now.
-        // Re-check Match entity properties vs MatchModel attributes.
-        // Match entity now has: participant1Score, participant2Score, resultProofUrlP1, resultProofUrlP2, round
-        // MatchModel has: participant1Score, participant2Score, resultProofUrlP1, resultProofUrlP2, round
-        // So names are aligned. Direct spread is fine.
-
-        if (!entity.id) delete data.id;
-        return data;
-    });
-    const matchModelInstances = await this.MatchModel.bulkCreate(matchDataArray, { transaction: options.transaction });
-    return matchModelInstances.map(model => model.toDomainEntity());
-  }
-
-  async findMatchById(matchId, options = {}) {
-    const matchModelInstance = await this.MatchModel.findByPk(matchId, { transaction: options.transaction });
-    return matchModelInstance ? matchModelInstance.toDomainEntity() : null;
-  }
-
-  async updateMatchById(matchId, updateData, options = {}) {
-    // Map domain property names to model attribute names if they differ
-    const modelUpdateData = { ...updateData };
-    if (modelUpdateData.scoreParticipant1 !== undefined) { modelUpdateData.participant1Score = modelUpdateData.scoreParticipant1; delete modelUpdateData.scoreParticipant1; }
-    if (modelUpdateData.scoreParticipant2 !== undefined) { modelUpdateData.participant2Score = modelUpdateData.scoreParticipant2; delete modelUpdateData.scoreParticipant2; }
-    if (modelUpdateData.resultScreenshotUrl !== undefined) { modelUpdateData.resultProofUrlP1 = modelUpdateData.resultScreenshotUrl; delete modelUpdateData.resultScreenshotUrl; }
-    // Since Match entity was updated to align names, this mapping might be redundant.
-    // If Match entity now has participant1Score, resultProofUrlP1, etc., direct updateData is fine.
-    // The Match entity was indeed updated. So, direct use of updateData is fine.
-
-    const [updateCount] = await this.MatchModel.update(updateData, { // Use updateData directly
-      where: { id: matchId },
-      transaction: options.transaction,
-    });
-    if (updateCount === 0) return null;
-    return this.findMatchById(matchId, { transaction: options.transaction }); // Re-fetch in same transaction
-  }
-
-  async findMatchesByTournamentId(tournamentId, options = {}) {
-    const whereClause = { tournamentId };
-    if (options.round) whereClause.round = options.round;
-    if (options.status) whereClause.status = options.status;
-    // Add other filters from options if needed
-
-    const matches = await this.MatchModel.findAll({
-      where: whereClause,
-      order: [['round', 'ASC'], ['matchNumberInRound', 'ASC'], ['createdAt', 'ASC']],
-      transaction: options.transaction,
-    });
-    return matches.map(model => model.toDomainEntity());
-  }
+  // Match methods removed - they are now in PostgresMatchRepository
 }
 
 module.exports = {
-    PostgresTournamentRepository,
-    TournamentModel,
-    MatchModel, // Exporting for potential direct use or testing
-    TournamentParticipantModel
+    PostgresTournamentRepository // Models should not be exported from repositories
 };
 ```

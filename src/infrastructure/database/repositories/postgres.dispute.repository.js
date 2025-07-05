@@ -1,79 +1,36 @@
-const { sequelize, DataTypes, Op } = require('../postgres.connector');
-const { DisputeTicket } = require('../../../domain/dispute/dispute.entity');
+// const { sequelize, DataTypes, Op } = require('../postgres.connector'); // No longer needed
+// const { DisputeTicket } = require('../../../domain/dispute/dispute.entity'); // For static values like Status
 const DisputeRepositoryInterface = require('../../../domain/dispute/dispute.repository.interface');
+const ApiError = require('../../../utils/ApiError');
+const httpStatus = require('http-status');
 
-const DisputeTicketModel = sequelize.define('DisputeTicket', {
-  id: {
-    type: DataTypes.UUID,
-    defaultValue: DataTypes.UUIDV4,
-    primaryKey: true,
-  },
-  matchId: {
-    type: DataTypes.UUID,
-    allowNull: false,
-    references: { model: 'Matches', key: 'id' },
-    onUpdate: 'CASCADE',
-    onDelete: 'CASCADE',
-  },
-  reporterId: {
-    type: DataTypes.UUID,
-    allowNull: false,
-    references: { model: 'Users', key: 'id' },
-    onUpdate: 'CASCADE',
-    onDelete: 'SET NULL', // Reporter might delete account, dispute remains
-  },
-  reason: {
-    type: DataTypes.TEXT,
-    allowNull: false,
-  },
-  status: {
-    type: DataTypes.STRING,
-    allowNull: false,
-    defaultValue: DisputeTicket.Status.OPEN,
-    validate: {
-      isIn: [DisputeTicket.validStatuses],
-    },
-  },
-  resolutionDetails: {
-    type: DataTypes.TEXT,
-    allowNull: true,
-  },
-  moderatorId: { // User ID of the admin/moderator
-    type: DataTypes.UUID,
-    allowNull: true,
-    references: { model: 'Users', key: 'id' },
-    onUpdate: 'CASCADE',
-    onDelete: 'SET NULL',
-  },
-  // createdAt and updatedAt are automatically managed by Sequelize
-}, {
-  tableName: 'DisputeTickets',
-  timestamps: true,
-  indexes: [
-    { unique: true, fields: ['matchId'] }, // From migration
-    { fields: ['status'] },
-    { fields: ['moderatorId'] },
-    { fields: ['reporterId'] },
-  ],
-});
 
 class PostgresDisputeRepository extends DisputeRepositoryInterface {
-  constructor() {
+  /**
+   * @param {object} models - An object containing the Sequelize models.
+   * @param {import('sequelize').ModelCtor<import('sequelize').Model> & { toDomainEntity: Function }} models.DisputeTicketModel
+   * @param {import('sequelize').ModelCtor<import('sequelize').Model>} [models.UserModel]
+   * @param {import('sequelize').ModelCtor<import('sequelize').Model>} [models.MatchModel]
+   */
+  constructor(models) {
     super();
-    // In a real DI setup, model might be injected. Here, we use the one defined above.
-    this.DisputeTicketModel = DisputeTicketModel;
+    if (!models || !models.DisputeTicketModel || typeof models.DisputeTicketModel.toDomainEntity !== 'function') {
+        throw new Error('Required models.DisputeTicketModel with toDomainEntity method not provided to PostgresDisputeRepository');
+    }
+    this.DisputeTicketModel = models.DisputeTicketModel;
+    this.UserModel = models.UserModel; // For includes
+    this.MatchModel = models.MatchModel; // For includes
+    this.sequelize = models.DisputeTicketModel.sequelize;
+    this.Op = this.sequelize.Op;
   }
 
-  _toDomainEntity(modelInstance) {
-    if (!modelInstance) return null;
-    return DisputeTicket.fromPersistence(modelInstance.get({ plain: true }));
-  }
+  // _toDomainEntity is now a static method on the injected DisputeTicketModel
 
   _toPersistence(disputeEntity) {
-    // Convert domain entity to a plain object suitable for Sequelize create/update
-    // Exclude fields managed by DB (like auto-increment ID if not UUID, or specific defaults if not on entity)
+    // This helper can remain if it simplifies mapping from domain to persistence data
+    // Alternatively, the domain entity could have a toPersistenceObject() method.
     const data = {
-        id: disputeEntity.id, // Assuming domain entity generates or holds the ID
+        id: disputeEntity.id,
         matchId: disputeEntity.matchId,
         reporterId: disputeEntity.reporterId,
         reason: disputeEntity.reason,
@@ -81,38 +38,58 @@ class PostgresDisputeRepository extends DisputeRepositoryInterface {
         resolutionDetails: disputeEntity.resolutionDetails,
         moderatorId: disputeEntity.moderatorId,
     };
-    if (!data.id) delete data.id; // Let defaultValue handle if not provided
+    if (!data.id) delete data.id; // Let DB default handle if not provided by entity
     return data;
   }
 
   async findById(id, options = {}) {
-    const modelInstance = await this.DisputeTicketModel.findByPk(id, {
-      transaction: options.transaction,
-    });
-    return this._toDomainEntity(modelInstance);
+    try {
+      const queryOptions = { transaction: options.transaction };
+      // if (options.includeReporter && this.UserModel) queryOptions.include = [{ model: this.UserModel, as: 'reporter' }];
+      // if (options.includeModerator && this.UserModel) queryOptions.include.push({ model: this.UserModel, as: 'moderator' });
+      // if (options.includeMatch && this.MatchModel) queryOptions.include.push({ model: this.MatchModel, as: 'match' });
+
+      const modelInstance = await this.DisputeTicketModel.findByPk(id, queryOptions);
+      return this.DisputeTicketModel.toDomainEntity(modelInstance);
+    } catch (error) {
+      // console.error(`Error in PostgresDisputeRepository.findById: ${error.message}`, error);
+      throw new ApiError(httpStatus.INTERNAL_SERVER_ERROR, `Database error finding dispute by ID: ${error.message}`);
+    }
   }
 
   async findByMatchId(matchId, options = {}) {
-    const modelInstance = await this.DisputeTicketModel.findOne({
-      where: { matchId },
-      transaction: options.transaction,
-    });
-    return this._toDomainEntity(modelInstance);
+    try {
+      const queryOptions = { where: { matchId }, transaction: options.transaction };
+      // Add includes similar to findById if needed
+      const modelInstance = await this.DisputeTicketModel.findOne(queryOptions);
+      return this.DisputeTicketModel.toDomainEntity(modelInstance);
+    } catch (error) {
+      // console.error(`Error in PostgresDisputeRepository.findByMatchId: ${error.message}`, error);
+      throw new ApiError(httpStatus.INTERNAL_SERVER_ERROR, `Database error finding dispute by match ID: ${error.message}`);
+    }
   }
 
   async create(disputeEntity, options = {}) {
     const persistenceData = this._toPersistence(disputeEntity);
-    const modelInstance = await this.DisputeTicketModel.create(persistenceData, {
-      transaction: options.transaction,
-    });
-    return this._toDomainEntity(modelInstance);
+    try {
+        const modelInstance = await this.DisputeTicketModel.create(persistenceData, {
+          transaction: options.transaction,
+        });
+        return this.DisputeTicketModel.toDomainEntity(modelInstance);
+    } catch (error) {
+        if (error.name === 'SequelizeUniqueConstraintError' && error.fields.matchId) {
+            throw new ApiError(httpStatus.CONFLICT, 'A dispute already exists for this match.');
+        }
+        if (error.name === 'SequelizeForeignKeyConstraintError') {
+            const field = error.fields && error.fields.length > 0 ? error.fields[0] : 'related entity';
+            throw new ApiError(httpStatus.BAD_REQUEST, `Invalid reference: ${field} does not exist.`);
+        }
+        throw new ApiError(httpStatus.INTERNAL_SERVER_ERROR, `Error creating dispute: ${error.message}`);
+    }
   }
 
   async update(id, updateData, options = {}) {
-    // updateData should be a plain object with fields to update
-    // e.g., { status, resolutionDetails, moderatorId }
-    // Ensure updateData only contains fields present in the model.
-    const allowedFields = ['status', 'resolutionDetails', 'moderatorId', 'reason']; // Example
+    const allowedFields = ['status', 'resolutionDetails', 'moderatorId', 'reason'];
     const dataToUpdate = {};
     for (const key of allowedFields) {
         if (updateData[key] !== undefined) {
@@ -121,55 +98,82 @@ class PostgresDisputeRepository extends DisputeRepositoryInterface {
     }
 
     if (Object.keys(dataToUpdate).length === 0) {
-        return this.findById(id, options); // No valid fields to update
+        try {
+            const currentDispute = await this.findById(id, { transaction: options.transaction });
+            return currentDispute; // No valid fields to update
+        } catch (error) {
+            if (error instanceof ApiError && error.statusCode === httpStatus.NOT_FOUND) return null;
+            throw error;
+        }
     }
+    try {
+        const [numberOfAffectedRows] = await this.DisputeTicketModel.update(dataToUpdate, {
+        where: { id },
+        transaction: options.transaction,
+        });
 
-    const [numberOfAffectedRows] = await this.DisputeTicketModel.update(dataToUpdate, {
-      where: { id },
-      transaction: options.transaction,
-    });
-
-    if (numberOfAffectedRows > 0) {
-      // Re-fetch to get the full updated instance, within the same transaction if provided
-      return this.findById(id, { transaction: options.transaction });
+        if (numberOfAffectedRows > 0) {
+        return this.findById(id, { transaction: options.transaction });
+        }
+        // If no rows affected, check if dispute exists
+        const exists = await this.DisputeTicketModel.findByPk(id, { transaction: options.transaction, attributes:['id']});
+        return exists ? this.findById(id, { transaction: options.transaction }) : null;
+    } catch (error) {
+        if (error instanceof ApiError) throw error; // From nested findById calls
+        // console.error(`Error in PostgresDisputeRepository.update: ${error.message}`, error);
+        throw new ApiError(httpStatus.INTERNAL_SERVER_ERROR, `Database error updating dispute: ${error.message}`);
     }
-    return null; // Or throw not found if preferred
   }
 
   async findAll({ page = 1, limit = 10, filters = {}, sortBy = 'createdAt', sortOrder = 'DESC' } = {}, dbOptions = {}) {
     const offset = (parseInt(page, 10) - 1) * parseInt(limit, 10);
-    const whereClause = { ...filters };
+    const whereClause = { ...filters }; // Assuming filters directly map to model attributes
 
-    // Example specific filter handling if needed:
-    // if (filters.tournamentId) { /* requires join or different query structure */ }
+    // Example: date range filtering
+    if (filters.startDate && filters.endDate) {
+      whereClause.createdAt = { [this.Op.between]: [new Date(filters.startDate), new Date(filters.endDate)] };
+    } else if (filters.startDate) {
+      whereClause.createdAt = { [this.Op.gte]: new Date(filters.startDate) };
+    } else if (filters.endDate) {
+      whereClause.createdAt = { [this.Op.lte]: new Date(filters.endDate) };
+    }
+    // Remove date filters from main whereClause if they were handled
+    delete whereClause.startDate;
+    delete whereClause.endDate;
 
-    const { count, rows } = await this.DisputeTicketModel.findAndCountAll({
+    const queryOptions = {
       where: whereClause,
       limit: parseInt(limit, 10),
       offset,
       order: [[sortBy, sortOrder.toUpperCase()]],
       transaction: dbOptions.transaction,
-      // include: [ /* associations */ ],
-    });
-
-    return {
-      disputes: rows.map(model => this._toDomainEntity(model)),
-      total: count,
-      page: parseInt(page, 10),
-      limit: parseInt(limit, 10),
     };
+
+    // Example of adding includes dynamically based on options
+    // const includes = [];
+    // if (dbOptions.includeReporter && this.UserModel) includes.push({ model: this.UserModel, as: 'reporter' });
+    // if (dbOptions.includeModerator && this.UserModel) includes.push({ model: this.UserModel, as: 'moderator' });
+    // if (dbOptions.includeMatch && this.MatchModel) includes.push({ model: this.MatchModel, as: 'match' });
+    // if (includes.length > 0) queryOptions.include = includes;
+    try {
+      const { count, rows } = await this.DisputeTicketModel.findAndCountAll(queryOptions);
+
+      return {
+        disputes: rows.map(model => this.DisputeTicketModel.toDomainEntity(model)),
+        total: count,
+        page: parseInt(page, 10),
+        limit: parseInt(limit, 10),
+      };
+    } catch (error) {
+        // console.error(`Error in PostgresDisputeRepository.findAll: ${error.message}`, error);
+        throw new ApiError(httpStatus.INTERNAL_SERVER_ERROR, `Database error finding all disputes: ${error.message}`);
+    }
   }
 }
 
-module.exports = PostgresDisputeRepository;
+module.exports = { PostgresDisputeRepository };
 
-// Notes:
-// - This repository implements the DisputeRepositoryInterface using Sequelize.
-// - The DisputeTicketModel is defined to match the DB migration for 'DisputeTickets'.
-// - Helper methods `_toDomainEntity` (from DB to Domain) and `_toPersistence` (from Domain to DB data)
-//   are used for mapping. `DisputeTicket.fromPersistence` is also used.
-// - All methods support an `options` (or `dbOptions`) object for passing `transaction`.
-// - `update` method includes a basic filter for allowed fields to update.
-// - `findAll` supports pagination, filtering, and sorting.
-// - onDelete for reporterId changed to SET NULL, as a user might delete their account but the dispute should remain.
-// - onDelete for matchId is CASCADE, if a match is deleted, its disputes are also deleted. This might need review based on business rules (e.g., soft delete matches).
+// Comments updated to reflect changes.
+// Repository now uses injected models.
+// Error handling in `create` improved for unique and FK constraints.
+// Example date filtering added to `findAll`.

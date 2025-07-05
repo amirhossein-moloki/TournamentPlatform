@@ -88,6 +88,37 @@ class Match {
     this.updatedAt = updatedAt;
   }
 
+  static fromPersistence(data) {
+    if (!data) return null;
+    return new Match(
+      data.id,
+      data.tournamentId,
+      data.roundNumber || data.round, // Handles model field name 'round'
+      data.matchNumberInRound,
+      data.participant1Id,
+      data.participant2Id,
+      data.status,
+      data.scheduledTime,
+      data.actualStartTime,
+      data.actualEndTime,
+      data.winnerId,
+      data.participant1Score,
+      data.participant2Score,
+      data.resultProofUrlP1,
+      data.resultProofUrlP2,
+      data.isConfirmed || false, // Handles missing isConfirmed from older model data
+      data.nextMatchId,
+      data.nextMatchLoserId,
+      data.participant1Type,
+      data.participant2Type,
+      data.winnerType,
+      data.moderatorNotes,
+      data.metadata,
+      data.createdAt,
+      data.updatedAt
+    );
+  }
+
   // Define MatchStatus enum/object if not already globally available or imported
   static Status = {
     PENDING: 'PENDING', // Or 'SCHEDULED' if that's the initial state from bracket generation
@@ -285,4 +316,4 @@ class Match {
   }
 }
 
-module.exports = { Match };
+module.exports = { Match, MatchStatus: Match.Status };
