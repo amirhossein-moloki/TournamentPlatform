@@ -227,8 +227,6 @@ router.delete(
 module.exports = router;
 
 // Notes:
-// - Placeholder comments for specific User use cases (GetUserProfile, UpdateUserProfile, etc.) are included.
-//   For now, direct repository access is used for simplicity until those use cases are defined.
 // - The `/me` routes allow authenticated users to manage their own profiles.
 // - Admin routes (`/`, `/:id` GET, PUT, DELETE) are protected by `authorizeRole(['Admin'])`.
 // - Input validation using Joi is included for PUT requests.

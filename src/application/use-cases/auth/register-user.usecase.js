@@ -3,7 +3,8 @@ const { v4: uuidv4 } = require('uuid');
 const ApiError = require('../../../utils/ApiError');
 const httpStatusCodes = require('http-status-codes');
 const { User } = require('../../../domain/user/user.entity'); // Assuming User entity is correctly imported
-// const { appConfig } = require('../../../../config/config'); // Not directly needed for registration logic itself usually
+const jwt = require('jsonwebtoken');
+const { appConfig } = require('../../../../config/config');
 
 // Interface for an email service (to be implemented in infrastructure)
 // class EmailService {
@@ -30,7 +31,7 @@ class RegisterUserUseCase {
    * @param {string} userData.username - The desired username.
    * @param {string} userData.email - The user's email address.
    * @param {string} userData.password - The user's chosen password.
-   * @returns {Promise<{user: UserPublicProfile, message: string}>}
+   * @returns {Promise<{user: UserPublicProfile, accessToken: string, refreshToken: string, message: string}>}
    * @throws {ApiError} If registration fails (e.g., email/username taken, validation error).
    */
   async execute({ username, email, password }) {
@@ -115,11 +116,47 @@ class RegisterUserUseCase {
     //   }
     // }
 
+    // Generate tokens for the newly registered user
+    const accessToken = this.generateAccessToken(createdUser);
+    const refreshToken = this.generateRefreshToken(createdUser);
+
+    // Store refresh token and set lastLogin for the new user
+    // The user object 'createdUser' here is the one returned by userRepository.create,
+    // which should be a domain entity or easily convertible to one.
+    await this.userRepository.update(createdUser.id, { refreshToken, lastLogin: new Date() });
+
+    // The user object passed to formatUserPublicProfile should have isVerified status
+    // If userRepository.update doesn't return the updated user, we use createdUser which has the initial state.
+    // It's often good practice for repository update methods to return the updated entity.
+    // For now, we assume createdUser has the necessary fields for formatUserPublicProfile.
+
     return {
-      user: this.formatUserPublicProfile(createdUser),
-      // message: this.emailService ? 'Registration successful. Please check your email to verify your account.' : 'Registration successful.',
-      message: 'Registration successful. Please verify your email (feature pending).',
+      user: this.formatUserPublicProfile(createdUser), // Pass the original createdUser
+      accessToken,
+      refreshToken,
+      message: 'Registration successful. Account created and logged in.',
+      // Consider if email verification message is still needed here or handled differently
     };
+  }
+
+  generateAccessToken(user) {
+    const payload = {
+      sub: user.id, // Subject (user ID)
+      email: user.email,
+      role: user.role,
+    };
+    return jwt.sign(payload, appConfig.jwt.secret, {
+      expiresIn: appConfig.jwt.accessExpiration,
+    });
+  }
+
+  generateRefreshToken(user) {
+    const payload = {
+      sub: user.id,
+    };
+    return jwt.sign(payload, appConfig.jwt.secret, { // Ideally a different secret for refresh tokens
+      expiresIn: appConfig.jwt.refreshExpiration,
+    });
   }
 
   formatUserPublicProfile(user) {
@@ -139,7 +176,7 @@ module.exports = RegisterUserUseCase;
  * @typedef {object} UserPublicProfile
  * @property {string} id
  * @property {string} username
- * @property {string} email
+ * @property {string} email // Email might be considered sensitive, adjust based on requirements
  * @property {string} role
- * @property {boolean} isVerified
+ * @property {boolean} isVerified // Ensure this reflects the actual status after registration
  */
