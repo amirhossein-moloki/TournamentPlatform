@@ -1,25 +1,26 @@
 const express = require('express');
 const Joi = require('joi');
-const { authenticateToken, authorizeRole } = require('../../middleware/auth.middleware');
-// const GetMatchUseCase = require('../../application/use-cases/match/get-match.usecase');
-// const SubmitMatchResultUseCase = require('../../application/use-cases/match/submit-match-result.usecase');
-// const GetUploadUrlUseCase = require('../../application/use-cases/match/get-upload-url.usecase'); // For S3 signed URL
-// const ConfirmMatchResultUseCase = require('../../application/use-cases/match/confirm-match-result.usecase');
-// const DisputeMatchResultUseCase = require('../../application/use-cases/match/dispute-match-result.usecase');
-// const PostgresMatchRepository = require('../../infrastructure/database/repositories/postgres.match.repository'); // Placeholder
-// const S3Service = require('../../infrastructure/services/s3.service'); // Placeholder for file uploads
-const { appConfig } = require('../../../config/config'); // For AWS S3 config
+const { authenticateToken } = require('../../middleware/auth.middleware');
+const GetMatchUseCase = require('../../application/use-cases/match/get-match.usecase');
+const SubmitMatchResultUseCase = require('../../application/use-cases/match/submit-match-result.usecase');
+const GetMatchUploadUrlUseCase = require('../../application/use-cases/match/get-match-upload-url.usecase');
+const { PostgresTournamentRepository, TournamentModel, MatchModel, TournamentParticipantModel } = require('../../infrastructure/database/repositories/postgres.tournament.repository');
+const { appConfig } = require('../../../config/config');
 const ApiError = require('../../utils/ApiError');
 const httpStatusCodes = require('http-status-codes');
 const ApiResponse = require('../../utils/ApiResponse');
-const { Tournament, Match: MatchEntity } = require('../../domain/tournament'); // Assuming domain entities are exported this way
-const PostgresTournamentRepository = require('../../infrastructure/database/repositories/postgres.tournament.repository'); // To get match info
+// const { Match } = require('../../domain/tournament/match.entity'); // Not needed directly here if use cases return DTOs/plain objects
 
 const router = express.Router();
-// const matchRepository = new PostgresMatchRepository();
-// const s3Service = new S3Service(appConfig.aws.s3); // Initialize S3 service
 
-const tournamentRepository = new PostgresTournamentRepository(); // Using this for now to access match methods
+// Instantiate Repositories
+// Assuming PostgresTournamentRepository constructor takes models.
+const tournamentRepository = new PostgresTournamentRepository(TournamentModel, MatchModel, TournamentParticipantModel);
+
+// Instantiate Use Cases
+const getMatchUseCase = new GetMatchUseCase(tournamentRepository);
+const getMatchUploadUrlUseCase = new GetMatchUploadUrlUseCase(tournamentRepository); // S3 client is internal to use case
+const submitMatchResultUseCase = new SubmitMatchResultUseCase(tournamentRepository); // fileValidationService is optional
 
 // --- Schemas for Validation ---
 const submitResultSchema = Joi.object({
@@ -47,21 +48,16 @@ const uploadUrlRequestSchema = Joi.object({
 router.get('/:id', authenticateToken, async (req, res, next) => {
   try {
     const { id: matchId } = req.params;
-    if (!Joi.string().uuid().validate(matchId).error) { // Valid UUID
-        // const getMatch = new GetMatchUseCase(matchRepository);
-        // const match = await getMatch.execute(matchId);
-        // Placeholder using tournamentRepository's findMatchById method
-        const match = await tournamentRepository.findMatchById(null, matchId); // tournamentId context might be needed by repo
-
-        if (!match) {
-            throw new ApiError(httpStatusCodes.NOT_FOUND, 'Match not found.');
-        }
-        // Add authorization: is user a participant, admin, or is match public?
-        // For now, assuming authenticated users can view any match.
-        return new ApiResponse(res, httpStatusCodes.OK, 'Match details retrieved.', match).send();
-    } else {
-        throw new ApiError(httpStatusCodes.BAD_REQUEST, 'Invalid match ID format.');
+    const { error: idError } = Joi.string().uuid().required().validate(matchId);
+    if (idError) {
+        throw new ApiError(httpStatusCodes.BAD_REQUEST, 'Invalid Match ID format.', idError.details.map(d => d.message));
     }
+
+    // Pass requesting user ID for potential authorization checks within use case
+    const matchDetails = await getMatchUseCase.execute(matchId, req.user.sub);
+    // GetMatchUseCase will throw ApiError if not found.
+
+    return new ApiResponse(res, httpStatusCodes.OK, 'Match details retrieved.', matchDetails).send();
   } catch (error) {
     next(error);
   }
@@ -78,44 +74,32 @@ router.post('/:id/results/upload-url', authenticateToken, async (req, res, next)
     const { id: matchId } = req.params;
     const userId = req.user.sub;
 
-    if (Joi.string().uuid().validate(matchId).error) {
-        throw new ApiError(httpStatusCodes.BAD_REQUEST, 'Invalid match ID format.');
+    const { error: idError } = Joi.string().uuid().required().validate(matchId);
+    if (idError) {
+        throw new ApiError(httpStatusCodes.BAD_REQUEST, 'Invalid Match ID format.', idError.details.map(d => d.message));
     }
 
-    const { error, value: uploadParams } = uploadUrlRequestSchema.validate(req.body);
+    const { error, value: fileInfo } = uploadUrlRequestSchema.validate(req.body);
     if (error) {
         throw new ApiError(httpStatusCodes.BAD_REQUEST, 'Validation Error', error.details.map(d => d.message));
     }
 
-    // 1. Fetch match details
-    const match = await tournamentRepository.findMatchById(null, matchId); // Assuming findMatchById can work without tournamentId if matchId is global
+    // The GetMatchUploadUrlUseCase handles fetching match, auth checks, and S3 URL generation.
+    // It needs tournamentId, which should be part of the match details or passed if known.
+    // For now, assuming matchId is sufficient for the use case to find the tournamentId if needed (e.g. from match object).
+    // The use case `GetMatchUploadUrlUseCase` takes (userId, tournamentId, matchId, fileInfo).
+    // We need to fetch tournamentId from the match object first if not passed in URL.
+    // Let's assume the route is `/tournaments/:tournamentId/matches/:matchId/results/upload-url` for clarity,
+    // or fetch match here to get tournamentId. For now, fetching match here.
+
+    const match = await tournamentRepository.findMatchById(matchId); // Fetch match to get tournamentId
     if (!match) {
-      throw new ApiError(httpStatusCodes.NOT_FOUND, 'Match not found.');
+        throw new ApiError(httpStatusCodes.NOT_FOUND, 'Match not found to derive tournament ID.');
     }
 
-    // 2. Authorization: Check if req.user.sub is one of the participants
-    if (match.participant1Id !== userId && match.participant2Id !== userId) {
-      throw new ApiError(httpStatusCodes.FORBIDDEN, 'You are not a participant in this match.');
-    }
+    const result = await getMatchUploadUrlUseCase.execute(userId, match.tournamentId, matchId, fileInfo);
 
-    // 3. Check match status (e.g., must be IN_PROGRESS or AWAITING_SCORES)
-    if (!['IN_PROGRESS', 'AWAITING_SCORES'].includes(match.status)) {
-        throw new ApiError(httpStatusCodes.BAD_REQUEST, `Cannot get upload URL for match with status: ${match.status}.`);
-    }
-
-    // 4. Generate signed URL using a service (e.g., S3Service)
-    // const getUploadUrl = new GetUploadUrlUseCase(s3Service);
-    // const { uploadUrl, fileKey } = await getUploadUrl.execute(matchId, userId, uploadParams.filename, uploadParams.contentType);
-
-    // Placeholder for S3 signed URL generation:
-    const fileKey = `results/${match.tournamentId}/${matchId}/${userId}/${Date.now()}_${uploadParams.filename}`;
-    const placeholderUploadUrl = `https://s3.${appConfig.aws.region}.amazonaws.com/${appConfig.aws.s3.bucketName}/${fileKey}?presigned_signature=EXAMPLE`;
-    // End placeholder
-
-    return new ApiResponse(res, httpStatusCodes.OK, 'Upload URL generated successfully.', {
-      uploadUrl: placeholderUploadUrl, // Replace with actual signed URL
-      fileKey, // Client needs this to submit the result later
-    }).send();
+    return new ApiResponse(res, httpStatusCodes.OK, 'Upload URL generated successfully.', result).send();
   } catch (error) {
     next(error);
   }
@@ -130,76 +114,33 @@ router.post('/:id/results/upload-url', authenticateToken, async (req, res, next)
 router.post('/:id/results', authenticateToken, async (req, res, next) => {
   try {
     const { id: matchId } = req.params;
-    const userId = req.user.sub; // Reporting user
+    const userId = req.user.sub;
 
-    if (Joi.string().uuid().validate(matchId).error) {
-        throw new ApiError(httpStatusCodes.BAD_REQUEST, 'Invalid match ID format.');
+    const { error: idError } = Joi.string().uuid().required().validate(matchId);
+    if (idError) {
+        throw new ApiError(httpStatusCodes.BAD_REQUEST, 'Invalid Match ID format.', idError.details.map(d => d.message));
     }
 
-    const { error, value: resultData } = submitResultSchema.validate(req.body);
+    const { error, value: resultPayload } = submitResultSchema.validate(req.body);
     if (error) {
       throw new ApiError(httpStatusCodes.BAD_REQUEST, 'Validation Error', error.details.map(d => d.message));
     }
 
-    // 1. Fetch match details
-    const match = await tournamentRepository.findMatchById(null, matchId);
-    if (!match) {
-      throw new ApiError(httpStatusCodes.NOT_FOUND, 'Match not found.');
+    // Fetch tournamentId from match for the use case, or adjust route to include it.
+    const matchForTournamentId = await tournamentRepository.findMatchById(matchId);
+    if (!matchForTournamentId) {
+        throw new ApiError(httpStatusCodes.NOT_FOUND, 'Match not found to derive tournament ID.');
     }
 
-    // 2. Authorization: Check if req.user.sub is one of the participants
-    if (match.participant1Id !== userId && match.participant2Id !== userId) {
-      throw new ApiError(httpStatusCodes.FORBIDDEN, 'You are not a participant in this match.');
-    }
-
-    // 3. Check match status (e.g., IN_PROGRESS, AWAITING_SCORES)
-     if (!['IN_PROGRESS', 'AWAITING_SCORES'].includes(match.status)) {
-        throw new ApiError(httpStatusCodes.BAD_REQUEST, `Cannot submit result for match with status: ${match.status}.`);
-    }
-
-    // 4. Validate winnerId is one of the participants
-    if (resultData.winningParticipantId !== match.participant1Id && resultData.winningParticipantId !== match.participant2Id) {
-        throw new ApiError(httpStatusCodes.BAD_REQUEST, 'Winner ID is not a valid participant of this match.');
-    }
-
-    // 5. (Future) Verify fileKey corresponds to a successfully uploaded and scanned file.
-    //    This might involve checking a database record or metadata from S3.
-
-    // 6. Execute use case to submit result
-    // const submitResult = new SubmitMatchResultUseCase(matchRepository /*, other services */);
-    // const updatedMatch = await submitResult.execute(matchId, userId, resultData);
-
-    // Placeholder logic:
-    const matchDomainEntity = new MatchEntity( // Reconstruct domain entity to use its methods
-        match.id, match.tournamentId, match.roundNumber, match.matchNumberInRound,
-        match.participant1Id, match.participant2Id, match.status
+    const result = await submitMatchResultUseCase.execute(
+      userId,
+      matchForTournamentId.tournamentId,
+      matchId,
+      resultPayload
     );
-    matchDomainEntity.recordResult(
-        resultData.winningParticipantId,
-        resultData.scoreParticipant1,
-        resultData.scoreParticipant2,
-        `${appConfig.aws.s3.bucketName}/${resultData.resultScreenshotFileKey}` // Construct a conceptual URL
-    );
-    // Add comments to description or metadata if needed
-    // matchDomainEntity.metadata.comments = resultData.comments;
+    // SubmitMatchResultUseCase returns { match: UpdatedMatchEntity, message: string }
 
-    const updatedMatchData = {
-        winnerId: matchDomainEntity.winnerId,
-        scoreParticipant1: matchDomainEntity.scoreParticipant1,
-        scoreParticipant2: matchDomainEntity.scoreParticipant2,
-        resultScreenshotUrl: matchDomainEntity.resultScreenshotUrl,
-        status: matchDomainEntity.status, // Should be AWAITING_CONFIRMATION
-        actualEndTime: matchDomainEntity.actualEndTime,
-        isConfirmed: false,
-    };
-    const updatedMatchFromDb = await tournamentRepository.updateMatch(matchId, updatedMatchData);
-    // End placeholder logic
-
-    if (!updatedMatchFromDb) {
-        throw new ApiError(httpStatusCodes.INTERNAL_SERVER_ERROR, 'Failed to update match result.');
-    }
-
-    return new ApiResponse(res, httpStatusCodes.OK, 'Match result submitted. Waiting for confirmation.', updatedMatchFromDb).send();
+    return new ApiResponse(res, httpStatusCodes.OK, result.message, result.match).send();
   } catch (error) {
     next(error);
   }

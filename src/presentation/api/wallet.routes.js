@@ -1,11 +1,11 @@
 const express = require('express');
 const Joi = require('joi');
 const { authenticateToken } = require('../../middleware/auth.middleware');
-// const InitializeDepositUseCase = require('../../application/use-cases/wallet/initialize-deposit.usecase');
-// const GetTransactionHistoryUseCase = require('../../application/use-cases/wallet/get-transaction-history.usecase');
-// const RequestWithdrawalUseCase = require('../../application/use-cases/wallet/request-withdrawal.usecase');
+const InitializeDepositUseCase = require('../../application/use-cases/wallet/initialize-deposit.usecase');
+const GetTransactionHistoryUseCase = require('../../application/use-cases/wallet/get-transaction-history.usecase');
+const RequestWithdrawalUseCase = require('../../application/use-cases/wallet/request-withdrawal.usecase');
 const PostgresWalletRepository = require('../../infrastructure/database/repositories/postgres.wallet.repository');
-const PostgresTransactionRepository = require('../../infrastructure/database/repositories/postgres.transaction.repository'); // Needed for history, potentially others
+const PostgresTransactionRepository = require('../../infrastructure/database/repositories/postgres.transaction.repository');
 const { appConfig } = require('../../../config/config');
 const ApiError = require('../../utils/ApiError');
 const httpStatusCodes = require('http-status-codes');
@@ -14,8 +14,17 @@ const { v4: uuidv4 } = require('uuid'); // For generating idempotency keys or tr
 
 const router = express.Router();
 
+// Instantiate Repositories
 const walletRepository = new PostgresWalletRepository();
 const transactionRepository = new PostgresTransactionRepository();
+
+// Instantiate Use Cases
+// Note: InitializeDepositUseCase and RequestWithdrawalUseCase might need a notificationService
+// or other dependencies in a full implementation.
+const initializeDepositUseCase = new InitializeDepositUseCase(walletRepository, transactionRepository);
+const getTransactionHistoryUseCase = new GetTransactionHistoryUseCase(walletRepository, transactionRepository);
+const requestWithdrawalUseCase = new RequestWithdrawalUseCase(walletRepository, transactionRepository);
+// const processDepositUseCase = new ProcessDepositUseCase(walletRepository, transactionRepository, sequelize); // For webhook
 
 // --- Schemas for Validation ---
 const initializeDepositSchema = Joi.object({
@@ -74,77 +83,25 @@ router.post('/deposit/initialize', authenticateToken, async (req, res, next) => 
 
     const userId = req.user.sub;
 
-    // const initializeDeposit = new InitializeDepositUseCase(walletRepository, transactionRepository);
-    // const result = await initializeDeposit.execute(userId, depositData.amount, depositData.currency, idempotencyKey);
+    const result = await initializeDepositUseCase.execute(
+      userId,
+      depositData.amount,
+      depositData.currency,
+      idempotencyKey
+    );
 
-    // --- Placeholder Logic ---
-    // 1. Check idempotency: Has this key been processed for this user with same payload?
-    //    - If yes and succeeded, return original success response.
-    //    - If yes and failed, or different payload, return error.
-    //    - This requires storing idempotency keys and their outcomes.
-    const existingTransactionByIdempotency = await transactionRepository.findByIdempotencyKey(idempotencyKey);
-    if (existingTransactionByIdempotency) {
-        if (existingTransactionByIdempotency.status === 'COMPLETED' || existingTransactionByIdempotency.status === 'PENDING') { // Or whatever status means "already initiated successfully"
-             // Check if payload matches (amount, currency for this user)
-            if (parseFloat(existingTransactionByIdempotency.amount) === depositData.amount &&
-                existingTransactionByIdempotency.metadata && // Assuming metadata stores original request for comparison
-                existingTransactionByIdempotency.metadata.originalCurrency === depositData.currency &&
-                existingTransactionByIdempotency.walletId === (await walletRepository.findByUserId(userId))?.id // Check if it belongs to the user's wallet
-                ) {
-                // Return previous successful-like response (or current status)
-                // This is simplified; a real payment gateway URL might not be re-issuable.
-                // The response should reflect the current state of that idempotent request.
-                return new ApiResponse(res, httpStatusCodes.OK, 'Deposit already initiated (idempotency).', {
-                    message: `Deposit for ${depositData.amount} ${depositData.currency} was already processed or is pending.`,
-                    paymentGatewayUrl: `https://payment.gateway.com/pay/existing_tx_${existingTransactionByIdempotency.id}`,
-                    transactionId: existingTransactionByIdempotency.id,
-                    status: existingTransactionByIdempotency.status,
-                }).send();
-            } else {
-                 throw new ApiError(httpStatusCodes.CONFLICT, `Idempotency key ${idempotencyKey} already used with a different request.`);
-            }
-        }
-        // If it was FAILED, allow retry with same key, or require new key. Policy decision.
-    }
-
-
-    // 2. Get user's wallet
-    const wallet = await walletRepository.findByUserId(userId);
-    if (!wallet) {
-      throw new ApiError(httpStatusCodes.NOT_FOUND, 'User wallet not found.');
-    }
-
-    // 3. Create a PENDING transaction record
-    const transactionId = uuidv4();
-    const pendingTransaction = {
-      id: transactionId,
-      walletId: wallet.id,
-      type: 'DEPOSIT',
-      amount: depositData.amount,
-      status: 'PENDING',
-      idempotencyKey: idempotencyKey,
-      description: `Wallet deposit initialization for ${depositData.amount} ${depositData.currency}.`,
-      metadata: {
-          userId, // Store initiating user for audit
-          originalAmount: depositData.amount,
-          originalCurrency: depositData.currency,
-          // any other info relevant for payment gateway interaction
-      },
-      transactionDate: new Date(),
-    };
-    await transactionRepository.create(pendingTransaction);
-
-    // 4. Prepare data for/redirect to payment gateway
-    const paymentGatewayUrl = `https://payment.gateway.com/pay/new_tx_${transactionId}?amount=${depositData.amount}&currency=${depositData.currency}`;
-    const result = {
-      message: 'Deposit initialized. Proceed to payment gateway.',
-      paymentGatewayUrl,
-      transactionId,
-    };
-    // --- End Placeholder Logic ---
-
-    return new ApiResponse(res, httpStatusCodes.OK, result.message, result).send();
+    return new ApiResponse(res, httpStatusCodes.OK, result.message, {
+      paymentGatewayUrl: result.paymentGatewayUrl,
+      transactionId: result.transactionId,
+      // Include status if the use case returns it, especially for idempotent responses
+      ...(result.status && { status: result.status }),
+    }).send();
   } catch (error) {
+    if (error instanceof ApiError && error.statusCode === httpStatusCodes.CONFLICT) {
+      // Specific handling for idempotency conflicts if needed, or let global handler manage
+      // For example, could return a 200 OK with the existing transaction details if that's the policy
+      // The InitializeDepositUseCase already attempts to return existing transaction info for safe replays.
+    }
     next(error);
   }
 });
@@ -166,19 +123,11 @@ router.get('/history', authenticateToken, async (req, res, next) => {
       throw new ApiError(httpStatusCodes.NOT_FOUND, 'User wallet not found.');
     }
 
-    // const getHistory = new GetTransactionHistoryUseCase(transactionRepository);
-    // const { transactions, total } = await getHistory.execute(wallet.id, queryParams);
-    // Direct repository usage:
-    const result = await transactionRepository.findAllByWalletId(wallet.id, queryParams);
+    const result = await getTransactionHistoryUseCase.execute(userId, queryParams);
 
-
-    return new ApiResponse(res, httpStatusCodes.OK, 'Transaction history retrieved.', {
-        transactions: result.transactions, // Assuming repo returns domain entities
-        totalItems: result.total,
-        currentPage: result.page,
-        pageSize: result.limit,
-        totalPages: Math.ceil(result.total / result.limit),
-    }).send();
+    // The use case already formats the pagination data:
+    // {transactions, totalItems, totalPages, currentPage, pageSize}
+    return new ApiResponse(res, httpStatusCodes.OK, 'Transaction history retrieved.', result).send();
   } catch (error) {
     next(error);
   }

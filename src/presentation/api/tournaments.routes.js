@@ -2,29 +2,44 @@ const express = require('express');
 const Joi = require('joi').extend(require('@joi/date')); // For date validation
 const { authenticateToken, authorizeRole } = require('../../middleware/auth.middleware');
 const CreateTournamentUseCase = require('../../application/use-cases/tournament/create-tournament.usecase');
-// const GetTournamentUseCase = require('../../application/use-cases/tournament/get-tournament.usecase');
-// const ListTournamentsUseCase = require('../../application/use-cases/tournament/list-tournaments.usecase');
-// const RegisterForTournamentUseCase = require('../../application/use-cases/tournament/register-for-tournament.usecase');
+const GetTournamentUseCase = require('../../application/use-cases/tournament/get-tournament.usecase');
+const ListTournamentsUseCase = require('../../application/use-cases/tournament/list-tournaments.usecase');
+const RegisterForTournamentUseCase = require('../../application/use-cases/tournament/register-for-tournament.usecase');
 // const UpdateTournamentUseCase = require('../../application/use-cases/tournament/update-tournament.usecase'); // For admin
 // const DeleteTournamentUseCase = require('../../application/use-cases/tournament/delete-tournament.usecase'); // For admin
-const PostgresTournamentRepository = require('../../infrastructure/database/repositories/postgres.tournament.repository');
-const PostgresUserRepository = require('../../infrastructure/database/repositories/postgres.user.repository'); // For CreateTournamentUseCase organizer validation
-// const PostgresWalletRepository = require('../../infrastructure/database/repositories/postgres.wallet.repository'); // For RegisterForTournamentUseCase fee deduction
+const { PostgresTournamentRepository, TournamentModel, MatchModel, TournamentParticipantModel } = require('../../infrastructure/database/repositories/postgres.tournament.repository'); // Destructure models if needed by repo constructor
+const PostgresUserRepository = require('../../infrastructure/database/repositories/postgres.user.repository');
+const PostgresWalletRepository = require('../../infrastructure/database/repositories/postgres.wallet.repository');
+const PostgresTransactionRepository = require('../../infrastructure/database/repositories/postgres.transaction.repository');
 const ApiError = require('../../utils/ApiError');
 const httpStatusCodes = require('http-status-codes');
 const ApiResponse = require('../../utils/ApiResponse');
 
 const router = express.Router();
 
-const tournamentRepository = new PostgresTournamentRepository();
-const userRepository = new PostgresUserRepository(); // Needed for CreateTournamentUseCase
-// const walletRepository = new PostgresWalletRepository(); // Needed for RegisterForTournamentUseCase
+// Instantiate Repositories
+// Note: The constructor for PostgresTournamentRepository in the blueprint takes models as arguments.
+// This is unusual for a repository pattern where the repo itself defines/imports its models.
+// Assuming the constructor was `constructor()` and it internally uses `TournamentModel`, `MatchModel`, etc.
+// If it strictly requires models passed in:
+// const tournamentRepository = new PostgresTournamentRepository(TournamentModel, MatchModel, TournamentParticipantModel);
+// For now, assuming the simpler constructor as per typical repository pattern (models are internal).
+const tournamentRepository = new PostgresTournamentRepository(TournamentModel, MatchModel, TournamentParticipantModel); // Corrected based on repo constructor
+const userRepository = new PostgresUserRepository();
+const walletRepository = new PostgresWalletRepository();
+const transactionRepository = new PostgresTransactionRepository();
 
 // Instantiate Use Cases
 const createTournamentUseCase = new CreateTournamentUseCase(tournamentRepository, userRepository);
-// const listTournamentsUseCase = new ListTournamentsUseCase(tournamentRepository);
-// const getTournamentUseCase = new GetTournamentUseCase(tournamentRepository);
-// const registerForTournamentUseCase = new RegisterForTournamentUseCase(tournamentRepository, walletRepository, userRepository);
+const listTournamentsUseCase = new ListTournamentsUseCase(tournamentRepository);
+const getTournamentUseCase = new GetTournamentUseCase(tournamentRepository);
+const registerForTournamentUseCase = new RegisterForTournamentUseCase(
+  tournamentRepository,
+  walletRepository,
+  transactionRepository,
+  userRepository
+);
+// TODO: Instantiate UpdateTournamentUseCase, DeleteTournamentUseCase when implemented
 
 
 // --- Schemas for Validation ---
@@ -96,26 +111,9 @@ router.get('/', async (req, res, next) => {
       throw new ApiError(httpStatusCodes.BAD_REQUEST, 'Validation Error', error.details.map(d => d.message));
     }
 
-    // const { tournaments, total, page, limit } = await listTournamentsUseCase.execute(queryParams);
-    // Direct repository usage for now:
-    const { tournaments, total, page, limit } = await tournamentRepository.findAll({
-        page: queryParams.page,
-        limit: queryParams.limit,
-        filters: {
-            status: queryParams.status,
-            gameName: queryParams.gameName,
-        },
-        sortBy: queryParams.sortBy,
-        sortOrder: queryParams.sortOrder,
-    });
+    const result = await listTournamentsUseCase.execute(queryParams);
 
-    return new ApiResponse(res, httpStatusCodes.OK, 'Tournaments listed successfully.', {
-      tournaments,
-      totalItems: total,
-      currentPage: page,
-      pageSize: limit,
-      totalPages: Math.ceil(total / limit),
-    }).send();
+    return new ApiResponse(res, httpStatusCodes.OK, 'Tournaments listed successfully.', result).send();
   } catch (error) {
     next(error);
   }
@@ -125,22 +123,32 @@ router.get('/', async (req, res, next) => {
  * GET /api/v1/tournaments/:id
  * Get details of a specific tournament (publicly accessible).
  */
+const tournamentIdParamSchema = Joi.object({
+    id: Joi.string().uuid().required().messages({
+        'string.guid': 'Tournament ID must be a valid UUID.'
+    })
+});
 router.get('/:id', async (req, res, next) => {
   try {
-    const { id } = req.params;
-    if (!Joi.string().uuid().validate(id).error === null && !Joi.string().alphanum().length(24).validate(id).error === null) { // Basic UUID or MongoID check
-        throw new ApiError(httpStatusCodes.BAD_REQUEST, 'Invalid tournament ID format.');
+    const { error: idError, value: idParams } = tournamentIdParamSchema.validate(req.params);
+    if (idError) {
+        throw new ApiError(httpStatusCodes.BAD_REQUEST, 'Invalid Tournament ID.', idError.details.map(d => d.message));
     }
 
-    // const tournament = await getTournamentUseCase.execute(id);
-    // Direct repository usage:
-    const tournament = await tournamentRepository.findById(id);
-
-    if (!tournament) {
-      throw new ApiError(httpStatusCodes.NOT_FOUND, 'Tournament not found.');
+    // Options for GetTournamentUseCase, e.g., from query params like ?include=participants,matches
+    const includeOptions = {};
+    if (req.query.include) {
+        const includes = req.query.include.split(',');
+        if (includes.includes('participants')) includeOptions.includeParticipants = true;
+        if (includes.includes('matches')) includeOptions.includeMatches = true;
     }
-    // TODO: When GetTournamentUseCase is implemented, it might fetch related data like participants/matches.
-    // For now, just the basic tournament entity is returned.
+
+    const tournament = await getTournamentUseCase.execute(idParams.id, includeOptions);
+
+    // GetTournamentUseCase throws ApiError if not found, so direct check not strictly needed here
+    // if (!tournament) {
+    //   throw new ApiError(httpStatusCodes.NOT_FOUND, 'Tournament not found.');
+    // }
     return new ApiResponse(res, httpStatusCodes.OK, 'Tournament details retrieved.', tournament).send();
   } catch (error) {
     next(error);
@@ -153,44 +161,16 @@ router.get('/:id', async (req, res, next) => {
  */
 router.post('/:id/register', authenticateToken, async (req, res, next) => {
   try {
-    const { id: tournamentId } = req.params;
-    const userId = req.user.sub; // User ID from JWT
-
-    if (!Joi.string().uuid().validate(tournamentId).error === null && !Joi.string().alphanum().length(24).validate(tournamentId).error === null) {
-        throw new ApiError(httpStatusCodes.BAD_REQUEST, 'Invalid tournament ID format.');
+    const { error: idError, value: idParams } = tournamentIdParamSchema.validate(req.params);
+    if (idError) {
+        throw new ApiError(httpStatusCodes.BAD_REQUEST, 'Invalid Tournament ID.', idError.details.map(d => d.message));
     }
+    const tournamentId = idParams.id;
+    const userId = req.user.sub; // User ID from JWT (authMiddleware ensures req.user exists)
 
-    // const result = await registerForTournamentUseCase.execute(tournamentId, userId);
-    // Placeholder logic until RegisterForTournamentUseCase is fully implemented
-    // This involves:
-    // 1. Fetch tournament, check status (REGISTRATION_OPEN) and capacity.
-    // 2. Check if user is already registered.
-    // 3. Deduct entry fee from user's wallet (requires WalletRepository and transactional logic).
-    // 4. Add user to tournament participants list in DB.
-    // 5. Increment currentParticipants count on tournament.
+    const result = await registerForTournamentUseCase.execute(userId, tournamentId);
 
-    // Simplified placeholder for now:
-    const tournament = await tournamentRepository.findById(tournamentId);
-    if (!tournament) throw new ApiError(httpStatusCodes.NOT_FOUND, 'Tournament not found.');
-    if (tournament.status !== 'REGISTRATION_OPEN') throw new ApiError(httpStatusCodes.BAD_REQUEST, `Tournament registration is not open. Status: ${tournament.status}`);
-    if (tournament.currentParticipants >= tournament.maxParticipants) throw new ApiError(httpStatusCodes.BAD_REQUEST, 'Tournament is full.');
-
-    const existingParticipant = await tournamentRepository.findParticipant(tournamentId, userId);
-    if (existingParticipant) throw new ApiError(httpStatusCodes.CONFLICT, 'User already registered for this tournament.');
-
-    // Fee deduction and actual registration would be more complex.
-    // This is a conceptual placeholder.
-    const participantRecord = await tournamentRepository.addParticipant(tournamentId, userId, { registrationDate: new Date() });
-
-    if (!participantRecord) {
-        throw new ApiError(httpStatusCodes.INTERNAL_SERVER_ERROR, 'Failed to register participant.');
-    }
-
-    return new ApiResponse(res, httpStatusCodes.OK, 'Successfully registered for the tournament.', {
-        tournamentId,
-        userId,
-        participantRecordId: participantRecord.id, // From the join table record
-    }).send();
+    return new ApiResponse(res, httpStatusCodes.OK, result.message, result.registrationDetails).send();
   } catch (error) {
     next(error);
   }
