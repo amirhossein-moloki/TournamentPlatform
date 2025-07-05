@@ -1,0 +1,186 @@
+name: Node.js CI/CD Pipeline
+
+on:
+  push:
+    branches:
+      - main
+      - develop
+  pull_request:
+    branches:
+      - main
+      - develop
+
+jobs:
+  test-and-lint:
+    name: Test, Lint, and Security Scan
+    runs-on: ubuntu-latest
+
+    strategy:
+      matrix:
+        node-version: [18.x, 20.x] # Test on current LTS and latest stable
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js ${{ matrix.node-version }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node-version }}
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci # Use ci for cleaner installs in CI
+
+      - name: Run linters (ESLint)
+        run: npm run lint
+
+      - name: Run unit and integration tests
+        run: npm test
+        env:
+          CI: true # Often used by testing frameworks
+          # Add test-specific environment variables if needed, e.g., for a test database
+          # Ensure these are safe to expose or use GitHub secrets for sensitive test data
+          NODE_ENV: test
+          DB_HOST: localhost # Example: if tests require a DB service (see 'services' below)
+          DB_USER: test_user
+          DB_PASSWORD: test_password
+          DB_NAME: test_db
+          JWT_SECRET: test_jwt_secret
+          REDIS_HOST: localhost # Example: if tests require Redis (see 'services' below)
+          RABBITMQ_URL: amqp://guest:guest@localhost:5672 # Example for RabbitMQ
+
+      # Placeholder for Security Scanning (e.g., Snyk, npm audit)
+      # - name: Run security scan (e.g., npm audit)
+      #   run: npm audit --audit-level=high # Fail on high severity vulnerabilities
+
+      # Placeholder for SonarCloud/CodeQL Analysis
+      # - name: SonarCloud Scan
+      #   uses: SonarSource/sonarcloud-github-action@master
+      #   env:
+      #     GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      #     SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }} # Store in GitHub secrets
+
+  build-and-push-docker:
+    name: Build and Push Docker Image
+    runs-on: ubuntu-latest
+    needs: test-and-lint # Run only if tests and linting pass
+    if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/develop') # Only on push to main or develop
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      # Add steps to login to Docker Hub or other container registry
+      # Example for Docker Hub:
+      - name: Login to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }} # Store in GitHub secrets
+          password: ${{ secrets.DOCKERHUB_PASSWORD }} # Store in GitHub secrets
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: ./Dockerfile
+          push: true
+          tags: | # Example tagging strategy
+            ${{ secrets.DOCKERHUB_USERNAME }}/tournament-platform:${{ github.sha }}
+            ${{ secrets.DOCKERHUB_USERNAME }}/tournament-platform:${{ (github.ref == 'refs/heads/main' && 'latest') || 'develop' }}
+          # Add build args if your Dockerfile needs them
+          # build-args: |
+          #   ARG1=value1
+          #   ARG2=value2
+
+  deploy-staging:
+    name: Deploy to Staging
+    runs-on: ubuntu-latest
+    needs: build-and-push-docker
+    if: github.event_name == 'push' && github.ref == 'refs/heads/develop' # Deploy develop branch to staging
+    environment:
+      name: staging
+      url: ${{ secrets.STAGING_URL }} # Store staging URL in GitHub secrets
+
+    steps:
+      - name: Deploy to Staging Environment
+        # Replace with your actual deployment script or action
+        # e.g., using kubectl, Helm, AWS CLI, Azure CLI, Google Cloud CLI, ssh
+        run: echo "Deploying to staging: ${{ secrets.DOCKERHUB_USERNAME }}/tournament-platform:develop"
+        # Example: ssh -i ${{ secrets.STAGING_SSH_KEY }} user@${{ secrets.STAGING_HOST }} 'docker pull ... && docker run ...'
+
+  deploy-production:
+    name: Deploy to Production
+    runs-on: ubuntu-latest
+    needs: build-and-push-docker
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main' # Deploy main branch to production
+    environment:
+      name: production
+      url: ${{ secrets.PRODUCTION_URL }} # Store production URL in GitHub secrets
+
+    steps:
+      # Manual approval step before deploying to production
+      - name: Manual Approval for Production Deployment
+        uses: trstringer/manual-approval@v1
+        with:
+          secret: ${{ secrets.GITHUB_TOKEN }}
+          approvers: ${{ secrets.PRODUCTION_APPROVERS }} # Comma-separated list of GitHub usernames
+          minimum-approvals: 1
+          issue-title: "Production Deployment Approval Required"
+          issue-body: "Approve or deny the deployment of commit ${{ github.sha }} to production."
+
+      - name: Deploy to Production Environment
+        # Replace with your actual deployment script or action
+        run: echo "Deploying to production: ${{ secrets.DOCKERHUB_USERNAME }}/tournament-platform:latest"
+        # Example: ssh -i ${{ secrets.PRODUCTION_SSH_KEY }} user@${{ secrets.PRODUCTION_HOST }} 'docker pull ... && docker run ...'
+
+# Optional: Add services for testing if your tests require them (e.g., database, Redis)
+# services:
+#   postgres:
+#     image: postgres:14-alpine
+#     env:
+#       POSTGRES_USER: test_user
+#       POSTGRES_PASSWORD: test_password
+#       POSTGRES_DB: test_db
+#     ports:
+#       - 5432:5432
+#     options: >-
+#       --health-cmd pg_isready
+#       --health-interval 10s
+#       --health-timeout 5s
+#       --health-retries 5
+#   redis:
+#     image: redis:6-alpine
+#     ports:
+#       - 6379:6379
+#     options: >-
+#       --health-cmd "redis-cli ping"
+#       --health-interval 10s
+#       --health-timeout 5s
+#       --health-retries 5
+#   rabbitmq:
+#     image: rabbitmq:3-management-alpine
+#     ports:
+#       - 5672:5672
+#       - 15672:15672 # For management UI (optional)
+#     # Add health check if needed
+#     # options: >-
+#     #   --health-cmd "rabbitmq-diagnostics check_running"
+#     #   --health-interval 10s
+#     #   --health-timeout 5s
+#     #   --health-retries 5
+
+# Ensure you have the necessary secrets configured in your GitHub repository settings:
+# DOCKERHUB_USERNAME
+# DOCKERHUB_PASSWORD
+# STAGING_URL (Optional, for environment display)
+# STAGING_SSH_KEY (Optional, example for SSH deployment)
+# STAGING_HOST (Optional, example for SSH deployment)
+# PRODUCTION_URL (Optional, for environment display)
+# PRODUCTION_SSH_KEY (Optional, example for SSH deployment)
+# PRODUCTION_HOST (Optional, example for SSH deployment)
+# PRODUCTION_APPROVERS (GitHub usernames for manual approval)
+# SONAR_TOKEN (If using SonarCloud)

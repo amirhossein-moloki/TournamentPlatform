@@ -1,0 +1,124 @@
+version: '3.8'
+
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: tournament-platform-app
+    restart: unless-stopped
+    env_file:
+      - .env # Load environment variables from .env file
+    ports:
+      - "${PORT:-3000}:${PORT:-3000}" # Use PORT from .env, default to 3000
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_started # Or service_healthy if healthcheck is robust
+      rabbitmq:
+        condition: service_healthy
+    networks:
+      - tournament_network
+    volumes:
+      - .:/usr/src/app # Mounts the project directory for development (optional for production)
+      - /usr/src/app/node_modules # Keeps node_modules in the container separate from host
+      - app-logs:/usr/src/app/logs # Persistent logs
+
+  postgres:
+    image: postgres:14-alpine
+    container_name: tournament-platform-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${DB_USER:-your_db_user}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-your_db_password}
+      POSTGRES_DB: ${DB_NAME:-tournament_platform_db}
+    ports:
+      - "${DB_PORT:-5432}:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data # Persistent database data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-your_db_user} -d ${DB_NAME:-tournament_platform_db}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    networks:
+      - tournament_network
+
+  redis:
+    image: redis:6-alpine # Using a specific version for stability
+    container_name: tournament-platform-redis
+    restart: unless-stopped
+    ports:
+      - "${REDIS_PORT:-6379}:6379"
+    command: redis-server --save 60 1 --loglevel warning ${REDIS_PASSWORD:+--requirepass ${REDIS_PASSWORD}}
+    volumes:
+      - redis-data:/data # Persistent Redis data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 5s
+    networks:
+      - tournament_network
+
+  rabbitmq:
+    image: rabbitmq:3.12-management-alpine # Using a specific version with management plugin
+    container_name: tournament-platform-rabbitmq
+    restart: unless-stopped
+    environment:
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER:-guest} # Use from .env or default
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASS:-guest} # Use from .env or default
+    ports:
+      - "${RABBITMQ_PORT:-5672}:5672" # AMQP port
+      - "${RABBITMQ_MANAGEMENT_PORT:-15672}:15672" # Management UI port
+    volumes:
+      - rabbitmq-data:/var/lib/rabbitmq/ # Persistent RabbitMQ data
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 10s
+    networks:
+      - tournament_network
+
+  # Optional: Adminer for database management (useful for development)
+  # adminer:
+  #   image: adminer
+  #   container_name: tournament-platform-adminer
+  #   restart: unless-stopped
+  #   ports:
+  #     - "8080:8080"
+  #   depends_on:
+  #     - postgres
+  #   networks:
+  #     - tournament_network
+
+networks:
+  tournament_network:
+    driver: bridge
+
+volumes:
+  postgres-data:
+    driver: local
+  redis-data:
+    driver: local
+  rabbitmq-data:
+    driver: local
+  app-logs:
+    driver: local
+
+# Note:
+# - Ensure your .env file has the necessary variables (DB_USER, DB_PASSWORD, etc.).
+# - The `app` service volume mount `.:/usr/src/app` is good for development to reflect code changes
+#   without rebuilding the image. For production, you might remove this and rely on the image's content.
+# - `NODE_ENV` should be set to `production` in the .env file for production deployments.
+# - Healthchecks are included for `postgres`, `redis`, and `rabbitmq` to ensure services are ready
+#   before the main application starts or to manage dependencies.
+# - The `command` for Redis includes persistence settings and optional password protection.
+# - RabbitMQ management plugin is included by default with the `rabbitmq:*-management-alpine` tag.
+#   Access it at http://localhost:15672 (or your configured management port).
+# - Variable substitution like `${PORT:-3000}` uses the value from the .env file or a default if not set.
