@@ -109,6 +109,12 @@ class PostgresUserRepository extends UserRepositoryInterface {
     return toDomainEntity(userModelInstance);
   }
 
+  async findByVerificationToken(verificationToken) {
+    if (!verificationToken) return null;
+    const userModelInstance = await this.UserModel.findOne({ where: { verificationToken } });
+    return toDomainEntity(userModelInstance);
+  }
+
   async findByRefreshToken(refreshToken) {
     const userModelInstance = await this.UserModel.findOne({ where: { refreshToken } });
     return toDomainEntity(userModelInstance);
@@ -265,139 +271,10 @@ module.exports = PostgresUserRepository;
 //
 // Let's adjust `UserModel` to match the provided migration.
 // And `toDomainEntity` and `create` to handle the discrepancy.
-// This is the most faithful approach to a potentially inconsistent blueprint.
-
-// Re-defining UserModel to strictly match the provided migration:
-const StrictUserModel = sequelize.define('User', {
-  id: { type: DataTypes.UUID, defaultValue: DataTypes.UUIDV4, primaryKey: true },
-  username: { type: DataTypes.STRING, allowNull: false, unique: true },
-  email: { type: DataTypes.STRING, allowNull: false, unique: true, validate: { isEmail: true } },
-  passwordHash: { type: DataTypes.STRING, allowNull: false },
-  role: { type: DataTypes.ENUM('User', 'Admin', 'DisputeModerator', 'FinanceManager'), allowNull: false, defaultValue: 'User' },
-  refreshToken: { type: DataTypes.STRING, allowNull: true },
-  isVerified: { type: DataTypes.BOOLEAN, defaultValue: false },
-  lastLogin: { type: DataTypes.DATE },
-  // `createdAt` and `updatedAt` are handled by Sequelize.
-  // `verificationToken` and `tokenVersion` are NOT in the migration.
-}, {
-  tableName: 'Users',
-  timestamps: true,
-});
-
-// Update toDomainEntity to reflect that verificationToken and tokenVersion might not come from DB
-function strictToDomainEntity(userModelInstance) {
-  if (!userModelInstance) return null;
-  const data = userModelInstance.get({ plain: true });
-  return new User(
-    data.id,
-    data.username,
-    data.email,
-    data.passwordHash,
-    data.role,
-    data.refreshToken,
-    data.isVerified,
-    data.lastLogin,
-    data.createdAt,
-    data.updatedAt,
-    data.verificationToken, // This will be undefined from DB, User entity constructor will default it
-    data.tokenVersion     // This will be undefined from DB, User entity constructor will default it
-  );
-}
-
-// Update PostgresUserRepository to use StrictUserModel and strictToDomainEntity
-PostgresUserRepository.prototype.constructor = function() {
-  UserRepositoryInterface.call(this); // Call super constructor if needed (not typical in JS this way)
-  this.UserModel = StrictUserModel;
-};
-
-PostgresUserRepository.prototype.findById = async function(id) {
-  const userModelInstance = await this.UserModel.findByPk(id);
-  return strictToDomainEntity(userModelInstance);
-};
-PostgresUserRepository.prototype.findByEmail = async function(email) {
-  const userModelInstance = await this.UserModel.findOne({ where: { email } });
-  return strictToDomainEntity(userModelInstance);
-};
-PostgresUserRepository.prototype.findByUsername = async function(username) {
-  const userModelInstance = await this.UserModel.findOne({ where: { username } });
-  return strictToDomainEntity(userModelInstance);
-};
-PostgresUserRepository.prototype.findByRefreshToken = async function(refreshToken) {
-  const userModelInstance = await this.UserModel.findOne({ where: { refreshToken } });
-  return strictToDomainEntity(userModelInstance);
-};
-PostgresUserRepository.prototype.create = async function(userEntity) {
-  const userData = { // Only map fields that exist in StrictUserModel (and thus in migration)
-    id: userEntity.id,
-    username: userEntity.username,
-    email: userEntity.email,
-    passwordHash: userEntity.passwordHash,
-    role: userEntity.role,
-    refreshToken: userEntity.refreshToken,
-    isVerified: userEntity.isVerified,
-    lastLogin: userEntity.lastLogin,
-    // Do NOT pass userEntity.verificationToken or userEntity.tokenVersion to DB create
-    // if they are not columns in the 'Users' table per the migration.
-    // If the User domain entity has defaults for these, they exist on the entity object.
-    // If these fields *should* be persisted, the migration must be updated.
-  };
-  const createdUserModel = await this.UserModel.create(userData);
-  // The created domain entity will have its default verificationToken/tokenVersion
-  return strictToDomainEntity(createdUserModel);
-};
-
-// Update for `update` method: only pass fields that StrictUserModel can handle.
-PostgresUserRepository.prototype.update = async function(id, updateData) {
-    const allowedUpdateFields = ['username', 'email', 'passwordHash', 'role', 'refreshToken', 'isVerified', 'lastLogin'];
-    const sanitizedUpdateData = {};
-    for (const key in updateData) {
-        if (allowedUpdateFields.includes(key)) {
-            sanitizedUpdateData[key] = updateData[key];
-        }
-    }
-
-    if (Object.keys(sanitizedUpdateData).length === 0) {
-        // Nothing to update that matches the DB schema for User
-        const userModelInstance = await this.UserModel.findByPk(id); // Still return current state
-        return strictToDomainEntity(userModelInstance);
-    }
-
-    const [numberOfAffectedRows] = await this.UserModel.update(sanitizedUpdateData, {
-      where: { id },
-      // returning: true, // Not strictly needed if re-fetching
-    });
-
-    if (numberOfAffectedRows > 0) {
-      const updatedInstance = await this.UserModel.findByPk(id);
-      return strictToDomainEntity(updatedInstance);
-    }
-    return null;
-};
-
-PostgresUserRepository.prototype.findAll = async function({ page = 1, limit = 10, filters = {} } = {}) {
-    const offset = (page - 1) * limit;
-    const whereClause = {};
-    if (filters.role) whereClause.role = filters.role;
-    if (filters.isVerified !== undefined) whereClause.isVerified = filters.isVerified;
-
-    const { count, rows } = await this.UserModel.findAndCountAll({
-      where: whereClause,
-      limit,
-      offset,
-      order: [['createdAt', 'DESC']],
-    });
-
-    return {
-      users: rows.map(strictToDomainEntity),
-      total: count,
-      page,
-      limit,
-    };
-};
-
-// This revised version aligns the Sequelize model with the provided migration,
-// and adjusts mappers/create/update to handle the fact that the domain entity `User`
-// has more fields (`verificationToken`, `tokenVersion`) than the database table `Users`.
-// This is a common scenario where domain entities might hold transient or differently-managed state.
-// If `tokenVersion` *must* be persisted for JWT invalidation, the migration needs to be updated.
-// For now, this is the most faithful interpretation.Tool output for `create_file_with_block`:
+// The UserModel (defined at the top of the file) now correctly aligns with the
+// migration, as the migration was updated to include verificationToken and tokenVersion.
+// The toDomainEntity function (defined at the top) also correctly maps these fields.
+// The class PostgresUserRepository and its methods (findById, findByEmail, etc.)
+// already use this primary UserModel and toDomainEntity, so they are consistent
+// with the updated migration. No changes are needed to the class methods themselves
+// as they were already written to handle these fields based on the primary UserModel.
