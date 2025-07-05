@@ -68,27 +68,29 @@ class TournamentRepositoryInterface {
    * @param {object} [additionalData={}] - Any additional data for the participation record (e.g., teamId, registrationDate).
    * @returns {Promise<object|null>} The created participant record or representation, or null if failed.
    */
-  async addParticipant(tournamentId, userId, additionalData = {}) {
+  async addParticipant(tournamentId, participantId, participantType, options = {}) {
     throw new Error('Method "addParticipant" not implemented.');
   }
 
   /**
    * Removes a participant from a tournament.
    * @param {string} tournamentId - The ID of the tournament.
-   * @param {string} userId - The ID of the user to remove.
+   * @param {string} participantId - The ID of the participant record (from TournamentParticipants table) or the actual entity ID.
    * @returns {Promise<boolean>} True if removal was successful.
    */
-  async removeParticipant(tournamentId, userId) {
+  async removeParticipant(tournamentId, participantId) { // participantId could be the join table's PK
     throw new Error('Method "removeParticipant" not implemented.');
   }
 
   /**
    * Finds a specific participant in a tournament.
    * @param {string} tournamentId - The ID of the tournament.
-   * @param {string} userId - The ID of the user.
+   * @param {string} participantId - The ID of the entity participating (e.g., User ID, Team ID).
+   * @param {string} participantType - The type of participant ('user', 'team').
+   * @param {object} [options={}] - Optional parameters, e.g., for transaction.
    * @returns {Promise<object|null>} The participant record if found, otherwise null.
    */
-  async findParticipant(tournamentId, userId) {
+  async findParticipant(tournamentId, participantId, participantType, options = {}) {
     throw new Error('Method "findParticipant" not implemented.');
   }
 

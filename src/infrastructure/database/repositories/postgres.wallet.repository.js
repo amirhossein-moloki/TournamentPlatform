@@ -66,17 +66,26 @@ class PostgresWalletRepository extends WalletRepositoryInterface {
     this.WalletModel = WalletModel;
   }
 
-  async findById(id) {
-    const walletModelInstance = await this.WalletModel.findByPk(id);
+  async findById(id, options = {}) {
+    const queryOptions = {
+      transaction: options.transaction,
+      lock: options.lock,
+    };
+    const walletModelInstance = await this.WalletModel.findByPk(id, queryOptions);
     return toDomainEntity(walletModelInstance);
   }
 
-  async findByUserId(userId) {
-    const walletModelInstance = await this.WalletModel.findOne({ where: { userId } });
+  async findByUserId(userId, options = {}) {
+    const queryOptions = {
+      where: { userId },
+      transaction: options.transaction,
+      lock: options.lock,
+    };
+    const walletModelInstance = await this.WalletModel.findOne(queryOptions);
     return toDomainEntity(walletModelInstance);
   }
 
-  async create(walletEntityOrData) {
+  async create(walletEntityOrData, options = {}) {
     // Accepts either a domain entity or a plain data object
     const walletData = {
       id: walletEntityOrData.id, // Assuming ID is generated (e.g. UUID) before calling create
@@ -84,7 +93,7 @@ class PostgresWalletRepository extends WalletRepositoryInterface {
       balance: walletEntityOrData.balance !== undefined ? walletEntityOrData.balance : 0.00,
       currency: walletEntityOrData.currency || 'USD',
     };
-    const createdWalletModel = await this.WalletModel.create(walletData);
+    const createdWalletModel = await this.WalletModel.create(walletData, { transaction: options.transaction });
     return toDomainEntity(createdWalletModel);
   }
 

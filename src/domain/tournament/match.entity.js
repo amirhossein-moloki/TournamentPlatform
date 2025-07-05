@@ -14,11 +14,18 @@ class Match {
    * @param {Date|null} actualStartTime - The actual start time of the match.
    * @param {Date|null} actualEndTime - The actual end time of the match.
    * @param {string|null} winnerId - ID of the winning participant. Null if not yet determined or a draw (if draws allowed).
-   * @param {number|null} scoreParticipant1 - Score of the first participant.
-   * @param {number|null} scoreParticipant2 - Score of the second participant.
-   * @param {string|null} resultScreenshotUrl - URL of the uploaded result screenshot.
+   * @param {number|null} participant1Score - Score of the first participant. (Aligns with DB Model)
+   * @param {number|null} participant2Score - Score of the second participant. (Aligns with DB Model)
+   * @param {string|null} resultProofUrlP1 - URL of the uploaded result screenshot for P1. (Aligns with DB Model)
+   * @param {string|null} [resultProofUrlP2] - URL of the uploaded result screenshot for P2. (Aligns with DB Model)
    * @param {boolean} isConfirmed - Whether the result is confirmed (e.g., by opponent or admin).
    * @param {string|null} nextMatchId - ID of the match that the winner of this match advances to.
+   * @param {string|null} [nextMatchLoserId] - ID of the match the loser goes to (for double elimination, etc.). (Aligns with DB Model)
+   * @param {string|null} [participant1Type] - Type of participant 1 ('user' or 'team'). (Aligns with DB Model)
+   * @param {string|null} [participant2Type] - Type of participant 2 ('user' or 'team'). (Aligns with DB Model)
+   * @param {string|null} [winnerType] - Type of winner ('user' or 'team'). (Aligns with DB Model)
+   * @param {string|null} [moderatorNotes] - Notes from a moderator. (Aligns with DB Model)
+   * @param {object} [metadata] - Additional metadata. (Aligns with DB Model)
    * @param {Date} [createdAt] - Timestamp of when the match was created.
    * @param {Date} [updatedAt] - Timestamp of when the match was last updated.
    */
@@ -29,16 +36,23 @@ class Match {
     matchNumberInRound,
     participant1Id = null,
     participant2Id = null,
-    status = 'SCHEDULED',
+    status = 'SCHEDULED', // Should use MatchStatus.PENDING ideally if MatchStatus enum is defined
     scheduledTime = null,
     actualStartTime = null,
     actualEndTime = null,
     winnerId = null,
-    scoreParticipant1 = null,
-    scoreParticipant2 = null,
-    resultScreenshotUrl = null,
+    participant1Score = null,
+    participant2Score = null,
+    resultProofUrlP1 = null,
+    resultProofUrlP2 = null, // Added
     isConfirmed = false,
     nextMatchId = null,
+    nextMatchLoserId = null, // Added
+    participant1Type = null, // Added
+    participant2Type = null, // Added
+    winnerType = null, // Added
+    moderatorNotes = null, // Added
+    metadata = null, // Added
     createdAt = new Date(),
     updatedAt = new Date()
   ) {
@@ -58,16 +72,36 @@ class Match {
     this.actualStartTime = actualStartTime ? new Date(actualStartTime) : null;
     this.actualEndTime = actualEndTime ? new Date(actualEndTime) : null;
     this.winnerId = winnerId;
-    this.scoreParticipant1 = scoreParticipant1 != null ? parseInt(scoreParticipant1, 10) : null;
-    this.scoreParticipant2 = scoreParticipant2 != null ? parseInt(scoreParticipant2, 10) : null;
-    this.resultScreenshotUrl = resultScreenshotUrl;
+    this.participant1Score = participant1Score != null ? parseInt(participant1Score, 10) : null;
+    this.participant2Score = participant2Score != null ? parseInt(participant2Score, 10) : null;
+    this.resultProofUrlP1 = resultProofUrlP1;
+    this.resultProofUrlP2 = resultProofUrlP2;
     this.isConfirmed = isConfirmed;
     this.nextMatchId = nextMatchId;
+    this.nextMatchLoserId = nextMatchLoserId;
+    this.participant1Type = participant1Type;
+    this.participant2Type = participant2Type;
+    this.winnerType = winnerType;
+    this.moderatorNotes = moderatorNotes;
+    this.metadata = metadata || {}; // Default to empty object
     this.createdAt = createdAt;
     this.updatedAt = updatedAt;
   }
 
-  static validStatuses = ['SCHEDULED', 'IN_PROGRESS', 'AWAITING_SCORES', 'AWAITING_CONFIRMATION', 'DISPUTED', 'COMPLETED', 'CANCELED', 'BYE'];
+  // Define MatchStatus enum/object if not already globally available or imported
+  static Status = {
+    PENDING: 'PENDING', // Or 'SCHEDULED' if that's the initial state from bracket generation
+    SCHEDULED: 'SCHEDULED',
+    IN_PROGRESS: 'IN_PROGRESS',
+    AWAITING_SCORES: 'AWAITING_SCORES',
+    AWAITING_CONFIRMATION: 'AWAITING_CONFIRMATION',
+    DISPUTED: 'DISPUTED',
+    COMPLETED: 'COMPLETED',
+    CANCELED: 'CANCELED',
+    BYE: 'BYE',
+  };
+
+  static validStatuses = Object.values(Match.Status);
 
   updateStatus(newStatus) {
     if (!Match.validStatuses.includes(newStatus)) {
@@ -96,115 +130,152 @@ class Match {
   /**
    * Records the result of the match.
    * @param {string} winningParticipantId - ID of the winner.
-   * @param {number|null} p1Score - Score for participant 1.
-   * @param {number|null} p2Score - Score for participant 2.
-   * @param {string|null} screenshotUrl - URL of the result proof.
+   * @param {number|null} scoreP1 - Score for participant 1.
+   * @param {number|null} scoreP2 - Score for participant 2.
+   * @param {string|null} proofUrl1 - URL of the result proof for P1.
+   * @param {string|null} [proofUrl2] - URL of the result proof for P2 (optional).
    */
-  recordResult(winningParticipantId, p1Score, p2Score, screenshotUrl = null) {
-    if (this.status !== 'IN_PROGRESS' && this.status !== 'AWAITING_SCORES') {
-      // Allow reporting if AWAITING_SCORES (e.g. if participants report after match ends)
+  recordResult(winningParticipantId, scoreP1, scoreP2, proofUrl1 = null, proofUrl2 = null) {
+    if (this.status !== Match.Status.IN_PROGRESS && this.status !== Match.Status.AWAITING_SCORES) {
       throw new Error(`Cannot record result for match with status: ${this.status}.`);
     }
-    if (winningParticipantId !== this.participant1Id && winningParticipantId !== this.participant2Id) {
-      // Allow null winnerId if it's a draw and draws are handled, or if it's just score reporting stage
-      // For now, assume a winner is declared.
-      if (winningParticipantId) { // Only throw if a winnerId is provided and it's not one of the participants
-        throw new Error('Winner ID does not match any participant in this match.');
-      }
+    // winningParticipantId can be null for draws if supported, or if just scores are reported first.
+    if (winningParticipantId && winningParticipantId !== this.participant1Id && winningParticipantId !== this.participant2Id) {
+      throw new Error('Winner ID does not match any participant in this match.');
     }
 
     this.winnerId = winningParticipantId;
-    this.scoreParticipant1 = p1Score != null ? parseInt(p1Score, 10) : null;
-    this.scoreParticipant2 = p2Score != null ? parseInt(p2Score, 10) : null;
-    if (screenshotUrl) this.resultScreenshotUrl = screenshotUrl;
+    // Determine winnerType based on winningParticipantId and participant types
+    if (this.winnerId === this.participant1Id) this.winnerType = this.participant1Type;
+    else if (this.winnerId === this.participant2Id) this.winnerType = this.participant2Type;
+    else this.winnerType = null;
+
+    this.participant1Score = scoreP1 != null ? parseInt(scoreP1, 10) : null;
+    this.participant2Score = scoreP2 != null ? parseInt(scoreP2, 10) : null;
+
+    if (proofUrl1) this.resultProofUrlP1 = proofUrl1;
+    if (proofUrl2) this.resultProofUrlP2 = proofUrl2; // Store P2 proof if provided
 
     this.actualEndTime = new Date();
     this.isConfirmed = false; // Result recorded, but needs confirmation
-    this.updateStatus('AWAITING_CONFIRMATION'); // Or directly to COMPLETED if auto-confirmed
+    this.updateStatus(Match.Status.AWAITING_CONFIRMATION);
   }
 
   confirmResult(byUserId) { // byUserId is the ID of user/admin confirming
-    if (this.status !== 'AWAITING_CONFIRMATION' && this.status !== 'DISPUTED') {
+    if (this.status !== Match.Status.AWAITING_CONFIRMATION && this.status !== Match.Status.DISPUTED) {
       throw new Error(`Result cannot be confirmed for match with status: ${this.status}.`);
     }
     // Add logic: e.g., only opponent or admin can confirm.
-    // if (this.winnerId === byUserId) throw new Error('Winner cannot self-confirm the result.');
+    // if (this.winnerId === byUserId && this.participant1Id !== this.participant2Id) { // Check if it's not a BYE or self-confirmed
+    //    throw new Error('Winner cannot self-confirm the result if opponent exists.');
+    // }
 
     this.isConfirmed = true;
-    this.updateStatus('COMPLETED');
+    this.updateStatus(Match.Status.COMPLETED);
     // Application service would then handle advancing winner to nextMatchId if it exists.
   }
 
   disputeResult(reporterId, reason) {
-    if (this.status !== 'AWAITING_CONFIRMATION' && this.status !== 'COMPLETED') {
-      // Allow disputing even if briefly 'COMPLETED' before dispute window closes.
-      // Or strictly only from AWAITING_CONFIRMATION.
+    if (this.status !== Match.Status.AWAITING_CONFIRMATION && this.status !== Match.Status.COMPLETED) {
       throw new Error(`Result cannot be disputed for match with status: ${this.status}.`);
     }
     if (!reporterId || !reason) {
         throw new Error('Reporter ID and reason are required to dispute a result.');
     }
     // Application service would create a DisputeTicket entity.
-    this.updateStatus('DISPUTED');
+    this.updateStatus(Match.Status.DISPUTED);
     this.isConfirmed = false; // Disputed results are not confirmed
   }
 
-  resolveDispute(resolvedWinnerId, adminNotes, newStatus = 'COMPLETED') {
-    if (this.status !== 'DISPUTED') {
+  resolveDispute(resolvedWinnerId, adminNotes, newStatus = Match.Status.COMPLETED) {
+    if (this.status !== Match.Status.DISPUTED) {
       throw new Error('Cannot resolve dispute for a match not in DISPUTED status.');
     }
-    this.winnerId = resolvedWinnerId; // Can be null if match is replayed or voided
-    // Scores might also be adjusted by admin.
+    this.winnerId = resolvedWinnerId;
+    if (this.winnerId === this.participant1Id) this.winnerType = this.participant1Type;
+    else if (this.winnerId === this.participant2Id) this.winnerType = this.participant2Type;
+    else this.winnerType = null;
+
+    // Scores might also be adjusted by admin and set here.
+    // this.participant1Score = newP1Score;
+    // this.participant2Score = newP2Score;
     this.isConfirmed = true; // Admin resolution implies confirmation
-    this.updateStatus(newStatus); // Could be COMPLETED, or CANCELED, or back to SCHEDULED for replay
-    // Admin notes would likely be stored on the DisputeTicket, not directly on Match entity.
+    this.moderatorNotes = adminNotes; // Store admin notes if entity supports it
+    this.updateStatus(newStatus); // Could be COMPLETED, CANCELED, or back to SCHEDULED for replay
     this.updatedAt = new Date();
   }
 
-  setParticipants(p1Id, p2Id) {
+  setParticipants(p1Id, p1Type, p2Id, p2Type) {
     // Typically set by bracket logic or admin.
-    // Can only set if match is SCHEDULED and participants are not yet set, or if being modified.
-    if (this.status !== 'SCHEDULED' && this.status !== 'BYE') { // Allow updating if it was a BYE that now has an opponent
-        // Consider if participants can be changed if already set.
-        // For now, assume it's for initial setup or filling TBD slots.
+    if (this.status !== Match.Status.SCHEDULED && this.status !== Match.Status.PENDING && this.status !== Match.Status.BYE) {
+        // Allow setting participants if PENDING (initial state) or was a BYE
+        // throw new Error(`Cannot set participants for match in status: ${this.status}`);
     }
+    this.participant1Id = p1Id;
+    this.participant1Type = p1Type;
+    this.participant2Id = p2Id;
+    this.participant2Type = p2Type;
     this.participant1Id = p1Id;
     this.participant2Id = p2Id;
 
     // If one participant is null and the other is not, it could be a BYE.
-    if ((p1Id && !p2Id) || (!p1Id && p2Id)) {
-        if (this.status === 'SCHEDULED') this.setAsBye(p1Id || p2Id);
-    } else if (p1Id && p2Id && this.status === 'BYE') { // Was a bye, now has opponent
-        this.updateStatus('SCHEDULED');
+    if ((this.participant1Id && !this.participant2Id) || (!this.participant1Id && this.participant2Id)) {
+        if (this.status === Match.Status.SCHEDULED || this.status === Match.Status.PENDING) {
+             this.setAsBye(this.participant1Id || this.participant2Id, this.participant1Type || this.participant2Type);
+        }
+    } else if (this.participant1Id && this.participant2Id && this.status === Match.Status.BYE) { // Was a bye, now has opponent
+        this.updateStatus(Match.Status.SCHEDULED); // Or PENDING
+    } else if (!this.participant1Id && !this.participant2Id && this.status !== Match.Status.PENDING) {
+        // If both are null, should be PENDING (waiting for participants from previous rounds)
+        this.updateStatus(Match.Status.PENDING);
     }
+
 
     this.updatedAt = new Date();
   }
 
-  setAsBye(winningParticipantId) {
+  setAsBye(winningParticipantId, winnerParticipantType) {
     if (!winningParticipantId) throw new Error('A winning participant ID is required for a BYE.');
-    this.participant1Id = winningParticipantId; // Convention: participant1 is the advancing one
-    this.participant2Id = null;
+
+    // Determine which participant slot gets the winner based on existing setup or convention
+    if (this.participant1Id === winningParticipantId || !this.participant2Id) {
+        this.participant1Id = winningParticipantId;
+        this.participant1Type = winnerParticipantType;
+        this.participant2Id = null;
+        this.participant2Type = null;
+    } else if (this.participant2Id === winningParticipantId || !this.participant1Id) {
+        this.participant2Id = winningParticipantId;
+        this.participant2Type = winnerParticipantType;
+        this.participant1Id = null;
+        this.participant1Type = null;
+    } else { // Default to P1 if neither slot was pre-assigned to this winner
+        this.participant1Id = winningParticipantId;
+        this.participant1Type = winnerParticipantType;
+        this.participant2Id = null;
+        this.participant2Type = null;
+    }
+
     this.winnerId = winningParticipantId;
-    this.status = 'COMPLETED'; // Or a specific 'BYE' status that's treated as completed
+    this.winnerType = winnerParticipantType;
+    this.status = Match.Status.COMPLETED; // BYE matches are auto-completed
     this.isConfirmed = true;
-    this.actualStartTime = this.actualStartTime || new Date(); // Mark as "started"
-    this.actualEndTime = this.actualEndTime || new Date();   // and "ended"
+    this.actualStartTime = this.actualStartTime || new Date();
+    this.actualEndTime = this.actualEndTime || new Date();
     this.updatedAt = new Date();
   }
 
   cancelMatch(reason = 'Match canceled.') {
-    if (this.status === 'COMPLETED' || this.status === 'CANCELED') {
+    if (this.status === Match.Status.COMPLETED || this.status === Match.Status.CANCELED) {
       throw new Error(`Match is already ${this.status} and cannot be canceled.`);
     }
-    this.updateStatus('CANCELED');
-    // Add reason to a log or a description field if the entity had one for matches.
+    this.updateStatus(Match.Status.CANCELED);
+    this.moderatorNotes = this.moderatorNotes ? `${this.moderatorNotes}\nCanceled: ${reason}` : `Canceled: ${reason}`;
     this.updatedAt = new Date();
   }
 
   updateScheduledTime(newTime) {
-    if (this.status !== 'SCHEDULED') {
-      throw new Error('Can only reschedule a match that is currently SCHEDULED.');
+    if (this.status !== Match.Status.SCHEDULED && this.status !== Match.Status.PENDING) {
+      throw new Error('Can only reschedule a match that is currently SCHEDULED or PENDING.');
     }
     if (newTime <= new Date()) {
       throw new Error('Scheduled time must be in the future.');
