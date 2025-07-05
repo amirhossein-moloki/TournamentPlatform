@@ -1,0 +1,1183 @@
+openapi: 3.0.3
+info:
+  title: Tournament Platform API
+  version: v1
+  description: |
+    API for the Tournament Platform, enabling user management, wallet operations, tournament participation, and administrative functions.
+    Key features include secure authentication, real-time match updates, and role-based access control.
+  contact:
+    name: Support Team
+    email: support@example-tournament.com
+  license:
+    name: ISC
+    url: https://opensource.org/licenses/ISC
+
+servers:
+  - url: http://localhost:{port}/api/v1 # Define port in variables or replace directly
+    description: Local development server
+    variables:
+      port:
+        default: '3000'
+        description: Port for the local server
+  - url: https://staging.example-tournament.com/api/v1
+    description: Staging server
+  - url: https://api.example-tournament.com/api/v1
+    description: Production server
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: "Access Token for authentication. Example: 'Bearer {token}'"
+    refreshTokenCookie: # For documenting the refresh token mechanism
+      type: apiKey
+      in: cookie
+      name: jid # Matches JWT_REFRESH_COOKIE_NAME from .env.example
+      description: "HttpOnly cookie containing the Refresh Token."
+
+  schemas:
+    # Common Schemas
+    ErrorResponse:
+      type: object
+      properties:
+        statusCode:
+          type: integer
+          example: 400
+        message:
+          type: string
+          example: "Validation Error"
+        errors: # Optional, for detailed validation errors
+          type: array
+          items:
+            type: string
+          example: ["'email' is required"]
+        stack: # Optional, for development environment
+          type: string
+
+    # Auth Schemas
+    UserRegistrationRequest:
+      type: object
+      required:
+        - username
+        - email
+        - password
+      properties:
+        username:
+          type: string
+          minLength: 3
+          example: "player123"
+        email:
+          type: string
+          format: email
+          example: "user@example.com"
+        password:
+          type: string
+          format: password
+          minLength: 8
+          example: "Str0ngP@sswOrd!"
+
+    UserLoginRequest:
+      type: object
+      required:
+        - email
+        - password
+      properties:
+        email:
+          type: string
+          format: email
+          example: "user@example.com"
+        password:
+          type: string
+          format: password
+          example: "Str0ngP@sswOrd!"
+
+    AuthResponse:
+      type: object
+      properties:
+        message:
+          type: string
+          example: "Login successful"
+        accessToken:
+          type: string
+          format: jwt
+          description: "Short-lived Access Token (typically sent in response body for SPA, or handled by server for cookie-based)"
+        user:
+          $ref: '#/components/schemas/UserPublicProfile'
+      # Note: Refresh token is typically set in an HttpOnly cookie and not part of the JSON response.
+
+    RefreshTokenRequest: # Implicitly handled by cookie
+      type: object
+      description: "Request to refresh access token using HttpOnly refresh token cookie."
+
+    UserPublicProfile:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          example: "a1b2c3d4-e5f6-7890-1234-567890abcdef"
+        username:
+          type: string
+          example: "player123"
+        role:
+          type: string
+          enum: [User, Admin, DisputeModerator, FinanceManager]
+          example: "User"
+
+    # Wallet Schemas
+    WalletInitializeDepositRequest:
+      type: object
+      required:
+        - amount
+        - currency
+      properties:
+        amount:
+          type: number
+          format: float
+          minimum: 0.01
+          example: 20.50
+        currency:
+          type: string
+          maxLength: 3
+          example: "USD"
+        # Idempotency Key is sent as a header
+
+    WalletInitializeDepositResponse:
+      type: object
+      properties:
+        message:
+          type: string
+          example: "Deposit initialized. Proceed to payment gateway."
+        paymentGatewayUrl: # Or payment details
+          type: string
+          format: url
+          example: "https://payment.gateway.com/pay/xyz123"
+        transactionId:
+          type: string
+          format: uuid
+          example: "b2c3d4e5-f6a7-8901-2345-678901bcdef0"
+
+    PaymentWebhookPayload: # Example, depends on gateway
+      type: object
+      properties:
+        transactionId: # Gateway's transaction ID
+          type: string
+          example: "gateway_tx_123"
+        internalTransactionId: # Your system's transaction ID (from initialize)
+          type: string
+          format: uuid
+          example: "b2c3d4e5-f6a7-8901-2345-678901bcdef0"
+        status:
+          type: string
+          enum: [success, failed, pending]
+          example: "success"
+        amount:
+          type: number
+          format: float
+          example: 20.50
+        currency:
+          type: string
+          example: "USD"
+        timestamp:
+          type: string
+          format: date-time
+        signature: # Digital signature from gateway
+          type: string
+          example: "abc123def456..."
+
+    TransactionHistoryItem:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        type:
+          type: string
+          example: "DEPOSIT"
+        amount:
+          type: number
+          format: float
+        status:
+          type: string
+          example: "COMPLETED"
+        description:
+          type: string
+          nullable: true
+        transactionDate:
+          type: string
+          format: date-time
+
+    PaginatedTransactionHistory:
+      type: object
+      properties:
+        page:
+          type: integer
+          example: 1
+        limit:
+          type: integer
+          example: 10
+        totalPages:
+          type: integer
+          example: 5
+        totalItems:
+          type: integer
+          example: 48
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/TransactionHistoryItem'
+
+    WithdrawalRequest:
+      type: object
+      required:
+        - amount
+        - currency
+        - withdrawalMethodDetails # E.g., bank account, crypto address
+      properties:
+        amount:
+          type: number
+          format: float
+          minimum: 1.00 # Example minimum withdrawal
+          example: 50.00
+        currency:
+          type: string
+          maxLength: 3
+          example: "USD"
+        withdrawalMethodDetails:
+          type: object # Structure depends on payment methods supported
+          example: { "type": "paypal", "email": "user@example.com" }
+
+    WithdrawalResponse:
+      type: object
+      properties:
+        message:
+          type: string
+          example: "Withdrawal request submitted for approval."
+        transactionId:
+          type: string
+          format: uuid
+
+    # Tournament Schemas
+    TournamentSummary:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        gameName:
+          type: string
+        status:
+          type: string
+        entryFee:
+          type: number
+          format: float
+        prizePool:
+          type: number
+          format: float
+        maxParticipants:
+          type: integer
+        currentParticipants:
+          type: integer
+        startDate:
+          type: string
+          format: date-time
+
+    PaginatedTournaments:
+      type: object
+      properties:
+        page:
+          type: integer
+        limit:
+          type: integer
+        totalPages:
+          type: integer
+        totalItems:
+          type: integer
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/TournamentSummary'
+
+    TournamentDetails:
+      allOf:
+        - $ref: '#/components/schemas/TournamentSummary'
+        - type: object
+          properties:
+            description:
+              type: string
+              nullable: true
+            rules:
+              type: string
+              nullable: true
+            endDate:
+              type: string
+              format: date-time
+              nullable: true
+            organizerId:
+              type: string
+              format: uuid
+              nullable: true
+            # participants: # Could be a list of participant profiles or IDs
+            #   type: array
+            #   items:
+            #     $ref: '#/components/schemas/UserPublicProfile'
+
+    TournamentRegistrationResponse:
+      type: object
+      properties:
+        message:
+          type: string
+          example: "Successfully registered for the tournament."
+        tournamentId:
+          type: string
+          format: uuid
+        participantId: # ID of the TournamentParticipant record
+          type: string
+          format: uuid
+
+    # Match Schemas
+    MatchResultUploadUrlResponse:
+      type: object
+      properties:
+        uploadUrl:
+          type: string
+          format: url
+          description: "Pre-signed URL for uploading the result screenshot."
+        fileKey: # Optional, if client needs to know the key for later reference
+          type: string
+          description: "The key/path where the file will be stored in S3."
+
+    MatchResultSubmissionRequest:
+      type: object
+      required:
+        - winningParticipantId # Or winningTeamId
+        - scoreParticipant1 # Optional, depends on game
+        - scoreParticipant2 # Optional, depends on game
+        - resultScreenshotFileKey # Key from the upload URL response
+      properties:
+        winningParticipantId:
+          type: string
+          format: uuid
+          description: "ID of the user or team that won."
+        scoreParticipant1:
+          type: integer
+          nullable: true
+          example: 2
+        scoreParticipant2:
+          type: integer
+          nullable: true
+          example: 1
+        resultScreenshotFileKey:
+          type: string
+          description: "The S3 file key of the uploaded screenshot."
+        comments:
+          type: string
+          nullable: true
+
+    MatchResultResponse:
+      type: object
+      properties:
+        message:
+          type: string
+          example: "Result submitted. Waiting for confirmation or scan."
+        matchId:
+          type: string
+          format: uuid
+        status: # New status of the match
+          type: string
+          example: "AWAITING_CONFIRMATION" # Or "UNDER_REVIEW" if disputed
+
+    # Admin Schemas
+    Dispute:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        matchId:
+          type: string
+          format: uuid
+        reporterId:
+          type: string
+          format: uuid
+        reason:
+          type: string
+        status:
+          type: string
+          enum: [OPEN, UNDER_REVIEW, RESOLVED_PARTICIPANT1_WIN, RESOLVED_PARTICIPANT2_WIN, RESOLVED_REPLAY, CLOSED]
+        resolutionDetails:
+          type: string
+          nullable: true
+        moderatorId:
+          type: string
+          format: uuid
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    PaginatedDisputes:
+      type: object
+      properties:
+        page:
+          type: integer
+        limit:
+          type: integer
+        totalPages:
+          type: integer
+        totalItems:
+          type: integer
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/Dispute'
+
+    ResolveDisputeRequest:
+      type: object
+      required:
+        - resolutionStatus # E.g., RESOLVED_PARTICIPANT1_WIN
+        - resolutionDetails
+      properties:
+        resolutionStatus:
+          type: string
+          enum: [RESOLVED_PARTICIPANT1_WIN, RESOLVED_PARTICIPANT2_WIN, RESOLVED_REPLAY, CLOSED_INVALID]
+          example: "RESOLVED_PARTICIPANT1_WIN"
+        resolutionDetails:
+          type: string
+          example: "After reviewing evidence, participant 1 is declared the winner."
+        # Optional: winningParticipantId if not directly derivable from resolutionStatus
+
+    WithdrawalForAdmin:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        userId:
+          type: string
+          format: uuid
+        amount:
+          type: number
+          format: float
+        currency:
+          type: string
+        status:
+          type: string
+          enum: [PENDING_APPROVAL, APPROVED, REJECTED, PROCESSING, COMPLETED, FAILED]
+        requestedAt:
+          type: string
+          format: date-time
+        withdrawalMethodDetails:
+          type: object
+        # adminNotes:
+        #   type: string
+
+    PaginatedWithdrawalsAdmin:
+      type: object
+      properties:
+        page:
+          type: integer
+        limit:
+          type: integer
+        totalPages:
+          type: integer
+        totalItems:
+          type: integer
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/WithdrawalForAdmin'
+
+    ApproveWithdrawalRequest:
+      type: object
+      properties:
+        notes: # Optional notes from finance manager
+          type: string
+          nullable: true
+          example: "Approved after verification."
+
+  parameters:
+    PageParam:
+      name: page
+      in: query
+      description: Page number for pagination.
+      required: false
+      schema:
+        type: integer
+        minimum: 1
+        default: 1
+    LimitParam:
+      name: limit
+      in: query
+      description: Number of items per page.
+      required: false
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 100
+        default: 10
+    IdempotencyKeyHeader:
+      name: X-Idempotency-Key # Matches IDEMPOTENCY_KEY_HEADER from .env.example
+      in: header
+      description: Unique key to prevent duplicate processing of requests (e.g., for deposits).
+      required: true # For endpoints that need it
+      schema:
+        type: string
+        format: uuid # Recommended format
+    TournamentIdPath:
+      name: id
+      in: path
+      required: true
+      description: ID of the tournament.
+      schema:
+        type: string
+        format: uuid
+    MatchIdPath:
+      name: id
+      in: path
+      required: true
+      description: ID of the match.
+      schema:
+        type: string
+        format: uuid
+    DisputeIdPath:
+      name: id
+      in: path
+      required: true
+      description: ID of the dispute ticket.
+      schema:
+        type: string
+        format: uuid
+    WithdrawalIdPath:
+      name: id
+      in: path
+      required: true
+      description: ID of the withdrawal request.
+      schema:
+        type: string
+        format: uuid
+
+tags:
+  - name: Authentication
+    description: User registration, login, token refresh, and logout.
+  - name: Wallet
+    description: Wallet top-up, transaction history, and withdrawals.
+  - name: Tournaments
+    description: Listing, viewing, and registering for tournaments.
+  - name: Matches
+    description: Reporting match results and handling disputes.
+  - name: Admin - Disputes
+    description: Management of dispute tickets by Dispute Moderators.
+  - name: Admin - Withdrawals
+    description: Management of withdrawal requests by Finance Managers.
+  - name: Webhooks
+    description: Endpoints for receiving notifications from external services (e.g., payment gateways).
+
+paths:
+  /auth/register:
+    post:
+      tags: [Authentication]
+      summary: Register a new user.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UserRegistrationRequest'
+      responses:
+        '201':
+          description: User registered successfully. Access token provided, refresh token set in cookie.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthResponse'
+          headers:
+            Set-Cookie: # Documenting the refresh token cookie
+              schema:
+                type: string
+                example: jid=yourRefreshToken; Path=/; HttpOnly; Secure; SameSite=Strict
+        '400':
+          description: Validation error (e.g., email already exists, weak password).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /auth/login:
+    post:
+      tags: [Authentication]
+      summary: Log in and receive Access and Refresh Tokens.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UserLoginRequest'
+      responses:
+        '200':
+          description: Login successful. Access token provided, refresh token set in cookie.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthResponse'
+          headers:
+            Set-Cookie:
+              schema:
+                type: string
+                example: jid=yourRefreshToken; Path=/; HttpOnly; Secure; SameSite=Strict
+        '401':
+          description: Invalid credentials.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /auth/refresh:
+    post:
+      tags: [Authentication]
+      summary: Get a new Access Token using a Refresh Token.
+      description: Requires a valid Refresh Token sent via an HttpOnly cookie (`jid`).
+      security:
+        - refreshTokenCookie: [] # Indicates cookie is used
+      responses:
+        '200':
+          description: New access token generated successfully.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  accessToken:
+                    type: string
+                    format: jwt
+        '401':
+          description: Invalid or expired refresh token.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /auth/logout:
+    post:
+      tags: [Authentication]
+      summary: Invalidate the Refresh Token for a secure logout.
+      description: Requires authentication with an Access Token. Clears the refresh token cookie.
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Logout successful. Refresh token cookie cleared.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "Logout successful"
+          headers:
+            Set-Cookie: # Shows cookie being cleared
+              schema:
+                type: string
+                example: jid=; Path=/; HttpOnly; Expires=Thu, 01 Jan 1970 00:00:00 GMT
+        '401':
+          description: Unauthorized (no valid access token).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /wallet/deposit/initialize:
+    post:
+      tags: [Wallet]
+      summary: Initialize the wallet top-up process.
+      description: Requires user authentication. An Idempotency Key header is required.
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKeyHeader'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/WalletInitializeDepositRequest'
+      responses:
+        '200':
+          description: Deposit initialization successful.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WalletInitializeDepositResponse'
+        '400':
+          description: Validation error or idempotency key reuse with different payload.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Unauthorized.
+        '409': # Conflict for idempotency
+          description: Idempotency key already processed with the same request.
+          content:
+            application/json: # Should return the original successful response
+              schema:
+                $ref: '#/components/schemas/WalletInitializeDepositResponse'
+        '500':
+          description: Internal server error.
+
+  /webhooks/payment-gateway: # Note: This path is `/api/webhooks/payment-gateway` in blueprint, adjust if needed
+    post:
+      tags: [Webhooks]
+      summary: Receive payment confirmation from the payment gateway.
+      description: |
+        Secured by digital signature verification. The signature should be passed in a header (e.g., `X-Signature`).
+        The exact mechanism depends on the payment gateway.
+      parameters:
+        - name: X-Payment-Signature # Example header for signature
+          in: header
+          required: true
+          schema:
+            type: string
+          description: Digital signature from the payment gateway for webhook verification.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PaymentWebhookPayload'
+      responses:
+        '200':
+          description: Webhook received and processed successfully.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "Webhook processed"
+        '400':
+          description: Invalid payload or signature.
+        '500':
+          description: Internal server error.
+
+  /wallet/history:
+    get:
+      tags: [Wallet]
+      summary: Get transaction history for the logged-in user.
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/PageParam'
+        - $ref: '#/components/parameters/LimitParam'
+        - name: type
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [DEPOSIT, WITHDRAWAL, TOURNAMENT_FEE, PRIZE_PAYOUT, REFUND]
+          description: Filter by transaction type.
+        - name: status
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [PENDING, COMPLETED, FAILED, CANCELED, REQUIRES_APPROVAL]
+          description: Filter by transaction status.
+      responses:
+        '200':
+          description: A paginated list of transactions.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedTransactionHistory'
+        '401':
+          description: Unauthorized.
+        '500':
+          description: Internal server error.
+
+  /wallet/withdrawals:
+    post:
+      tags: [Wallet]
+      summary: Submit a withdrawal request for finance manager approval.
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKeyHeader' # Good practice for withdrawals too
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/WithdrawalRequest'
+      responses:
+        '202': # Accepted for processing
+          description: Withdrawal request submitted successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WithdrawalResponse'
+        '400':
+          description: Validation error (e.g., insufficient balance, invalid amount).
+        '401':
+          description: Unauthorized.
+        '500':
+          description: Internal server error.
+
+  /tournaments:
+    get:
+      tags: [Tournaments]
+      summary: List tournaments with pagination and filtering.
+      parameters:
+        - $ref: '#/components/parameters/PageParam'
+        - $ref: '#/components/parameters/LimitParam'
+        - name: status
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [PENDING, REGISTRATION_OPEN, REGISTRATION_CLOSED, ONGOING, COMPLETED, CANCELED]
+          description: Filter by tournament status.
+        - name: gameName
+          in: query
+          required: false
+          schema:
+            type: string
+          description: Filter by game name.
+      responses:
+        '200':
+          description: A paginated list of tournaments.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedTournaments'
+        '500':
+          description: Internal server error.
+
+  /tournaments/{id}:
+    get:
+      tags: [Tournaments]
+      summary: Get details of a specific tournament.
+      parameters:
+        - $ref: '#/components/parameters/TournamentIdPath'
+      responses:
+        '200':
+          description: Tournament details.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TournamentDetails'
+        '404':
+          description: Tournament not found.
+        '500':
+          description: Internal server error.
+
+  /tournaments/{id}/register:
+    post:
+      tags: [Tournaments]
+      summary: Register the logged-in user for a tournament.
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/TournamentIdPath'
+      responses:
+        '200':
+          description: Successfully registered for the tournament.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TournamentRegistrationResponse'
+        '400':
+          description: Validation error (e.g., registration closed, already registered, insufficient balance for entry fee).
+        '401':
+          description: Unauthorized.
+        '404':
+          description: Tournament not found.
+        '500':
+          description: Internal server error.
+
+  /matches/{id}/results/upload-url:
+    post:
+      tags: [Matches]
+      summary: Get a secure URL to upload a result screenshot.
+      description: Only accessible by a participant of the match.
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/MatchIdPath'
+      requestBody: # Client might specify filename or content type
+        required: false # Or true if filename/type is needed
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                filename:
+                  type: string
+                  example: "match_result.png"
+                contentType:
+                  type: string
+                  example: "image/png"
+      responses:
+        '200':
+          description: Pre-signed URL generated successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MatchResultUploadUrlResponse'
+        '401':
+          description: Unauthorized.
+        '403':
+          description: Forbidden (user is not a participant or match not in correct state).
+        '404':
+          description: Match not found.
+        '500':
+          description: Internal server error.
+
+  /matches/{id}/results:
+    post:
+      tags: [Matches]
+      summary: Submit the final result after file upload and scan.
+      description: Only accessible by a participant of the match. Assumes screenshot is uploaded and scanned.
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/MatchIdPath'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MatchResultSubmissionRequest'
+      responses:
+        '200':
+          description: Match result submitted.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MatchResultResponse'
+        '400':
+          description: Validation error (e.g., invalid result, file not found/scanned).
+        '401':
+          description: Unauthorized.
+        '403':
+          description: Forbidden (user is not a participant or match not in correct state for result submission).
+        '404':
+          description: Match not found.
+        '500':
+          description: Internal server error.
+
+  # Admin Panel Endpoints
+  /admin/disputes:
+    get:
+      tags: [Admin - Disputes]
+      summary: Get a list of disputes (for DisputeModerator).
+      security:
+        - bearerAuth: [] # RBAC middleware will check for DisputeModerator role
+      parameters:
+        - $ref: '#/components/parameters/PageParam'
+        - $ref: '#/components/parameters/LimitParam'
+        - name: status
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [OPEN, UNDER_REVIEW, RESOLVED_PARTICIPANT1_WIN, RESOLVED_PARTICIPANT2_WIN, RESOLVED_REPLAY, CLOSED]
+          description: Filter by dispute status.
+        - name: tournamentId
+          in: query
+          required: false
+          schema:
+            type: string
+            format: uuid
+          description: Filter by tournament ID.
+      responses:
+        '200':
+          description: A paginated list of disputes.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedDisputes'
+        '401':
+          description: Unauthorized.
+        '403':
+          description: Forbidden (user does not have DisputeModerator role).
+        '500':
+          description: Internal server error.
+
+  /admin/disputes/{id}/resolve:
+    post:
+      tags: [Admin - Disputes]
+      summary: Resolve a dispute and determine the winner (for DisputeModerator).
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/DisputeIdPath'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ResolveDisputeRequest'
+      responses:
+        '200':
+          description: Dispute resolved successfully.
+          content:
+            application/json:
+              schema: # Returns the updated dispute ticket
+                $ref: '#/components/schemas/Dispute'
+        '400':
+          description: Validation error.
+        '401':
+          description: Unauthorized.
+        '403':
+          description: Forbidden.
+        '404':
+          description: Dispute not found.
+        '500':
+          description: Internal server error.
+
+  /admin/withdrawals:
+    get:
+      tags: [Admin - Withdrawals]
+      summary: Get a list of withdrawal requests (for FinanceManager).
+      security:
+        - bearerAuth: [] # RBAC for FinanceManager
+      parameters:
+        - $ref: '#/components/parameters/PageParam'
+        - $ref: '#/components/parameters/LimitParam'
+        - name: status
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [PENDING_APPROVAL, APPROVED, REJECTED, PROCESSING, COMPLETED, FAILED]
+          description: Filter by withdrawal status.
+        - name: userId
+          in: query
+          required: false
+          schema:
+            type: string
+            format: uuid
+          description: Filter by user ID.
+      responses:
+        '200':
+          description: A paginated list of withdrawal requests.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedWithdrawalsAdmin'
+        '401':
+          description: Unauthorized.
+        '403':
+          description: Forbidden.
+        '500':
+          description: Internal server error.
+
+  /admin/withdrawals/{id}/approve:
+    post:
+      tags: [Admin - Withdrawals]
+      summary: Approve a withdrawal request (for FinanceManager).
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/WithdrawalIdPath'
+      requestBody:
+        required: false # Notes are optional
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ApproveWithdrawalRequest'
+      responses:
+        '200':
+          description: Withdrawal request approved successfully.
+          content:
+            application/json:
+              schema: # Returns the updated withdrawal request
+                $ref: '#/components/schemas/WithdrawalForAdmin'
+        '400':
+          description: Validation error (e.g., request not in approvable state).
+        '401':
+          description: Unauthorized.
+        '403':
+          description: Forbidden.
+        '404':
+          description: Withdrawal request not found.
+        '500':
+          description: Internal server error.
+
+  /admin/withdrawals/{id}/reject: # Added for completeness
+    post:
+      tags: [Admin - Withdrawals]
+      summary: Reject a withdrawal request (for FinanceManager).
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/WithdrawalIdPath'
+      requestBody:
+        required: true # Reason for rejection is usually required
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [reason]
+              properties:
+                reason:
+                  type: string
+                  example: "Suspected fraudulent activity."
+      responses:
+        '200':
+          description: Withdrawal request rejected successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WithdrawalForAdmin'
+        '400':
+          description: Validation error.
+        '401':
+          description: Unauthorized.
+        '403':
+          description: Forbidden.
+        '404':
+          description: Withdrawal request not found.
+        '500':
+          description: Internal server error.
+
+# Placeholder for other routes like users, teams, leaderboards if they have HTTP endpoints
+# /users/me (GET) - Get current user's profile
+# /teams (POST, GET) - Manage teams
+# /leaderboards/{game} (GET) - Get leaderboards
+# These are not explicitly detailed in the initial prompt's API list but are in the file structure.
+# For now, focusing on the explicitly listed API endpoints.

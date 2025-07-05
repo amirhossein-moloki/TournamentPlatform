@@ -1,0 +1,45 @@
+{
+  "compilerOptions": {
+    "module": "commonjs",
+    "target": "es2021",
+    "jsx": "preserve", // or "react" if using React JSX transform
+    "baseUrl": ".",
+    "paths": {
+      "@/*": ["src/*"],
+      "@config/*": ["config/*"],
+      "@db/*": ["db/*"],
+      "@domain/*": ["src/domain/*"],
+      "@application/*": ["src/application/*"],
+      "@infrastructure/*": ["src/infrastructure/*"],
+      "@presentation/*": ["src/presentation/*"],
+      "@middleware/*": ["src/middleware/*"],
+      "@workers/*": ["src/workers/*"],
+      "@utils/*": ["src/utils/*"],
+      "@tests/*": ["tests/*"]
+    },
+    "resolveJsonModule": true,
+    "esModuleInterop": true,
+    "allowSyntheticDefaultImports": true,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true,
+    "checkJs": false, // Set to true for type checking JS files with JSDoc
+    "strict": false // Set to true for stricter type checking (recommended for new projects)
+  },
+  "include": [
+    "src/**/*.js",
+    "tests/**/*.js",
+    "config/**/*.js",
+    "db/**/*.js",
+    "server.js"
+    // Add other paths if necessary
+  ],
+  "exclude": [
+    "node_modules",
+    "dist",
+    "build",
+    "coverage",
+    ".github",
+    "docs"
+    // Add other paths to exclude if necessary
+  ]
+}

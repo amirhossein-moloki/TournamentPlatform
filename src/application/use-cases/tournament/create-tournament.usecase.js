@@ -1,0 +1,96 @@
+const { v4: uuidv4 } = require('uuid');
+const ApiError = require('../../../utils/ApiError');
+const httpStatusCodes = require('http-status-codes');
+const { Tournament } = require('../../../domain/tournament/tournament.entity'); // Assuming entity path
+
+class CreateTournamentUseCase {
+  /**
+   * @param {object} tournamentRepository - Repository for tournament data persistence.
+   * @param {object} userRepository - Repository for user data (to validate organizerId if needed).
+   */
+  constructor(tournamentRepository, userRepository) {
+    this.tournamentRepository = tournamentRepository;
+    this.userRepository = userRepository; // To validate organizer or for future enhancements
+  }
+
+  /**
+   * Executes the tournament creation use case.
+   * @param {object} tournamentData - Data for the new tournament.
+   * @param {string} tournamentData.name - Name of the tournament.
+   * @param {string} tournamentData.gameName - Name of the game for the tournament.
+   * @param {string} [tournamentData.description] - Optional description.
+   * @param {string} [tournamentData.rules] - Optional rules.
+   * @param {number} tournamentData.entryFee - Entry fee for the tournament.
+   * @param {number} tournamentData.prizePool - Total prize pool.
+   * @param {number} tournamentData.maxParticipants - Maximum number of participants.
+   * @param {string|Date} tournamentData.startDate - Start date/time of the tournament.
+   * @param {string|Date} [tournamentData.endDate] - Optional end date/time.
+   * @param {string} [tournamentData.organizerId] - Optional ID of the user organizing the tournament.
+   * @returns {Promise<Tournament>} The created tournament entity.
+   * @throws {ApiError} If creation fails (e.g., validation error, organizer not found).
+   */
+  async execute(tournamentData) {
+    // Basic validation (Joi schema validation should be primary at controller level)
+    const requiredFields = ['name', 'gameName', 'entryFee', 'prizePool', 'maxParticipants', 'startDate'];
+    for (const field of requiredFields) {
+      if (tournamentData[field] === undefined || tournamentData[field] === null) {
+        throw new ApiError(httpStatusCodes.BAD_REQUEST, `Missing required field: ${field}`);
+      }
+    }
+
+    if (new Date(tournamentData.startDate) <= new Date()) {
+      throw new ApiError(httpStatusCodes.BAD_REQUEST, 'Start date must be in the future.');
+    }
+    if (tournamentData.endDate && new Date(tournamentData.endDate) <= new Date(tournamentData.startDate)) {
+      throw new ApiError(httpStatusCodes.BAD_REQUEST, 'End date must be after the start date.');
+    }
+    if (tournamentData.entryFee < 0) {
+      throw new ApiError(httpStatusCodes.BAD_REQUEST, 'Entry fee cannot be negative.');
+    }
+    if (tournamentData.prizePool < 0) { // Could be 0 if no prize, or >= entryFee * some_factor
+      throw new ApiError(httpStatusCodes.BAD_REQUEST, 'Prize pool cannot be negative.');
+    }
+    if (tournamentData.maxParticipants <= 1) { // Typically need at least 2 participants
+      throw new ApiError(httpStatusCodes.BAD_REQUEST, 'Maximum participants must be greater than 1.');
+    }
+
+    // Validate organizerId if provided
+    if (tournamentData.organizerId) {
+      const organizer = await this.userRepository.findById(tournamentData.organizerId);
+      if (!organizer) {
+        throw new ApiError(httpStatusCodes.BAD_REQUEST, `Organizer with ID ${tournamentData.organizerId} not found.`);
+      }
+      // Future: Check if organizer has 'Admin' or 'TournamentOrganizer' role if such roles exist
+    }
+
+    const tournamentId = uuidv4();
+    const newTournament = new Tournament(
+      tournamentId,
+      tournamentData.name,
+      tournamentData.gameName,
+      tournamentData.description || null,
+      tournamentData.rules || null,
+      'PENDING', // Initial status
+      parseFloat(tournamentData.entryFee),
+      parseFloat(tournamentData.prizePool),
+      parseInt(tournamentData.maxParticipants, 10),
+      0, // currentParticipants
+      new Date(tournamentData.startDate),
+      tournamentData.endDate ? new Date(tournamentData.endDate) : null,
+      tournamentData.organizerId || null,
+      new Date(), // createdAt
+      new Date()  // updatedAt
+    );
+
+    // Persist the new tournament
+    const createdTournament = await this.tournamentRepository.create(newTournament);
+
+    // Potentially emit an event (e.g., TOURNAMENT_CREATED) via a message bus
+    // if other services need to react to tournament creation.
+    // Example: eventEmitter.emit('tournamentCreated', createdTournament);
+
+    return createdTournament; // Return the full entity as created
+  }
+}
+
+module.exports = CreateTournamentUseCase;
