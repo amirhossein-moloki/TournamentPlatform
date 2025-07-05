@@ -13,6 +13,15 @@ class TransactionRepositoryInterface {
   }
 
   /**
+   * Finds a transaction by its Zarinpal authority code.
+   * @param {string} authority - The Zarinpal authority code.
+   * @returns {Promise<Transaction|null>} The Transaction entity if found, otherwise null.
+   */
+  async findByAuthority(authority) {
+    throw new Error('Method "findByAuthority" not implemented.');
+  }
+
+  /**
    * Finds a transaction by its idempotency key.
    * Useful for ensuring exactly-once processing for operations like deposits.
    * @param {string} idempotencyKey - The idempotency key.

@@ -51,6 +51,29 @@ class PostgresTransactionRepository extends TransactionRepositoryInterface {
     }
   }
 
+  async findByAuthority(authority, options = {}) {
+    try {
+      if (!authority) return null;
+      // Assuming 'authority' is stored within the 'metadata' JSONB column.
+      // Adjust the query if 'authority' becomes a dedicated column.
+      const queryOptions = {
+        where: {
+          metadata: {
+            [this.Op.contains]: { authority: authority } // For JSONB: metadata @> '{"authority": "value"}'
+            // If using jsonb_path_exists: sequelize.literal(`jsonb_path_exists(metadata, '$.authority ? (@ == "${authority}")')`)
+          }
+        },
+        transaction: options.transaction,
+        lock: options.lock,
+      };
+      const txModelInstance = await this.TransactionModel.findOne(queryOptions);
+      return this.TransactionModel.toDomainEntity(txModelInstance);
+    } catch (error) {
+      // console.error(`Error in PostgresTransactionRepository.findByAuthority: ${error.message}`, error);
+      throw new ApiError(httpStatus.INTERNAL_SERVER_ERROR, `Database error finding transaction by authority: ${error.message}`);
+    }
+  }
+
   async findAllByWalletId({ walletId, page = 1, limit = 10, filters = {}, sortBy = 'transactionDate', sortOrder = 'DESC' }, options = {}) {
     const offset = (parseInt(page, 10) - 1) * parseInt(limit, 10);
     const whereClause = { walletId };

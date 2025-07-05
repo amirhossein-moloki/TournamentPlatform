@@ -70,6 +70,9 @@ const envVarsSchema = Joi.object({
   //   otherwise: Joi.optional(),
   // }).description('AWS SES Region (if different from general AWS_REGION)'),
 
+  ZARINPAL_MERCHANT_ID: Joi.string().required().description('Zarinpal Merchant ID'),
+  ZARINPAL_ACCESS_TOKEN: Joi.string().optional().description('Zarinpal Access Token for refunds etc.'),
+
 
   SEQUELIZE_LOGGING: Joi.boolean().when('NODE_ENV', {
     is: 'development',
@@ -168,6 +171,11 @@ const config = {
     senderAddress: envVars.EMAIL_SENDER_ADDRESS,
     sendgridApiKey: envVars.SENDGRID_API_KEY,
     // sesRegion: envVars.AWS_SES_REGION, // Link to aws.region or define separately if needed
+  },
+
+  zarinpal: {
+    merchantId: envVars.ZARINPAL_MERCHANT_ID,
+    accessToken: envVars.ZARINPAL_ACCESS_TOKEN, // Will be undefined if not set, which is fine
   },
 };
 
