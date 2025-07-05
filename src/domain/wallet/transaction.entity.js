@@ -51,7 +51,20 @@ class Transaction {
   }
 
   static validTypes = ['DEPOSIT', 'WITHDRAWAL', 'TOURNAMENT_FEE', 'PRIZE_PAYOUT', 'REFUND', 'ADJUSTMENT_CREDIT', 'ADJUSTMENT_DEBIT'];
-  static validStatuses = ['PENDING', 'COMPLETED', 'FAILED', 'CANCELED', 'REQUIRES_APPROVAL', 'PROCESSING', 'REFUNDED'];
+
+  static Status = {
+    PENDING: 'PENDING',
+    COMPLETED: 'COMPLETED',
+    FAILED: 'FAILED',
+    CANCELED: 'CANCELED',
+    REQUIRES_APPROVAL: 'REQUIRES_APPROVAL', // For withdrawals needing admin action
+    PROCESSING: 'PROCESSING',             // For transactions that are in an intermediate state
+    REFUNDED: 'REFUNDED',
+    REJECTED: 'REJECTED',                 // For withdrawals rejected by admin
+    PAYMENT_FAILED: 'PAYMENT_FAILED',       // When gateway payment fails after approval/initiation
+    ERROR_INSUFFICIENT_FUNDS_POST_PAYMENT: 'ERROR_INSUFFICIENT_FUNDS_POST_PAYMENT' // Critical error state
+  };
+  static validStatuses = Object.values(Transaction.Status);
 
   /**
    * Updates the status of the transaction.

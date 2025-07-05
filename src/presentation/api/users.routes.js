@@ -2,15 +2,26 @@ const express = require('express');
 const Joi = require('joi');
 const { authenticateToken, authorizeRole } = require('../../middleware/auth.middleware');
 const PostgresUserRepository = require('../../infrastructure/database/repositories/postgres.user.repository');
-// const GetUserProfileUseCase = require('../../application/use-cases/user/get-user-profile.usecase');
-// const UpdateUserProfileUseCase = require('../../application/use-cases/user/update-user-profile.usecase');
-// const ListUsersUseCase = require('../../application/use-cases/user/list-users.usecase'); // For admin
+const GetUserProfileUseCase = require('../../application/use-cases/user/get-user-profile.usecase');
+const UpdateUserProfileUseCase = require('../../application/use-cases/user/update-user-profile.usecase');
+const ListUsersUseCase = require('../../application/use-cases/user/list-users.usecase');
+const AdminUpdateUserUseCase = require('../../application/use-cases/user/admin-update-user.usecase');
+const AdminDeleteUserUseCase = require('../../application/use-cases/user/admin-delete-user.usecase');
 const ApiError = require('../../utils/ApiError');
 const httpStatusCodes = require('http-status-codes');
 const ApiResponse = require('../../utils/ApiResponse');
 
 const router = express.Router();
+
+// Instantiate Repositories
 const userRepository = new PostgresUserRepository();
+
+// Instantiate Use Cases
+const getUserProfileUseCase = new GetUserProfileUseCase(userRepository);
+const updateUserProfileUseCase = new UpdateUserProfileUseCase(userRepository);
+const listUsersUseCase = new ListUsersUseCase(userRepository);
+const adminUpdateUserUseCase = new AdminUpdateUserUseCase(userRepository);
+const adminDeleteUserUseCase = new AdminDeleteUserUseCase(userRepository);
 
 // --- Schemas for Validation (if needed for update, etc.) ---
 const updateUserSchema = Joi.object({
@@ -34,16 +45,11 @@ router.get('/me', authenticateToken, async (req, res, next) => {
       throw new ApiError(httpStatusCodes.UNAUTHORIZED, 'User ID not found in token.');
     }
 
-    // const getUserProfile = new GetUserProfileUseCase(userRepository);
-    // const userProfile = await getUserProfile.execute(userId);
-    // For now, directly use repository until specific use cases are added for /me
-    const user = await userRepository.findById(userId);
+    // const userId = req.user.sub; // From JWT payload (subject, i.e., user ID)
+    // No need to validate userId from token, authMiddleware handles token validity.
+    const user = await getUserProfileUseCase.execute(req.user.sub);
+    // getUserProfileUseCase will throw if user not found.
 
-    if (!user) {
-      throw new ApiError(httpStatusCodes.NOT_FOUND, 'User profile not found.');
-    }
-
-    // Use the domain entity's toPublicProfile method
     return new ApiResponse(res, httpStatusCodes.OK, 'User profile retrieved successfully.', user.toPublicProfile()).send();
   } catch (error) {
     next(error);
@@ -67,27 +73,10 @@ router.put('/me', authenticateToken, async (req, res, next) => {
         throw new ApiError(httpStatusCodes.BAD_REQUEST, 'No update data provided.');
     }
 
-    // const updateUserProfile = new UpdateUserProfileUseCase(userRepository);
-    // const updatedUser = await updateUserProfile.execute(userId, updateData);
-    // For now, direct repository usage:
-    // Additional checks needed: e.g., if username is being updated, check for uniqueness.
-    // This logic ideally resides in a use case.
+    const updatedUser = await updateUserProfileUseCase.execute(userId, updateData);
+    // updateUserProfileUseCase handles internal checks like username uniqueness and throws ApiError if needed.
 
-    if (updateData.username) {
-        const existingUser = await userRepository.findByUsername(updateData.username);
-        if (existingUser && existingUser.id !== userId) {
-            throw new ApiError(httpStatusCodes.CONFLICT, 'Username already taken.');
-        }
-    }
-    // Email updates are more complex (verification), typically not done via simple PUT.
-    // Password updates should be a separate, dedicated endpoint with current password verification.
-
-    const user = await userRepository.update(userId, updateData);
-    if (!user) {
-      throw new ApiError(httpStatusCodes.NOT_FOUND, 'User not found or update failed.');
-    }
-
-    return new ApiResponse(res, httpStatusCodes.OK, 'Profile updated successfully.', user.toPublicProfile()).send();
+    return new ApiResponse(res, httpStatusCodes.OK, 'Profile updated successfully.', updatedUser.toPublicProfile()).send();
   } catch (error) {
     next(error);
   }
@@ -113,16 +102,15 @@ router.get(
       if (req.query.role) filters.role = req.query.role;
       if (req.query.isVerified) filters.isVerified = req.query.isVerified === 'true';
 
-      // const listUsers = new ListUsersUseCase(userRepository);
-      // const result = await listUsers.execute({ page, limit, filters });
-      // Direct repository usage:
-      const result = await userRepository.findAll({ page, limit, filters });
+      const result = await listUsersUseCase.execute({ page, limit, filters });
+      // listUsersUseCase returns { users: User[], total: number, page: number, limit: number }
+      // where users are domain entities.
 
       return new ApiResponse(res, httpStatusCodes.OK, 'Users listed successfully.', {
-        users: result.users.map(user => user.toPublicProfile()), // Ensure public profiles
-        total: result.total,
-        page: result.page,
-        limit: result.limit,
+        users: result.users.map(user => user.toPublicProfile()),
+        totalItems: result.total,
+        currentPage: result.page,
+        pageSize: result.limit,
         totalPages: Math.ceil(result.total / result.limit),
       }).send();
     } catch (error) {
@@ -141,14 +129,15 @@ router.get(
   authorizeRole(['Admin']),
   async (req, res, next) => {
     try {
-      const { id } = req.params;
-      // const getUserProfile = new GetUserProfileUseCase(userRepository);
-      // const user = await getUserProfile.execute(id);
-      const user = await userRepository.findById(id);
-
-      if (!user) {
-        throw new ApiError(httpStatusCodes.NOT_FOUND, 'User not found.');
+      const { id } = req.params; // TODO: Validate ID format (e.g., UUID)
+      const { error: idError } = Joi.string().uuid().required().validate(id);
+      if (idError) {
+          throw new ApiError(httpStatusCodes.BAD_REQUEST, 'Invalid User ID format.', idError.details.map(d => d.message));
       }
+
+      const user = await getUserProfileUseCase.execute(id);
+      // getUserProfileUseCase throws ApiError if not found.
+
       return new ApiResponse(res, httpStatusCodes.OK, 'User profile retrieved successfully.', user.toPublicProfile()).send();
     } catch (error) {
       next(error);
@@ -185,28 +174,15 @@ router.put(
         throw new ApiError(httpStatusCodes.BAD_REQUEST, 'No update data provided.');
       }
 
-      // Use case would be better here for complex logic like role change implications
-      // const adminUpdateUser = new AdminUpdateUserUseCase(userRepository);
-      // const updatedUser = await adminUpdateUser.execute(id, adminUpdateData);
-      // Direct repository usage:
-      if (adminUpdateData.username) {
-        const existingUser = await userRepository.findByUsername(adminUpdateData.username);
-        if (existingUser && existingUser.id !== id) {
-            throw new ApiError(httpStatusCodes.CONFLICT, 'Username already taken.');
-        }
-      }
-      if (adminUpdateData.email) {
-        const existingUser = await userRepository.findByEmail(adminUpdateData.email);
-        if (existingUser && existingUser.id !== id) {
-            throw new ApiError(httpStatusCodes.CONFLICT, 'Email already taken.');
-        }
+      const { error: idError } = Joi.string().uuid().required().validate(id);
+      if (idError) {
+          throw new ApiError(httpStatusCodes.BAD_REQUEST, 'Invalid User ID format.', idError.details.map(d => d.message));
       }
 
-      const user = await userRepository.update(id, adminUpdateData);
-      if (!user) {
-        throw new ApiError(httpStatusCodes.NOT_FOUND, 'User not found or update failed.');
-      }
-      return new ApiResponse(res, httpStatusCodes.OK, 'User updated successfully by admin.', user.toPublicProfile()).send();
+      const updatedUser = await adminUpdateUserUseCase.execute(id, adminUpdateData, req.user.sub);
+      // adminUpdateUserUseCase handles internal checks and throws ApiError if needed.
+
+      return new ApiResponse(res, httpStatusCodes.OK, 'User updated successfully by admin.', updatedUser.toPublicProfile()).send();
     } catch (error) {
       next(error);
     }
@@ -231,13 +207,16 @@ router.delete(
       }
 
       // Use case would handle cascading deletes or other business logic.
-      // const deleteUser = new DeleteUserUseCase(userRepository);
-      // await deleteUser.execute(id);
-      const success = await userRepository.delete(id);
-      if (!success) {
-        throw new ApiError(httpStatusCodes.NOT_FOUND, 'User not found or delete failed.');
+      // const deleteUser = new AdminDeleteUserUseCase(userRepository); // Corrected use case name
+      const { error: idError } = Joi.string().uuid().required().validate(id);
+      if (idError) {
+          throw new ApiError(httpStatusCodes.BAD_REQUEST, 'Invalid User ID format.', idError.details.map(d => d.message));
       }
-      return new ApiResponse(res, httpStatusCodes.OK, 'User deleted successfully.').send(); // Or 204 No Content
+
+      const result = await adminDeleteUserUseCase.execute(id, req.user.sub);
+      // adminDeleteUserUseCase handles checks like admin not deleting self and throws ApiError.
+
+      return new ApiResponse(res, httpStatusCodes.OK, result.message).send(); // Or 204 No Content
     } catch (error) {
       next(error);
     }

@@ -94,33 +94,33 @@ class PostgresUserRepository extends UserRepositoryInterface {
     this.UserModel = UserModel; // Use the defined Sequelize model
   }
 
-  async findById(id) {
-    const userModelInstance = await this.UserModel.findByPk(id);
+  async findById(id, options = {}) {
+    const userModelInstance = await this.UserModel.findByPk(id, { transaction: options.transaction });
     return toDomainEntity(userModelInstance);
   }
 
-  async findByEmail(email) {
-    const userModelInstance = await this.UserModel.findOne({ where: { email } });
+  async findByEmail(email, options = {}) {
+    const userModelInstance = await this.UserModel.findOne({ where: { email }, transaction: options.transaction });
     return toDomainEntity(userModelInstance);
   }
 
-  async findByUsername(username) {
-    const userModelInstance = await this.UserModel.findOne({ where: { username } });
+  async findByUsername(username, options = {}) {
+    const userModelInstance = await this.UserModel.findOne({ where: { username }, transaction: options.transaction });
     return toDomainEntity(userModelInstance);
   }
 
-  async findByVerificationToken(verificationToken) {
+  async findByVerificationToken(verificationToken, options = {}) {
     if (!verificationToken) return null;
-    const userModelInstance = await this.UserModel.findOne({ where: { verificationToken } });
+    const userModelInstance = await this.UserModel.findOne({ where: { verificationToken }, transaction: options.transaction });
     return toDomainEntity(userModelInstance);
   }
 
-  async findByRefreshToken(refreshToken) {
-    const userModelInstance = await this.UserModel.findOne({ where: { refreshToken } });
+  async findByRefreshToken(refreshToken, options = {}) {
+    const userModelInstance = await this.UserModel.findOne({ where: { refreshToken }, transaction: options.transaction });
     return toDomainEntity(userModelInstance);
   }
 
-  async create(userEntity) {
+  async create(userEntity, options = {}) {
     // Convert domain entity to a plain object suitable for Sequelize create
     const userData = {
       id: userEntity.id, // Assuming ID is generated in domain or service layer (e.g. UUID)
@@ -133,57 +133,37 @@ class PostgresUserRepository extends UserRepositoryInterface {
       lastLogin: userEntity.lastLogin,
       verificationToken: userEntity.verificationToken,
       tokenVersion: userEntity.tokenVersion,
-      // createdAt and updatedAt will be handled by Sequelize if not provided
+      // createdAt and updatedAt will be handled by Sequelize
     };
-    const createdUserModel = await this.UserModel.create(userData);
+    const createdUserModel = await this.UserModel.create(userData, { transaction: options.transaction });
     return toDomainEntity(createdUserModel);
   }
 
-  async update(id, updateData) {
-    // Ensure `updateData` does not contain fields that shouldn't be directly updated
-    // or that are handled by domain entity methods (like passwordHash via user.updatePassword).
-    // `updateData` here should be a plain object of attributes to change.
-    // Example: { username: 'new', role: 'Admin', refreshToken: 'token', isVerified: true, lastLogin: new Date() }
-
-    const [numberOfAffectedRows, affectedRows] = await this.UserModel.update(updateData, {
+  async update(id, updateData, options = {}) {
+    // `updateData` should be a plain object of attributes to change.
+    // Use cases should ensure that only appropriate fields are passed for update.
+    const [numberOfAffectedRows] = await this.UserModel.update(updateData, {
       where: { id },
-      returning: true, // Get the updated rows
-      plain: true, // Return a single updated object
+      transaction: options.transaction,
     });
 
-    if (numberOfAffectedRows > 0 && affectedRows) {
-      // Fetch the instance again to ensure we have the full, updated model to convert
-      // Or, if `returning: true` and `plain: true` work as expected for your dialect,
-      // `affectedRows` might already be the updated instance.
-      // For safety and consistency, re-fetch or use the returned object carefully.
-      // const updatedInstance = await this.UserModel.findByPk(id);
-      // return toDomainEntity(updatedInstance);
-
-      // If `affectedRows` is the updated model instance directly (depends on Sequelize version and dialect config)
-      // This is often the case with `returning: true, plain: true` for Postgres.
-      // We need to ensure `affectedRows` is the actual instance, not just a metadata object.
-      // Let's assume `returning: true` gives back the model instance or instances.
-      // If `plain: true` is used, `affectedRows` should be the single instance.
-      // However, the structure of `affectedRows` can vary.
-      // A safer bet is to re-fetch, or ensure the `toDomainEntity` can handle the output of `update`.
-      // For `update`, `returning: true` usually gives an array of instances.
-      // If `plain: true` is also used with `update`, it's tricky.
-      // Let's adjust to a more standard way:
-      const userModelInstance = await this.UserModel.findByPk(id);
-      return toDomainEntity(userModelInstance);
+    if (numberOfAffectedRows > 0) {
+      // Re-fetch to get the updated instance, ensuring it's read within the same transaction if provided.
+      const updatedInstance = await this.UserModel.findByPk(id, { transaction: options.transaction });
+      return toDomainEntity(updatedInstance);
     }
-    return null; // No user found or updated
+    return null;
   }
 
-
-  async delete(id) {
+  async delete(id, options = {}) {
     const numberOfDeletedRows = await this.UserModel.destroy({
       where: { id },
+      transaction: options.transaction,
     });
     return numberOfDeletedRows > 0;
   }
 
-  async findAll({ page = 1, limit = 10, filters = {} } = {}) {
+  async findAll({ page = 1, limit = 10, filters = {} } = {}, options = {}) {
     const offset = (page - 1) * limit;
     const whereClause = {};
 
@@ -200,6 +180,7 @@ class PostgresUserRepository extends UserRepositoryInterface {
       limit,
       offset,
       order: [['createdAt', 'DESC']], // Default order
+      transaction: options.transaction, // Support reading within a transaction
     });
 
     return {
