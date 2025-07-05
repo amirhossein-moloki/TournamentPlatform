@@ -10,7 +10,7 @@ const { appConfig } = require('../../../config/config');
 const ApiError = require('../../utils/ApiError');
 const httpStatusCodes = require('http-status-codes');
 const ApiResponse = require('../../utils/ApiResponse');
-const { v4: uuidv4 } = require('uuid'); // For generating idempotency keys or transaction IDs if needed by placeholder
+// const { v4: uuidv4 } = require('uuid'); // No longer needed here
 
 const router = express.Router();
 
@@ -24,7 +24,11 @@ const transactionRepository = new PostgresTransactionRepository();
 const initializeDepositUseCase = new InitializeDepositUseCase(walletRepository, transactionRepository);
 const getTransactionHistoryUseCase = new GetTransactionHistoryUseCase(walletRepository, transactionRepository);
 const requestWithdrawalUseCase = new RequestWithdrawalUseCase(walletRepository, transactionRepository);
+const GetWalletDetailsUseCase = require('../../application/use-cases/wallet/get-wallet-details.usecase');
 // const processDepositUseCase = new ProcessDepositUseCase(walletRepository, transactionRepository, sequelize); // For webhook
+
+// Instantiate Use Cases (continue)
+const getWalletDetailsUseCase = new GetWalletDetailsUseCase(walletRepository);
 
 // --- Schemas for Validation ---
 const initializeDepositSchema = Joi.object({
@@ -61,19 +65,34 @@ const transactionHistorySchema = Joi.object({
 // --- Route Handlers ---
 
 /**
+ * GET /api/v1/wallet
+ * Get the wallet details for the authenticated user.
+ */
+router.get('/', authenticateToken, async (req, res, next) => {
+  try {
+    const userId = req.user.sub;
+    const walletDetails = await getWalletDetailsUseCase.execute(userId);
+    return new ApiResponse(res, httpStatusCodes.OK, 'Wallet details retrieved successfully.', walletDetails).send();
+  } catch (error) {
+    next(error);
+  }
+});
+
+/**
  * POST /api/v1/wallet/deposit/initialize
  * Initialize the wallet top-up process.
  */
 router.post('/deposit/initialize', authenticateToken, async (req, res, next) => {
   try {
     const idempotencyKey = req.header(appConfig.idempotencyKeyHeader); // 'X-Idempotency-Key'
-    if (!idempotencyKey || !Joi.string().uuid().validate(idempotencyKey).error === null) {
-        // throw new ApiError(httpStatusCodes.BAD_REQUEST, `Header ${appConfig.idempotencyKeyHeader} is required and must be a UUID.`);
-        // For now, allow non-UUID for easier testing if UUID is too strict for dev.
-        // A stricter check: if (!idempotencyKey || Joi.string().uuid().validate(idempotencyKey).error) { ... }
-        if (!idempotencyKey) {
-             throw new ApiError(httpStatusCodes.BAD_REQUEST, `Header ${appConfig.idempotencyKeyHeader} is required.`);
+    const { error: idempotencyError } = Joi.string().uuid().required().validate(idempotencyKey, {
+        messages: {
+            'any.required': `Header ${appConfig.idempotencyKeyHeader} is required.`,
+            'string.guid': `Header ${appConfig.idempotencyKeyHeader} must be a valid UUID.`
         }
+    });
+    if (idempotencyError) {
+        throw new ApiError(httpStatusCodes.BAD_REQUEST, idempotencyError.details[0].message);
     }
 
     const { error, value: depositData } = initializeDepositSchema.validate(req.body);
@@ -140,11 +159,15 @@ router.get('/history', authenticateToken, async (req, res, next) => {
 router.post('/withdrawals', authenticateToken, async (req, res, next) => {
   try {
     const idempotencyKey = req.header(appConfig.idempotencyKeyHeader);
-    if (!idempotencyKey) { // Make idempotency key optional or required based on policy for withdrawals
-        // For withdrawals, it's also a good idea to prevent duplicates.
-        // throw new ApiError(httpStatusCodes.BAD_REQUEST, `Header ${appConfig.idempotencyKeyHeader} is required.`);
+    const { error: idempotencyError } = Joi.string().uuid().required().validate(idempotencyKey, {
+        messages: {
+            'any.required': `Header ${appConfig.idempotencyKeyHeader} is required.`,
+            'string.guid': `Header ${appConfig.idempotencyKeyHeader} must be a valid UUID.`
+        }
+    });
+    if (idempotencyError) {
+        throw new ApiError(httpStatusCodes.BAD_REQUEST, idempotencyError.details[0].message);
     }
-
 
     const { error, value: withdrawalData } = requestWithdrawalSchema.validate(req.body);
     if (error) {
@@ -153,57 +176,38 @@ router.post('/withdrawals', authenticateToken, async (req, res, next) => {
 
     const userId = req.user.sub;
 
-    // const requestWithdrawal = new RequestWithdrawalUseCase(walletRepository, transactionRepository);
-    // const result = await requestWithdrawal.execute(userId, withdrawalData, idempotencyKey);
+    const result = await requestWithdrawalUseCase.execute(
+      userId,
+      withdrawalData, // This is { amount, currency, withdrawalMethodDetails }
+      idempotencyKey   // Pass the idempotency key (can be null/undefined if not provided)
+    );
+    // RequestWithdrawalUseCase returns { transaction: Transaction, message: string }
 
-    // --- Placeholder Logic ---
-    // 1. Check idempotency if key provided.
-    if (idempotencyKey) {
-        const existingTx = await transactionRepository.findByIdempotencyKey(idempotencyKey);
-        if (existingTx) {
-            // Simplified: if exists, assume it's a duplicate. Real check involves payload matching.
-            return new ApiResponse(res, httpStatusCodes.OK, 'Withdrawal request already submitted (idempotency).', {
-                transactionId: existingTx.id,
-                status: existingTx.status,
-            }).send();
-        }
+    // If the use case handles an idempotent replay by returning the existing transaction,
+    // the status code might need to be adjusted based on the message or a specific flag.
+    // For now, assuming a successful new request or a successful idempotent replay that the use case
+    // formats appropriately within its message and transaction object.
+    // A 202 is generally for new requests that are accepted for processing.
+    // If idempotency returns an already completed/processed transaction, 200 OK might be better.
+    // The use case returns "Withdrawal request already submitted or being processed (Idempotency)"
+    // and the existing transaction. In this case, 200 OK is more appropriate.
+
+    let statusCode = httpStatusCodes.ACCEPTED; // Default for new requests
+    if (result.message && result.message.includes("already submitted or being processed (Idempotency)")) {
+        statusCode = httpStatusCodes.OK;
     }
 
-    // 2. Get user's wallet and check balance.
-    const wallet = await walletRepository.findByUserId(userId);
-    if (!wallet) throw new ApiError(httpStatusCodes.NOT_FOUND, 'User wallet not found.');
-    if (wallet.balance < withdrawalData.amount) {
-        throw new ApiError(httpStatusCodes.BAD_REQUEST, 'Insufficient balance for withdrawal.');
-    }
-    // Potentially place a hold on the funds here (e.g. by creating a PENDING_HOLD transaction or similar)
-
-    // 3. Create a 'REQUIRES_APPROVAL' transaction record.
-    const transactionId = uuidv4();
-    const pendingWithdrawal = {
-      id: transactionId,
-      walletId: wallet.id,
-      type: 'WITHDRAWAL',
-      amount: withdrawalData.amount,
-      status: 'REQUIRES_APPROVAL',
-      idempotencyKey: idempotencyKey || null, // Store if provided
-      description: `Withdrawal request for ${withdrawalData.amount} ${withdrawalData.currency}.`,
-      metadata: {
-          userId,
-          withdrawalMethod: withdrawalData.withdrawalMethodDetails,
-          // any other relevant info
-      },
-      transactionDate: new Date(),
-    };
-    await transactionRepository.create(pendingWithdrawal);
-
-    const result = {
-      message: 'Withdrawal request submitted for approval.',
-      transactionId,
-    };
-    // --- End Placeholder Logic ---
-
-    return new ApiResponse(res, httpStatusCodes.ACCEPTED, result.message, result).send(); // 202 Accepted
+    return new ApiResponse(
+        res,
+        statusCode,
+        result.message,
+        { transactionId: result.transaction.id, status: result.transaction.status } // Return key details
+    ).send();
   } catch (error) {
+    // Handle specific errors from the use case, e.g., CONFLICT for non-matching idempotent requests
+    if (error instanceof ApiError && error.statusCode === httpStatusCodes.CONFLICT) {
+        // Let the global error handler manage this, or customize response if needed
+    }
     next(error);
   }
 });

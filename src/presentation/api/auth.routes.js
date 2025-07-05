@@ -70,16 +70,25 @@ router.post('/register', async (req, res, next) => {
     }
 
     // 2. Execute use case
-    const { user: createdUser, message } = await registerUserUseCase.execute(value);
+    const { user: createdUser, accessToken, refreshToken, message } = await registerUserUseCase.execute(value);
 
-    // 3. Send response (Tokens are not sent on register; user must log in)
-    // Or, some systems might auto-login user after registration and return tokens.
-    // The blueprint implies separate login for tokens.
+    // 3. Set Refresh Token in HttpOnly cookie
+    res.cookie(appConfig.jwt.refreshCookieName, refreshToken, {
+      httpOnly: true,
+      secure: appConfig.env === 'production', // Only send over HTTPS in production
+      sameSite: 'strict',
+      maxAge: appConfig.jwt.refreshExpiration ?
+              require('ms')(appConfig.jwt.refreshExpiration) :
+              7 * 24 * 60 * 60 * 1000, // Default 7 days
+      path: '/api/v1/auth', // Scope cookie to auth paths
+    });
+
+    // 4. Send response with Access Token in body
     return new ApiResponse(
       res,
       httpStatusCodes.CREATED,
-      message || 'User registered successfully. Please log in.',
-      { user: createdUser } // Return public profile of the created user
+      message || 'User registered and logged in successfully.',
+      { user: createdUser, accessToken }
     ).send();
 
   } catch (err) {

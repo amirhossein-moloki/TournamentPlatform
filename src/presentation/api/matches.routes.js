@@ -32,10 +32,16 @@ const submitResultSchema = Joi.object({
 });
 
 const uploadUrlRequestSchema = Joi.object({
-    filename: Joi.string().pattern(/^[\w-\.]+\.(png|jpe?g|gif)$/i).required() // Basic filename validation for common image types
-        .messages({ 'string.pattern.base': 'Filename must be a valid image name (e.g., result.jpg, proof.png).' }),
+    filename: Joi.string().trim().pattern(/^[^/\0]+\.(png|jpe?g|gif)$/i, { name: 'image file' }).required()
+        .messages({
+            'string.pattern.name': 'Filename must be a valid image name with a .png, .jpg, .jpeg, or .gif extension and cannot contain slashes.',
+            'any.required': 'Filename is required.'
+        }),
     contentType: Joi.string().valid('image/png', 'image/jpeg', 'image/gif').required()
-        .messages({ 'string.valid': 'Content type must be one of image/png, image/jpeg, image/gif.' }),
+        .messages({
+            'any.only': 'Content type must be one of image/png, image/jpeg, image/gif.',
+            'any.required': 'Content type is required.'
+        }),
 });
 
 
