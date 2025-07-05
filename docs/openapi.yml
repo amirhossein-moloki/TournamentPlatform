@@ -165,30 +165,51 @@ components:
       properties:
         amount:
           type: number
-          format: float
-          minimum: 0.01
-          example: 20.50
+          format: float # Should be integer for Rials, but float for flexibility if other currencies are used.
+          minimum: 1000 # Example: Minimum 1000 Rials for Zarinpal
+          description: "Amount to deposit. For Zarinpal, this should be in Rials."
+          example: 50000
         currency:
           type: string
           maxLength: 3
-          example: "USD"
+          description: "Currency code. For Zarinpal, this should be 'IRR'."
+          example: "IRR"
 
     WalletInitializeDepositResponse:
       type: object
       properties:
         message:
           type: string
-          example: "Deposit initialized. Proceed to payment gateway."
+          example: "Deposit initialized. Proceed to Zarinpal payment gateway."
         paymentGatewayUrl:
           type: string
           format: url
-          example: "https://payment.gateway.com/pay/xyz123"
+          description: "URL to redirect the user to for payment with Zarinpal."
+          example: "https://sandbox.zarinpal.com/pg/StartPay/A0000000000000000000000000000000000"
         transactionId:
           type: string
           format: uuid
+          description: "Internal transaction ID for tracking."
           example: "b2c3d4e5-f6a7-8901-2345-678901bcdef0"
+        authority:
+          type: string
+          description: "Zarinpal authority code for this payment request."
+          example: "A0000000000000000000000000000000000"
 
-    PaymentWebhookPayload:
+    # Schema for Zarinpal callback (Not a request body, but for documentation of query params)
+    ZarinpalCallbackQueryParams:
+      type: object
+      properties:
+        Authority:
+          type: string
+          description: "The authority code returned by Zarinpal."
+          example: "A0000000000000000000000000000000000"
+        Status:
+          type: string
+          description: "Payment status from Zarinpal ('OK' or 'NOK')."
+          example: "OK"
+
+    PaymentWebhookPayload: # This is for a generic webhook, may not be Zarinpal specific
       type: object
       properties:
         transactionId:
@@ -821,8 +842,12 @@ paths:
   /wallet/deposit/initialize:
     post:
       tags: [Wallet]
-      summary: Initialize the wallet top-up process.
-      description: Requires user authentication. An Idempotency Key header (UUID format) is required.
+      summary: Initialize a deposit with Zarinpal.
+      description: |
+        Initiates a deposit request with Zarinpal.
+        The user will be redirected to Zarinpal's payment page.
+        Requires user authentication and an Idempotency Key header (UUID format).
+        The `amount` should be in Rials and `currency` should be 'IRR'.
       security:
         - bearerAuth: []
       parameters:
@@ -835,13 +860,13 @@ paths:
               $ref: '#/components/schemas/WalletInitializeDepositRequest'
       responses:
         '200':
-          description: Deposit initialization successful or idempotent replay.
+          description: Deposit initialization successful or idempotent replay. Returns Zarinpal redirect URL and authority.
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/WalletInitializeDepositResponse'
         '400':
-          description: Validation error or idempotency key reuse with different payload.
+          description: Validation error (e.g., invalid amount/currency, missing idempotency key) or idempotency key reuse with different payload.
           content:
             application/json:
               schema:
@@ -855,9 +880,59 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
         '500':
-          description: Internal server error.
+          description: Internal server error (e.g., failed to communicate with Zarinpal).
 
-  /webhooks/payment-gateway:
+  /wallet/deposit/callback:
+    get:
+      tags: [Wallet]
+      summary: Zarinpal payment callback URL.
+      description: |
+        Endpoint for Zarinpal to redirect the user after a payment attempt.
+        This endpoint is not intended to be called directly by clients.
+        It processes the payment verification.
+      parameters:
+        - name: Authority
+          in: query
+          required: true
+          description: The authority code from Zarinpal.
+          schema:
+            type: string
+        - name: Status
+          in: query
+          required: true
+          description: The payment status from Zarinpal ('OK' or 'NOK').
+          schema:
+            type: string
+            enum: [OK, NOK]
+      responses:
+        '302':
+          description: Redirects the user to a frontend page indicating payment success, failure, or cancellation.
+          headers:
+            Location:
+              description: URL to redirect the user to (e.g., /payment-success?txId=...).
+              schema:
+                type: string
+                format: url
+        '400':
+          description: Invalid callback parameters (e.g., missing Authority or Status).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Transaction associated with the authority not found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error during payment verification or processing.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /webhooks/payment-gateway: # This is a generic webhook endpoint, Zarinpal uses redirect callback
     post:
       tags: [Webhooks]
       summary: Receive payment confirmation from the payment gateway.

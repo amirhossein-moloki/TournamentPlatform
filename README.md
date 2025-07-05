@@ -126,7 +126,10 @@ The project follows a Clean Architecture pattern:
     - JWT (JWT_SECRET, token expirations)
     - Redis (REDIS_HOST, REDIS_PORT, REDIS_PASSWORD)
     - RabbitMQ (RABBITMQ_URL, queue names)
-    - Payment Gateway (API_KEY, WEBHOOK_SECRET)
+    - Payment Gateway (API_KEY, WEBHOOK_SECRET) - Note: This might be for a generic gateway.
+    - **Zarinpal Payment Gateway**:
+        - `ZARINPAL_MERCHANT_ID`: Your Zarinpal merchant ID.
+        - `ZARINPAL_ACCESS_TOKEN` (Optional): Your Zarinpal access token, if using features like refunds.
     - AWS S3 (ACCESS_KEY_ID, SECRET_ACCESS_KEY, REGION, BUCKET_NAME)
     - Logging (LOG_LEVEL, file paths)
     - Admin User Seeder (ADMIN_EMAIL, ADMIN_PASSWORD)

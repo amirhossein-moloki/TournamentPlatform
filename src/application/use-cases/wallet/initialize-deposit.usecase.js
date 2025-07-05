@@ -2,6 +2,9 @@ const { v4: uuidv4 } = require('uuid');
 const ApiError = require('../../../utils/ApiError');
 const httpStatusCodes = require('http-status-codes');
 const { Transaction } = require('../../../domain/wallet/transaction.entity'); // Domain entity
+const zarinpal = require('../../../config/zarinpal'); // Import Zarinpal instance
+const { appConfig } = require('../../../../config/config');
+
 // const { Wallet } = require('../../../domain/wallet/wallet.entity'); // Not directly manipulated here, but fetched
 
 class InitializeDepositUseCase {
@@ -19,10 +22,10 @@ class InitializeDepositUseCase {
   /**
    * Initializes a deposit request.
    * @param {string} userId - The ID of the user initiating the deposit.
-   * @param {number} amount - The amount to deposit.
-   * @param {string} currency - The currency of the deposit (e.g., 'USD').
+   * @param {number} amount - The amount to deposit (in Rials for Zarinpal).
+   * @param {string} currency - The currency of the deposit (e.g., 'IRR'). Zarinpal only supports IRR.
    * @param {string} idempotencyKey - A unique key to ensure the operation is processed only once.
-   * @returns {Promise<{paymentGatewayUrl: string, transactionId: string, message: string}>}
+   * @returns {Promise<{paymentGatewayUrl: string, transactionId: string, message: string, authority: string}>}
    * @throws {ApiError} If validation fails, wallet not found, or idempotency check fails.
    */
   async execute(userId, amount, currency, idempotencyKey) {
@@ -32,40 +35,44 @@ class InitializeDepositUseCase {
     if (typeof amount !== 'number' || amount <= 0) {
       throw new ApiError(httpStatusCodes.BAD_REQUEST, 'Deposit amount must be a positive number.');
     }
-    if (typeof currency !== 'string' || currency.length !== 3) {
-      throw new ApiError(httpStatusCodes.BAD_REQUEST, 'Invalid currency code.');
+    // Zarinpal expects amounts in Rials. We'll assume the input amount is already in Rials.
+    // Currency should ideally be 'IRR' for Zarinpal.
+    if (currency !== 'IRR') {
+      // For now, we'll proceed but log a warning. In a real system, this might be an error or trigger conversion.
+      console.warn(`InitializeDepositUseCase: Currency is ${currency}, but Zarinpal primarily uses IRR. Ensure amount is in Rials.`);
+      // throw new ApiError(httpStatusCodes.BAD_REQUEST, "Invalid currency for Zarinpal. Only IRR is supported and amount should be in Rials.");
     }
 
+
     // 1. Idempotency Check
-    // A more robust idempotency service might store request fingerprints and responses.
-    // For now, basic check against transaction idempotencyKey.
     const existingTransaction = await this.transactionRepository.findByIdempotencyKey(idempotencyKey);
     if (existingTransaction) {
-      // If a transaction with this key exists, we need to decide how to respond.
-      // If it's PENDING, it means it was already initiated.
-      // If it's COMPLETED, it means it was already successfully processed.
-      // If it's FAILED, policy might allow retry or require new key.
-      // For simplicity: if PENDING or COMPLETED, return info about existing transaction.
       if (existingTransaction.status === 'PENDING' || existingTransaction.status === 'COMPLETED') {
-        // Ensure the existing transaction matches the current request's key details (user, amount, currency)
-        // This is a simplified check. A full check would compare more parameters if they were part of the idempotent request.
         const walletForExistingTx = await this.walletRepository.findById(existingTransaction.walletId);
-        if (walletForExistingTx && walletForExistingTx.userId === userId &&
-            parseFloat(existingTransaction.amount) === amount /*&& existingTransaction.currency === currency - Transaction entity does not store currency*/) {
+        if (
+          walletForExistingTx &&
+          walletForExistingTx.userId === userId &&
+          parseFloat(existingTransaction.amount) === amount &&
+          existingTransaction.metadata &&
+          existingTransaction.metadata.requestedCurrency === currency
+        ) {
+          // If an existing transaction matches, and it has an authority, attempt to reconstruct the payment URL
+          // This is helpful if the user retries before being redirected or after a browser crash.
+          let paymentGatewayUrl = `https://www.zarinpal.com/pg/StartPay/${existingTransaction.metadata.authority}`;
+          if (zarinpal.sandbox) {
+            paymentGatewayUrl = `https://sandbox.zarinpal.com/pg/StartPay/${existingTransaction.metadata.authority}`;
+          }
 
-            // Construct a conceptual payment gateway URL for the existing transaction
-            const paymentGatewayUrl = `https://payment.gateway.com/pay/existing_tx_${existingTransaction.id}?amount=${existingTransaction.amount}&currency=${currency}`; // Assuming currency from request is what was intended
-            return {
-                message: `Deposit already initiated or completed (Idempotency). Status: ${existingTransaction.status}`,
-                paymentGatewayUrl: paymentGatewayUrl,
-                transactionId: existingTransaction.id,
-            };
+          return {
+            message: `Deposit already initiated or completed (Idempotency). Status: ${existingTransaction.status}`,
+            paymentGatewayUrl: existingTransaction.metadata.authority ? paymentGatewayUrl : null, // Only if authority exists
+            transactionId: existingTransaction.id,
+            authority: existingTransaction.metadata.authority,
+          };
         } else {
-            // Idempotency key collision with different parameters - this is an error.
-            throw new ApiError(httpStatusCodes.CONFLICT, `Idempotency key ${idempotencyKey} already used with different request parameters.`);
+          throw new ApiError(httpStatusCodes.CONFLICT, `Idempotency key ${idempotencyKey} already used with different request parameters.`);
         }
       } else {
-        // e.g., if FAILED, and policy is to deny retry with same key.
         throw new ApiError(httpStatusCodes.CONFLICT, `Idempotency key ${idempotencyKey} corresponds to a transaction with status ${existingTransaction.status}. Cannot re-initiate.`);
       }
     }
@@ -75,39 +82,65 @@ class InitializeDepositUseCase {
     if (!wallet) {
       throw new ApiError(httpStatusCodes.NOT_FOUND, 'User wallet not found.');
     }
-    // We could also check if wallet currency matches request currency if wallets are currency-specific
-    // For now, assuming wallet can handle any currency transaction or gateway handles conversion.
 
-    // 3. Create a PENDING transaction record
-    const transactionId = uuidv4(); // Generate a new transaction ID
+    // 3. Create Payment Request with Zarinpal
+    const callbackURL = `${appConfig.baseUrl}/api/v1/wallet/deposit/callback`; // Construct full callback URL
+    let zarinpalResponse;
+    try {
+      zarinpalResponse = await zarinpal.payments.create({
+        amount: Number(amount), // Ensure amount is a number
+        callback_url: callbackURL,
+        description: `Wallet deposit for user ${userId}, Transaction ID will be generated.`, // Temp description, will update later
+        // mobile: '09123456789', // Optional
+        // email: 'customer@example.com', // Optional
+      });
+
+      if (!zarinpalResponse || zarinpalResponse.data.errors || !zarinpalResponse.data.authority) {
+        console.error('Zarinpal payment creation error:', zarinpalResponse ? zarinpalResponse.data.errors : 'No response');
+        throw new ApiError(httpStatusCodes.INTERNAL_SERVER_ERROR, 'Failed to create payment request with Zarinpal.', zarinpalResponse ? zarinpalResponse.data.errors : undefined);
+      }
+    } catch (error) {
+      console.error('Error calling Zarinpal payments.create:', error);
+      if (error instanceof ApiError) throw error;
+      throw new ApiError(httpStatusCodes.INTERNAL_SERVER_ERROR, 'Error initiating payment with Zarinpal.', error.message);
+    }
+
+    const { authority } = zarinpalResponse.data;
+    const paymentUrl = zarinpal.getRedirectUrl(authority);
+
+    // 4. Create a PENDING transaction record
+    const transactionId = uuidv4();
+    const transactionDescription = `Wallet deposit via Zarinpal for ${amount} ${currency}. Authority: ${authority}.`;
     const transactionEntity = new Transaction(
       transactionId,
       wallet.id,
       'DEPOSIT',
-      amount,
-      'PENDING', // Initial status
+      amount, // Store the amount as sent to Zarinpal (Rials)
+      'PENDING',
       idempotencyKey,
-      `Wallet deposit initialization for ${amount} ${currency}.`,
-      { // Metadata
-        userId, // For audit/tracking
-        requestedAmount: amount,
-        requestedCurrency: currency,
-        // Other details like payment method hint if provided by user
+      transactionDescription,
+      {
+        userId,
+        requestedAmount: amount, // Amount in Rials
+        requestedCurrency: currency, // Original currency from request, e.g., 'IRR'
+        paymentGateway: 'Zarinpal',
+        authority, // Store Zarinpal authority
+        zarinpalFee: zarinpalResponse.data.fee, // Store Zarinpal fee if available
       },
-      new Date() // transactionDate
+      new Date()
     );
+
+    // Update the description in Zarinpal request now that we have the transactionId
+    // Note: Zarinpal SDK might not support updating description post-creation.
+    // This is more for our records. The description in transactionEntity is the primary one.
 
     await this.transactionRepository.create(transactionEntity);
 
-    // 4. Prepare data for/redirect to payment gateway (conceptual)
-    // In a real scenario, this might involve calling a payment gateway SDK
-    // to get a redirect URL or parameters for a client-side integration.
-    const paymentGatewayUrl = `https://payment.gateway.com/pay/new_tx_${transactionId}?amount=${amount}&currency=${currency}`;
-
     return {
-      message: 'Deposit initialized successfully. Proceed to payment gateway.',
-      paymentGatewayUrl,
+      message: 'Deposit initialized successfully. Proceed to Zarinpal payment gateway.',
+      paymentGatewayUrl: paymentUrl,
       transactionId,
+      authority,
     };
   }
 }
@@ -115,17 +148,13 @@ class InitializeDepositUseCase {
 module.exports = InitializeDepositUseCase;
 
 // Notes:
-// - The use case handles basic validation and idempotency.
-// - It creates a PENDING transaction before interacting with any (conceptual) payment gateway.
-// - The `paymentGatewayUrl` is a placeholder. Real integration is more complex.
-// - Error handling uses `ApiError` for consistent responses.
-// - The idempotency check is simplified. A full solution would store request fingerprints
-//   and potentially the original response to return if the request is replayed.
-// - This use case does not modify the wallet balance; that happens in `ProcessDepositUseCase`
-//   after successful payment confirmation from the gateway.
-// - The Transaction domain entity doesn't store currency directly, but the metadata here does.
-//   If multi-currency wallets are a feature, this might need refinement.
-//   The Wallet entity has a currency, which this use case could check against.
-//   For now, assuming the deposit currency is recorded in transaction metadata.
-// - The `idempotencyService` parameter is a placeholder for a more advanced, dedicated service
-//   if the current repository-based check becomes insufficient.
+// - Integrated Zarinpal SDK for payment request creation.
+// - `amount` is assumed to be in Rials. Currency is expected to be 'IRR'.
+// - `callback_url` is constructed dynamically using `appConfig.baseUrl`. Ensure `appConfig.baseUrl` is set correctly.
+// - Zarinpal `authority` and original `amount` are stored in transaction metadata.
+// - Idempotency check now tries to reconstruct payment URL if authority exists.
+// - Error handling for Zarinpal API calls is added.
+// - The description for Zarinpal is generic initially; the detailed description is in our local transaction record.
+// - Ensure `appConfig.baseUrl` correctly points to your application's public base URL.
+// - The Zarinpal SDK uses `axios` which returns `response.data`.
+// - Reverted to CommonJS module syntax (module.exports and require) for consistency with the project.
