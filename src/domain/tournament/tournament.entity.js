@@ -39,7 +39,11 @@ class Tournament {
     createdAt = new Date(),
     updatedAt = new Date(),
     participants = [], // Should primarily be IDs or simplified representations in domain entity
-    matches = []       // Same as participants
+    matches = [],       // Same as participants
+    // New fields added for alignment with model
+    bannerImageUrl = null,
+    bracketType = Tournament.BracketType.SINGLE_ELIMINATION,
+    settings = {}
   ) {
     if (!id) throw new Error('Tournament ID is required.');
     if (!name) throw new Error('Tournament name is required.');
@@ -74,11 +78,63 @@ class Tournament {
     // For a pure domain entity, these might be managed via methods or separate aggregate roots.
     this._participants = participants; // Store as internal, manage via methods
     this._matches = matches;           // Store as internal, manage via methods
+
+    // Assign new properties from constructor parameters
+    this.bannerImageUrl = bannerImageUrl;
+    this.bracketType = bracketType;
+    this.settings = settings;
   }
 
-  // --- Status Management ---
-  static validStatuses = ['PENDING', 'REGISTRATION_OPEN', 'REGISTRATION_CLOSED', 'ONGOING', 'COMPLETED', 'CANCELED'];
+  // --- Factory Method ---
+  static fromPersistence(data) {
+    if (!data) return null;
+    return new Tournament(
+      data.id,
+      data.name,
+      data.gameName || data.gameType, // Handle potential name difference from model
+      data.description,
+      data.rules,
+      data.status,
+      data.entryFee,
+      data.prizePool,
+      data.maxParticipants || data.capacity, // Handle potential name difference
+      data.currentParticipants,
+      data.startDate,
+      data.endDate,
+      data.organizerId || data.createdBy, // Handle potential name difference
+      data.createdAt,
+      data.updatedAt,
+      [], // participants - typically not hydrated from simple persistence
+      [], // matches - typically not hydrated from simple persistence
+      data.bannerImageUrl,
+      data.bracketType,
+      data.settings
+    );
+  }
 
+  // --- Enums ---
+  static Status = {
+    PENDING: 'PENDING',
+    UPCOMING: 'UPCOMING', // Added to match model's usage
+    REGISTRATION_OPEN: 'REGISTRATION_OPEN',
+    REGISTRATION_CLOSED: 'REGISTRATION_CLOSED',
+    ONGOING: 'ONGOING',
+    COMPLETED: 'COMPLETED',
+    CANCELED: 'CANCELED',
+  };
+  static validStatuses = Object.values(Tournament.Status);
+
+  static BracketType = {
+    SINGLE_ELIMINATION: 'SINGLE_ELIMINATION',
+    DOUBLE_ELIMINATION: 'DOUBLE_ELIMINATION',
+    ROUND_ROBIN: 'ROUND_ROBIN',
+    SWISS: 'SWISS',
+    // Add other common bracket types
+  };
+  static validBracketTypes = Object.values(Tournament.BracketType);
+
+
+  // --- Status Management ---
   updateStatus(newStatus) {
     if (!Tournament.validStatuses.includes(newStatus)) {
       throw new Error(`Invalid tournament status: ${newStatus}.`);
@@ -222,5 +278,9 @@ class Tournament {
   // addMatch(match) { this._matches.push(match); this.updatedAt = new Date(); }
 }
 
-module.exports = { Tournament };
+module.exports = {
+  Tournament,
+  TournamentStatus: Tournament.Status, // Exporting the Status enum
+  BracketType: Tournament.BracketType, // Exporting the BracketType enum
+};
 // Similar to User.entity.js, using a named export for potential future additions from this file.

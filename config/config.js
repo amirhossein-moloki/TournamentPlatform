@@ -52,6 +52,25 @@ const envVarsSchema = Joi.object({
   CORS_ORIGIN: Joi.string().default('*'),
   IDEMPOTENCY_KEY_HEADER: Joi.string().default('X-Idempotency-Key'),
 
+  // Email Service Configuration
+  EMAIL_SERVICE_PROVIDER: Joi.string().valid('SES', 'SENDGRID', 'CONSOLE').default('CONSOLE'),
+  EMAIL_SENDER_ADDRESS: Joi.string().email().when('EMAIL_SERVICE_PROVIDER', {
+    is: Joi.string().valid('SES', 'SENDGRID'),
+    then: Joi.required(),
+    otherwise: Joi.optional(),
+  }).description('Sender email address for system emails'),
+  SENDGRID_API_KEY: Joi.string().when('EMAIL_SERVICE_PROVIDER', {
+    is: 'SENDGRID',
+    then: Joi.required(),
+    otherwise: Joi.optional(),
+  }).description('SendGrid API Key'),
+  // AWS_SES_REGION: Joi.string().when('EMAIL_SERVICE_PROVIDER', { // Covered by AWS_REGION if SES is used in same region
+  //   is: 'SES',
+  //   then: Joi.required(), // Or default to AWS_REGION
+  //   otherwise: Joi.optional(),
+  // }).description('AWS SES Region (if different from general AWS_REGION)'),
+
+
   SEQUELIZE_LOGGING: Joi.boolean().when('NODE_ENV', {
     is: 'development',
     then: Joi.boolean().default(true), // Log SQL in development
@@ -143,6 +162,13 @@ const config = {
   },
 
   idempotencyKeyHeader: envVars.IDEMPOTENCY_KEY_HEADER,
+
+  email: {
+    provider: envVars.EMAIL_SERVICE_PROVIDER,
+    senderAddress: envVars.EMAIL_SENDER_ADDRESS,
+    sendgridApiKey: envVars.SENDGRID_API_KEY,
+    // sesRegion: envVars.AWS_SES_REGION, // Link to aws.region or define separately if needed
+  },
 };
 
 // This structure is often used for Sequelize CLI, which expects configurations

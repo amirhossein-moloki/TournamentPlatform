@@ -1,163 +1,179 @@
-const { sequelize, DataTypes } = require('../postgres.connector');
-const { Wallet } = require('../../../domain/wallet/wallet.entity');
+// const { sequelize, DataTypes } = require('../postgres.connector'); // No longer needed
+// const { Wallet } = require('../../../domain/wallet/wallet.entity'); // No longer needed for toDomainEntity
 const WalletRepositoryInterface = require('../../../domain/wallet/wallet.repository.interface');
-const { User } = require('../../../domain/user/user.entity'); // For potential associations if needed
-
-// Define the Sequelize model for Wallet, mapping to the 'Wallets' table
-const WalletModel = sequelize.define('Wallet', {
-  id: {
-    type: DataTypes.UUID,
-    defaultValue: DataTypes.UUIDV4,
-    primaryKey: true,
-  },
-  userId: {
-    type: DataTypes.UUID,
-    allowNull: false,
-    unique: true, // Each user has one wallet
-    references: {
-      model: 'Users', // Name of the Users table as defined in its model or migration
-      key: 'id',
-    },
-    onUpdate: 'CASCADE',
-    onDelete: 'CASCADE',
-  },
-  balance: {
-    type: DataTypes.DECIMAL(10, 2),
-    allowNull: false,
-    defaultValue: 0.00,
-    validate: {
-      isDecimal: true,
-      min: 0, // Balance cannot be negative
-    },
-  },
-  currency: {
-    type: DataTypes.STRING(3),
-    allowNull: false,
-    defaultValue: 'USD',
-  },
-  // createdAt and updatedAt are automatically added by Sequelize (timestamps: true in connector)
-}, {
-  tableName: 'Wallets',
-  timestamps: true,
-  // Ensure indexes match those in migration if any beyond FKs (e.g., userId is already indexed by unique constraint)
-});
-
-// Optional: Define association if you need to include User details when fetching Wallet
-// UserModel would need to be imported from postgres.user.repository.js
-// WalletModel.belongsTo(UserModel, { foreignKey: 'userId', as: 'user' });
-
-// Helper to convert Sequelize model instance to domain Wallet entity
-function toDomainEntity(walletModelInstance) {
-  if (!walletModelInstance) return null;
-  const data = walletModelInstance.get({ plain: true });
-  return new Wallet(
-    data.id,
-    data.userId,
-    parseFloat(data.balance), // Ensure balance is a number
-    data.currency,
-    data.createdAt,
-    data.updatedAt
-  );
-}
+// const { User } = require('../../../domain/user/user.entity'); // No longer needed here
+const ApiError = require('../../../utils/ApiError'); // For throwing domain specific errors
+const httpStatus = require('http-status');
 
 class PostgresWalletRepository extends WalletRepositoryInterface {
-  constructor() {
+  /**
+   * @param {object} models - An object containing the Sequelize models.
+   * @param {import('sequelize').ModelCtor<import('sequelize').Model> & { toDomainEntity: Function }} models.WalletModel
+   * @param {import('sequelize').ModelCtor<import('sequelize').Model>} [models.UserModel] - Optional, for future use
+   */
+  constructor(models) {
     super();
-    this.WalletModel = WalletModel;
+    if (!models || !models.WalletModel || typeof models.WalletModel.toDomainEntity !== 'function') {
+        throw new Error('Required models.WalletModel with toDomainEntity method not provided to PostgresWalletRepository');
+    }
+    this.WalletModel = models.WalletModel;
+    this.UserModel = models.UserModel; // If needed for includes or direct user queries related to wallet
+    this.sequelize = models.WalletModel.sequelize;
+    this.Op = this.sequelize.Op;
   }
 
   async findById(id, options = {}) {
-    const queryOptions = {
-      transaction: options.transaction,
-      lock: options.lock,
-    };
-    const walletModelInstance = await this.WalletModel.findByPk(id, queryOptions);
-    return toDomainEntity(walletModelInstance);
+    try {
+      const queryOptions = {
+        transaction: options.transaction,
+        lock: options.lock,
+      };
+      const walletModelInstance = await this.WalletModel.findByPk(id, queryOptions);
+      return this.WalletModel.toDomainEntity(walletModelInstance);
+    } catch (error) {
+      // console.error(`Error in PostgresWalletRepository.findById: ${error.message}`, error);
+      throw new ApiError(httpStatus.INTERNAL_SERVER_ERROR, `Database error finding wallet by ID: ${error.message}`);
+    }
   }
 
   async findByUserId(userId, options = {}) {
-    const queryOptions = {
-      where: { userId },
-      transaction: options.transaction,
-      lock: options.lock,
-    };
-    const walletModelInstance = await this.WalletModel.findOne(queryOptions);
-    return toDomainEntity(walletModelInstance);
+    try {
+      const queryOptions = {
+        where: { userId },
+        transaction: options.transaction,
+        lock: options.lock,
+      };
+      // if (options.includeUser && this.UserModel) {
+      //   queryOptions.include = [{ model: this.UserModel, as: 'user' }];
+      // }
+      const walletModelInstance = await this.WalletModel.findOne(queryOptions);
+      return this.WalletModel.toDomainEntity(walletModelInstance);
+    } catch (error) {
+        // console.error(`Error in PostgresWalletRepository.findByUserId: ${error.message}`, error);
+        throw new ApiError(httpStatus.INTERNAL_SERVER_ERROR, `Database error finding wallet by user ID: ${error.message}`);
+    }
   }
 
   async create(walletEntityOrData, options = {}) {
-    // Accepts either a domain entity or a plain data object
     const walletData = {
-      id: walletEntityOrData.id, // Assuming ID is generated (e.g. UUID) before calling create
+      id: walletEntityOrData.id,
       userId: walletEntityOrData.userId,
-      balance: walletEntityOrData.balance !== undefined ? walletEntityOrData.balance : 0.00,
+      balance: walletEntityOrData.balance !== undefined ? parseFloat(walletEntityOrData.balance) : 0.00,
       currency: walletEntityOrData.currency || 'USD',
     };
-    const createdWalletModel = await this.WalletModel.create(walletData, { transaction: options.transaction });
-    return toDomainEntity(createdWalletModel);
+
+    if (walletData.balance < 0) {
+        throw new ApiError(httpStatus.BAD_REQUEST, 'Wallet balance cannot be negative.');
+    }
+
+    try {
+        const createdWalletModel = await this.WalletModel.create(walletData, { transaction: options.transaction });
+        return this.WalletModel.toDomainEntity(createdWalletModel);
+    } catch (error) {
+        if (error.name === 'SequelizeUniqueConstraintError') {
+            throw new ApiError(httpStatus.CONFLICT, 'A wallet already exists for this user.');
+        }
+        throw new ApiError(httpStatus.INTERNAL_SERVER_ERROR, `Error creating wallet: ${error.message}`);
+    }
   }
 
   async update(id, updateData, options = {}) {
-    // updateData should primarily be { balance: newBalance }
-    // Other fields like currency are typically not updated post-creation for a wallet.
     const sanitizedUpdateData = {};
     if (updateData.balance !== undefined) {
       sanitizedUpdateData.balance = parseFloat(updateData.balance);
       if (isNaN(sanitizedUpdateData.balance) || sanitizedUpdateData.balance < 0) {
-        throw new Error('Invalid balance amount for update.');
+        throw new ApiError(httpStatus.BAD_REQUEST, 'Invalid balance amount for update. Balance cannot be negative.');
       }
     }
-    // if (updateData.currency) { sanitizedUpdateData.currency = updateData.currency; } // If currency updates were allowed
 
     if (Object.keys(sanitizedUpdateData).length === 0) {
-      // No valid fields to update, return current state or null if not found
-      return this.findById(id);
+      const currentWallet = await this.findById(id, { transaction: options.transaction });
+      return currentWallet; // Return current state as no valid fields to update
     }
 
-    const [numberOfAffectedRows] = await this.WalletModel.update(
-      sanitizedUpdateData,
-      {
-        where: { id },
-        transaction: options.transaction, // Pass transaction if provided (for atomic operations)
-      }
-    );
+    // Ensure to use a transaction if one is not already provided for balance updates
+    const t = options.transaction || await this.sequelize.transaction();
+    const manageTransaction = !options.transaction;
 
-    if (numberOfAffectedRows > 0) {
-      const updatedInstance = await this.WalletModel.findByPk(id);
-      return toDomainEntity(updatedInstance);
+    try {
+        const wallet = await this.WalletModel.findByPk(id, { transaction: t, lock: t.LOCK.UPDATE }); // Lock for update
+        if (!wallet) {
+            if (manageTransaction && t && !t.isCompleted()) await t.rollback();
+            throw new ApiError(httpStatus.NOT_FOUND, 'Wallet not found for update.');
+        }
+
+        // Optimistic locking check can be added here if model has a version field
+        // if (options.version && wallet.version !== options.version) {
+        //   if (manageTransaction && t && !t.isCompleted()) await t.rollback();
+        //   throw new ApiError(httpStatus.CONFLICT, 'Wallet has been updated by another process.');
+        // }
+
+        const [numberOfAffectedRows] = await this.WalletModel.update(
+          sanitizedUpdateData,
+          {
+            where: { id }, // Could also add version to where clause for optimistic lock
+            transaction: t,
+          }
+        );
+
+        if (numberOfAffectedRows > 0) {
+          const updatedInstance = await this.WalletModel.findByPk(id, { transaction: t });
+          if (manageTransaction && t && !t.isCompleted()) await t.commit();
+          return this.WalletModel.toDomainEntity(updatedInstance);
+        }
+
+        // If no rows affected but wallet exists, it means data was same or condition failed
+        if (manageTransaction && t && !t.isCompleted()) await t.rollback();
+        // Re-fetch with original transaction if one was provided, or without if we managed it and rolled back
+        const currentWallet = await this.WalletModel.findByPk(id, { transaction: options.transaction });
+        return this.WalletModel.toDomainEntity(currentWallet);
+
+    } catch (error) {
+        if (manageTransaction && t && !t.isCompleted()) await t.rollback();
+        if (error instanceof ApiError) throw error;
+        // console.error(`Error in PostgresWalletRepository.update: ${error.message}`, error);
+        throw new ApiError(httpStatus.INTERNAL_SERVER_ERROR, `Database error updating wallet: ${error.message}`);
     }
-    return null; // No wallet found or updated
   }
 
-  async delete(id) {
-    // Deleting a wallet is a sensitive operation.
-    // Ensure associated transactions are handled (e.g., archived, or prevented if active).
-    // Also, consider if balance must be zero.
-    // For now, a simple delete:
-    const walletInstance = await this.WalletModel.findByPk(id);
-    if (walletInstance && parseFloat(walletInstance.balance) !== 0.00) {
-        // Optional: Prevent deletion if balance is not zero, or implement logic to transfer/archive balance.
-        // throw new Error('Cannot delete wallet with non-zero balance.');
-    }
+  async delete(id, options = {}) { // Added options for transaction
+    const t = options.transaction || await this.sequelize.transaction();
+    const manageTransaction = !options.transaction;
 
-    const numberOfDeletedRows = await this.WalletModel.destroy({
-      where: { id },
-    });
-    return numberOfDeletedRows > 0;
+    try {
+        const walletInstance = await this.WalletModel.findByPk(id, { transaction: t });
+        if (!walletInstance) {
+            if (manageTransaction && t && !t.isCompleted()) await t.rollback();
+            // Consider if not found should be an error or just return false for delete operations
+            // For now, returning false is consistent with how delete operations often behave.
+            // If an error is preferred: throw new ApiError(httpStatus.NOT_FOUND, 'Wallet not found for deletion.');
+            return false;
+        }
+
+        if (parseFloat(walletInstance.balance) !== 0.00) {
+            if (manageTransaction && t && !t.isCompleted()) await t.rollback();
+            throw new ApiError(httpStatus.BAD_REQUEST, 'Cannot delete wallet with non-zero balance.');
+        }
+
+        const numberOfDeletedRows = await this.WalletModel.destroy({
+          where: { id },
+          transaction: t,
+        });
+
+        if (manageTransaction && t && !t.isCompleted()) await t.commit();
+        return numberOfDeletedRows > 0;
+
+    } catch (error) {
+        if (manageTransaction && t && !t.isCompleted()) await t.rollback();
+        if (error instanceof ApiError) throw error;
+        // console.error(`Error in PostgresWalletRepository.delete: ${error.message}`, error);
+        throw new ApiError(httpStatus.INTERNAL_SERVER_ERROR, `Database error deleting wallet: ${error.message}`);
+    }
   }
 }
 
-module.exports = PostgresWalletRepository;
+module.exports = { PostgresWalletRepository }; // Export as object
 
-// Note: The WalletModel definition aligns with the 'Wallets' table in the migration.
-// The `userId` has a unique constraint, ensuring one wallet per user.
-// Balance validation (min: 0) is included at the model level.
-// The `update` method specifically handles balance updates and can accept a Sequelize transaction
-// for atomicity, which is crucial for financial operations (e.g., ProcessDepositUseCase).
-// The `delete` method is basic; real-world scenarios might require more complex logic
-// (e.g., preventing deletion of wallets with balance, or archiving).
-// The domain entity Wallet's constructor expects balance as a number, so parseFloat is used.
-// The `create` method can take a domain entity or a plain object. It ensures ID is provided.
-// If ID is auto-generated by DB (not UUIDV4 default in model), `create` would be different.
-// Here, defaultValue: DataTypes.UUIDV4 means ID can be pre-generated or DB-generated if not given.
-// It's common for application/domain layer to generate UUIDs.
+// Comments about model definition, migrations, and specific choices are now assumed to be handled
+// by the centralized model definitions and the overall project structure.
+// The repository now focuses on data access logic using the injected models.
