@@ -3,12 +3,19 @@ require('dotenv').config(); // Load environment variables from .env file
 const http = require('http');
 const app = require('./src/app');
 const logger = require('./src/utils/logger');
+const swaggerUi = require('swagger-ui-express');
+const YAML = require('yamljs');
+const path = require('path');
 const { sequelize } = require('./src/infrastructure/database/postgres.connector');
 const rabbitMQAdapter = require('./src/infrastructure/messaging/rabbitmq.adapter');
 // const { initialize: initializeRedis } = require('./src/infrastructure/cache/redis.adapter'); // If Redis needs explicit init
 const initializeSocketIO = require('./src/presentation/sockets');
 
 const PORT = process.env.PORT || 3000;
+
+// Swagger setup
+const swaggerDocument = YAML.load(path.join(__dirname, 'swagger.yaml'));
+app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerDocument));
 
 const server = http.createServer(app);
 
