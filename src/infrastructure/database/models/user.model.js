@@ -28,6 +28,63 @@ class UserModel extends Model {
   //   const data = this.get({ plain: true });
   //   return new User(...Object.values(data)); // Adjust based on User constructor
   // }
+
+  static associate(models) {
+    // User -> UserGameProfile (One-to-Many)
+    this.hasMany(models.UserGameProfile, {
+      foreignKey: 'userId',
+      as: 'gameProfiles',
+      onDelete: 'CASCADE',
+    });
+
+    // User -> Tournament (Organizer/Creator) (One-to-Many)
+    // Note: The foreignKey in TournamentModel was 'organizerId'
+    this.hasMany(models.Tournament, { // Assuming TournamentModel is models.Tournament
+      foreignKey: 'organizerId', // This FK must exist in TournamentModel
+      as: 'organizedTournaments', // Alias for tournaments organized by the user
+      onDelete: 'SET NULL', // Or 'CASCADE' if tournaments should be deleted with user
+    });
+
+    // User -> Wallet (One-to-One)
+    this.hasOne(models.Wallet, { // Assuming WalletModel is models.Wallet
+      foreignKey: 'userId',
+      as: 'wallet',
+      onDelete: 'CASCADE',
+    });
+
+    // User -> Transaction (though usually Wallet -> Transaction)
+    // If users can directly have transactions not tied to a wallet, define here.
+    // Otherwise, this is typically accessed via user.getWallet().then(wallet => wallet.getTransactions())
+
+    // User -> DisputeTicket (Reporter) (One-to-Many)
+    this.hasMany(models.DisputeTicket, { // Assuming DisputeTicketModel is models.DisputeTicket
+      foreignKey: 'reporterId',
+      as: 'reportedDisputes',
+      onDelete: 'SET NULL',
+    });
+
+    // User -> DisputeTicket (Moderator) (One-to-Many)
+    this.hasMany(models.DisputeTicket, {
+      foreignKey: 'moderatorId',
+      as: 'moderatedDisputes',
+      onDelete: 'SET NULL',
+    });
+
+    // User -> IdempotencyRequest (One-to-Many)
+    this.hasMany(models.IdempotencyRequest, { // Assuming IdempotencyRequestModel is models.IdempotencyRequest
+      foreignKey: 'userId',
+      as: 'idempotencyRequests',
+      onDelete: 'CASCADE',
+    });
+
+    // User -> TournamentParticipant (if a user can be a participant directly)
+    // This depends on how TournamentParticipant is structured.
+    // If TournamentParticipant links a User to a Tournament:
+    // this.hasMany(models.TournamentParticipant, {
+    //   foreignKey: 'userId', // Assuming TournamentParticipant has userId
+    //   as: 'participations',
+    // });
+  }
 }
 
 module.exports = (sequelize) => {

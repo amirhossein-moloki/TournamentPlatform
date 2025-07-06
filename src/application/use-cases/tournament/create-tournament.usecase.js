@@ -8,16 +8,17 @@ class CreateTournamentUseCase {
    * @param {object} tournamentRepository - Repository for tournament data persistence.
    * @param {object} userRepository - Repository for user data (to validate organizerId if needed).
    */
-  constructor(tournamentRepository, userRepository) {
+  constructor(tournamentRepository, userRepository, gameRepository) { // Added gameRepository
     this.tournamentRepository = tournamentRepository;
-    this.userRepository = userRepository; // To validate organizer or for future enhancements
+    this.userRepository = userRepository;
+    this.gameRepository = gameRepository; // To validate gameId
   }
 
   /**
    * Executes the tournament creation use case.
    * @param {object} tournamentData - Data for the new tournament.
    * @param {string} tournamentData.name - Name of the tournament.
-   * @param {string} tournamentData.gameName - Name of the game for the tournament.
+   * @param {string} tournamentData.gameId - ID of the game for the tournament.
    * @param {string} [tournamentData.description] - Optional description.
    * @param {string} [tournamentData.rules] - Optional rules.
    * @param {number} tournamentData.entryFee - Entry fee for the tournament.
@@ -31,11 +32,17 @@ class CreateTournamentUseCase {
    */
   async execute(tournamentData) {
     // Basic validation (Joi schema validation should be primary at controller level)
-    const requiredFields = ['name', 'gameName', 'entryFee', 'prizePool', 'maxParticipants', 'startDate'];
+    const requiredFields = ['name', 'gameId', 'entryFee', 'prizePool', 'maxParticipants', 'startDate']; // Changed gameName to gameId
     for (const field of requiredFields) {
       if (tournamentData[field] === undefined || tournamentData[field] === null) {
         throw new ApiError(httpStatusCodes.BAD_REQUEST, `Missing required field: ${field}`);
       }
+    }
+
+    // Validate gameId
+    const game = await this.gameRepository.findById(tournamentData.gameId);
+    if (!game || !game.isActive) { // Assuming Game entity has an isActive property
+      throw new ApiError(httpStatusCodes.BAD_REQUEST, `Game with ID ${tournamentData.gameId} not found or is not active.`);
     }
 
     if (new Date(tournamentData.startDate) <= new Date()) {
@@ -64,10 +71,10 @@ class CreateTournamentUseCase {
     }
 
     const tournamentId = uuidv4();
-    const newTournament = new Tournament(
+    const newTournament = new Tournament( // Domain entity uses gameId
       tournamentId,
       tournamentData.name,
-      tournamentData.gameName,
+      tournamentData.gameId, // Pass gameId to the entity
       tournamentData.description || null,
       tournamentData.rules || null,
       'PENDING', // Initial status

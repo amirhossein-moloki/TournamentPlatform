@@ -15,6 +15,7 @@ class PostgresTournamentRepository extends TournamentRepositoryInterface {
    * @param {import('sequelize').ModelCtor<import('sequelize').Model>} models.TournamentModel
    * @param {import('sequelize').ModelCtor<import('sequelize').Model>} models.TournamentParticipantModel
    * @param {import('sequelize').ModelCtor<import('sequelize').Model>} [models.UserModel] - Optional, if needed for creator info
+   * @param {import('sequelize').ModelCtor<import('sequelize').Model>} [models.GameModel] - Optional, for including game details
    */
   constructor(models) {
     super();
@@ -23,32 +24,34 @@ class PostgresTournamentRepository extends TournamentRepositoryInterface {
     }
     this.TournamentModel = models.TournamentModel;
     this.TournamentParticipantModel = models.TournamentParticipantModel;
-    this.UserModel = models.UserModel; // Optional, for future use with creator details
-    this.sequelize = models.TournamentModel.sequelize; // Get sequelize instance from one of the models
-    this.Op = this.sequelize.Op; // Get Op from sequelize instance
+    this.UserModel = models.UserModel;
+    this.GameModel = models.GameModel; // Store GameModel
+    this.sequelize = models.TournamentModel.sequelize;
+    this.Op = this.sequelize.Op;
   }
 
   async create(tournamentEntity, options = {}) {
     try {
       const tournamentData = {
         name: tournamentEntity.name,
-        gameType: tournamentEntity.gameType,
+        gameId: tournamentEntity.gameId, // Changed from gameType to gameId
         description: tournamentEntity.description,
         status: tournamentEntity.status,
-        capacity: tournamentEntity.capacity,
+        maxParticipants: tournamentEntity.maxParticipants, // Changed from capacity
         entryFee: tournamentEntity.entryFee,
         prizePool: tournamentEntity.prizePool,
         startDate: tournamentEntity.startDate,
         endDate: tournamentEntity.endDate,
         rules: tournamentEntity.rules,
         bannerImageUrl: tournamentEntity.bannerImageUrl,
-        createdBy: tournamentEntity.createdBy, // Assuming createdBy is part of entity
+        organizerId: tournamentEntity.organizerId, // Changed from createdBy
         bracketType: tournamentEntity.bracketType,
         settings: tournamentEntity.settings,
       };
       if (tournamentEntity.id) tournamentData.id = tournamentEntity.id;
 
       const tournamentModelInstance = await this.TournamentModel.create(tournamentData, { transaction: options.transaction });
+      // Assuming toDomainEntity can handle the new structure or is updated accordingly
       return tournamentModelInstance.toDomainEntity();
     } catch (error) {
       // logger.error('Error creating tournament in DB:', error);
@@ -56,16 +59,27 @@ class PostgresTournamentRepository extends TournamentRepositoryInterface {
     }
   }
 
-  async findById(tournamentId, options = {}) {
+  async findById(tournamentId, options = {}) { // options can include { includeGame: true, transaction: t }
     try {
-      const includeOptions = [];
-      // Example: if (options.includeCreator && this.UserModel) {
-      //   includeOptions.push({ model: this.UserModel, as: 'creator' });
-      // }
-      const tournamentModelInstance = await this.TournamentModel.findByPk(tournamentId, {
+      const queryOptions = {
         transaction: options.transaction,
-        include: includeOptions,
-      });
+        include: [],
+      };
+
+      if (options.includeGame && this.GameModel) {
+        queryOptions.include.push({
+          model: this.GameModel,
+          as: 'game', // This 'as' must match the alias in TournamentModel.associate
+        });
+      }
+      // Example: if (options.includeCreator && this.UserModel) {
+      //   queryOptions.include.push({ model: this.UserModel, as: 'organizer' }); // Ensure alias matches
+      // }
+
+      const tournamentModelInstance = await this.TournamentModel.findByPk(tournamentId, queryOptions);
+
+      // The toDomainEntity method should be updated to handle the included 'game' object
+      // and potentially map it to a Game domain entity if not already handled by model's toJSON.
       return tournamentModelInstance ? tournamentModelInstance.toDomainEntity() : null;
     } catch (error) {
       // console.error(`Error in PostgresTournamentRepository.findById: ${error.message}`, error);
@@ -111,12 +125,13 @@ class PostgresTournamentRepository extends TournamentRepositoryInterface {
     }
   }
 
-  async findAll({ page = 1, limit = 10, filters = {}, sortBy = 'startDate', sortOrder = 'ASC', options = {} } = {}) {
+  async findAll({ page = 1, limit = 10, filters = {}, sortBy = 'startDate', sortOrder = 'ASC', includeGame = false, options = {} } = {}) {
     try {
       const offset = (parseInt(page, 10) - 1) * parseInt(limit, 10);
       const whereClause = {};
       if (filters.status) whereClause.status = filters.status;
-      if (filters.gameType) whereClause.gameType = { [this.Op.iLike]: `%${filters.gameType}%` };
+      // if (filters.gameType) whereClause.gameType = { [this.Op.iLike]: `%${filters.gameType}%` }; // Old filter
+      if (filters.gameId) whereClause.gameId = filters.gameId; // New filter by gameId
       if (filters.isRegistrationOpen) whereClause.status = TournamentStatus.REGISTRATION_OPEN;
       // Add more filters as needed
 
@@ -126,13 +141,22 @@ class PostgresTournamentRepository extends TournamentRepositoryInterface {
         offset: offset,
         order: [[sortBy, sortOrder.toUpperCase()]],
         transaction: options.transaction,
+        include: []
       };
+
+      if (includeGame && this.GameModel) {
+        findOptions.include.push({
+          model: this.GameModel,
+          as: 'game', // Matches alias in TournamentModel
+        });
+      }
       // if (options.includeCreator && this.UserModel) {
-      //   findOptions.include = [{ model: this.UserModel, as: 'creator', attributes: ['id', 'username'] }];
+      //   findOptions.include.push({ model: this.UserModel, as: 'organizer', attributes: ['id', 'username'] });
       // }
 
       const { count, rows } = await this.TournamentModel.findAndCountAll(findOptions);
 
+      // toDomainEntity should handle included 'game' data
       return {
         tournaments: rows.map(model => model.toDomainEntity()),
         total: count,
@@ -257,6 +281,34 @@ class PostgresTournamentRepository extends TournamentRepositoryInterface {
     } catch (error) {
         // console.error(`Error in PostgresTournamentRepository.findParticipantsByTournamentId: ${error.message}`, error);
         throw new ApiError(httpStatus.INTERNAL_SERVER_ERROR, `Database error finding participants for tournament: ${error.message}`);
+    }
+  }
+
+  async incrementParticipantCount(tournamentId, options = {}) {
+    try {
+      await this.TournamentModel.increment('currentParticipants', {
+        by: 1,
+        where: { id: tournamentId },
+        transaction: options.transaction,
+      });
+      return true;
+    } catch (error) {
+      // console.error(`Error incrementing participant count: ${error.message}`, error);
+      throw new ApiError(httpStatus.INTERNAL_SERVER_ERROR, `Database error incrementing participant count: ${error.message}`);
+    }
+  }
+
+  async decrementParticipantCount(tournamentId, options = {}) {
+    try {
+      await this.TournamentModel.decrement('currentParticipants', {
+        by: 1,
+        where: { id: tournamentId },
+        transaction: options.transaction,
+      });
+      return true;
+    } catch (error) {
+      // console.error(`Error decrementing participant count: ${error.message}`, error);
+      throw new ApiError(httpStatus.INTERNAL_SERVER_ERROR, `Database error decrementing participant count: ${error.message}`);
     }
   }
 
