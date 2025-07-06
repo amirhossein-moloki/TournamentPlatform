@@ -1,8 +1,8 @@
 const request = require('supertest'); // Placeholder for actual supertest
 const express = require('express');
-const walletRoutes = require('../../../src/presentation/api/wallet.routes');
-const { authenticateToken } = require('../../../src/middleware/auth.middleware'); // Actual middleware
-const ApiError = require('../../../src/utils/ApiError');
+// const walletRoutes = require('../../src/presentation/api/wallet.routes'); // Moved down
+const { authenticateToken } = require('../../src/middleware/auth.middleware'); // Corrected path
+const ApiError = require('../../src/utils/ApiError'); // Corrected path
 const httpStatusCodes = require('http-status-codes');
 
 // Mock middleware and use cases
@@ -14,16 +14,36 @@ jest.mock('../../src/middleware/auth.middleware', () => ({ // Corrected path
   }),
 }));
 
-const mockGetWalletDetailsUseCase = { execute: jest.fn() };
-const mockInitializeDepositUseCase = { execute: jest.fn() };
-const mockRequestWithdrawalUseCase = { execute: jest.fn() };
-const mockGetTransactionHistoryUseCase = { execute: jest.fn() }; // Added for completeness
+// Define mock implementations for use case execute methods
+const mockGetWalletDetailsUseCaseExecute = jest.fn();
+const mockInitializeDepositUseCaseExecute = jest.fn();
+const mockRequestWithdrawalUseCaseExecute = jest.fn();
+const mockGetTransactionHistoryUseCaseExecute = jest.fn();
 
-jest.mock('../../src/application/use-cases/wallet/get-wallet-details.usecase', () => jest.fn(() => mockGetWalletDetailsUseCase)); // Corrected path
-jest.mock('../../src/application/use-cases/wallet/initialize-deposit.usecase', () => jest.fn(() => mockInitializeDepositUseCase)); // Corrected path
-jest.mock('../../src/application/use-cases/wallet/request-withdrawal.usecase', () => jest.fn(() => mockRequestWithdrawalUseCase)); // Corrected path
-jest.mock('../../src/application/use-cases/wallet/get-transaction-history.usecase', () => jest.fn(() => mockGetTransactionHistoryUseCase)); // Corrected path
+// Mock the use case modules
+jest.mock('../../src/application/use-cases/wallet/get-wallet-details.usecase', () => {
+  return jest.fn().mockImplementation(() => {
+    return { execute: mockGetWalletDetailsUseCaseExecute };
+  });
+});
+jest.mock('../../src/application/use-cases/wallet/initialize-deposit.usecase', () => {
+  return jest.fn().mockImplementation(() => {
+    return { execute: mockInitializeDepositUseCaseExecute };
+  });
+});
+jest.mock('../../src/application/use-cases/wallet/request-withdrawal.usecase', () => {
+  return jest.fn().mockImplementation(() => {
+    return { execute: mockRequestWithdrawalUseCaseExecute };
+  });
+});
+jest.mock('../../src/application/use-cases/wallet/get-transaction-history.usecase', () => {
+  return jest.fn().mockImplementation(() => {
+    return { execute: mockGetTransactionHistoryUseCaseExecute };
+  });
+});
 
+// NOW require walletRoutes after mocks are defined
+const walletRoutes = require('../../src/presentation/api/wallet.routes');
 
 // Centralized error handler mock (important for testing error responses)
 const errorHandler = (err, req, res, next) => {
@@ -56,14 +76,14 @@ describe('Wallet Routes Integration Tests', () => {
   describe('GET /api/v1/wallet (Get Wallet Details)', () => {
     it('should return 200 OK with wallet details for authenticated user', async () => {
       const mockWallet = { id: 'wallet-1', balance: 100, currency: 'USD' };
-      mockGetWalletDetailsUseCase.execute.mockResolvedValue(mockWallet);
+      mockGetWalletDetailsUseCaseExecute.mockResolvedValue(mockWallet);
 
       const response = await request(app).get('/api/v1/wallet');
 
       expect(response.status).toBe(httpStatusCodes.OK);
       expect(response.body.success).toBe(true);
       expect(response.body.data).toEqual(mockWallet);
-      expect(mockGetWalletDetailsUseCase.execute).toHaveBeenCalledWith('test-user-id');
+      expect(mockGetWalletDetailsUseCaseExecute).toHaveBeenCalledWith('test-user-id');
     });
 
     it('should return 401 Unauthorized if no token is provided', async () => {
@@ -77,7 +97,7 @@ describe('Wallet Routes Integration Tests', () => {
     });
 
     it('should return 404 Not Found if wallet does not exist', async () => {
-      mockGetWalletDetailsUseCase.execute.mockRejectedValue(new ApiError(httpStatusCodes.NOT_FOUND, 'Wallet not found'));
+      mockGetWalletDetailsUseCaseExecute.mockRejectedValue(new ApiError(httpStatusCodes.NOT_FOUND, 'Wallet not found'));
       const response = await request(app).get('/api/v1/wallet');
       expect(response.status).toBe(httpStatusCodes.NOT_FOUND);
       expect(response.body.message).toBe('Wallet not found');
@@ -90,7 +110,7 @@ describe('Wallet Routes Integration Tests', () => {
 
     it('should return 200 OK on successful deposit initialization', async () => {
       const mockResponse = { message: 'Deposit initialized', paymentGatewayUrl: 'http://pay.co', transactionId: 'tx-1' };
-      mockInitializeDepositUseCase.execute.mockResolvedValue(mockResponse);
+      mockInitializeDepositUseCaseExecute.mockResolvedValue(mockResponse);
 
       const response = await request(app)
         .post('/api/v1/wallet/deposit/initialize')
@@ -99,7 +119,7 @@ describe('Wallet Routes Integration Tests', () => {
 
       expect(response.status).toBe(httpStatusCodes.OK);
       expect(response.body.data).toEqual(expect.objectContaining({ transactionId: 'tx-1' }));
-      expect(mockInitializeDepositUseCase.execute).toHaveBeenCalledWith('test-user-id', depositPayload.amount, depositPayload.currency, idempotencyKey);
+      expect(mockInitializeDepositUseCaseExecute).toHaveBeenCalledWith('test-user-id', depositPayload.amount, depositPayload.currency, idempotencyKey);
     });
 
     it('should return 400 Bad Request if X-Idempotency-Key header is missing', async () => {
@@ -135,7 +155,7 @@ describe('Wallet Routes Integration Tests', () => {
 
     it('should return 202 Accepted for a new successful withdrawal request', async () => {
       const mockTransaction = { id: 'tx-withdraw-1', status: 'REQUIRES_APPROVAL' };
-      mockRequestWithdrawalUseCase.execute.mockResolvedValue({ transaction: mockTransaction, message: 'Withdrawal request submitted.' });
+      mockRequestWithdrawalUseCaseExecute.mockResolvedValue({ transaction: mockTransaction, message: 'Withdrawal request submitted.' });
 
       const response = await request(app)
         .post('/api/v1/wallet/withdrawals')
@@ -144,12 +164,12 @@ describe('Wallet Routes Integration Tests', () => {
 
       expect(response.status).toBe(httpStatusCodes.ACCEPTED);
       expect(response.body.data).toEqual({ transactionId: mockTransaction.id, status: mockTransaction.status });
-      expect(mockRequestWithdrawalUseCase.execute).toHaveBeenCalledWith('test-user-id', withdrawalPayload, idempotencyKey);
+      expect(mockRequestWithdrawalUseCaseExecute).toHaveBeenCalledWith('test-user-id', withdrawalPayload, idempotencyKey);
     });
 
     it('should return 200 OK for an idempotent replay of withdrawal', async () => {
       const mockTransaction = { id: 'tx-withdraw-existing', status: 'REQUIRES_APPROVAL' };
-      mockRequestWithdrawalUseCase.execute.mockResolvedValue({ transaction: mockTransaction, message: 'Withdrawal request already submitted or being processed (Idempotency).' });
+      mockRequestWithdrawalUseCaseExecute.mockResolvedValue({ transaction: mockTransaction, message: 'Withdrawal request already submitted or being processed (Idempotency).' });
 
       const response = await request(app)
         .post('/api/v1/wallet/withdrawals')
@@ -178,7 +198,7 @@ describe('Wallet Routes Integration Tests', () => {
     });
 
     it('should return 400 Bad Request for insufficient funds (mocked use case error)', async () => {
-      mockRequestWithdrawalUseCase.execute.mockRejectedValue(new ApiError(httpStatusCodes.BAD_REQUEST, 'Insufficient balance'));
+      mockRequestWithdrawalUseCaseExecute.mockRejectedValue(new ApiError(httpStatusCodes.BAD_REQUEST, 'Insufficient balance'));
       const response = await request(app)
         .post('/api/v1/wallet/withdrawals')
         .set('X-Idempotency-Key', idempotencyKey)

@@ -1,5 +1,23 @@
-require('dotenv').config(); // Ensure .env variables are loaded
+const dotenv = require('dotenv');
+const path = require('path');
 const Joi = require('joi');
+
+// Load environment variables based on NODE_ENV
+if (process.env.NODE_ENV === 'test') {
+  dotenv.config({ path: path.resolve(process.cwd(), '.env.test') });
+} else if (process.env.NODE_ENV === 'development') {
+  // Attempt to load .env.development, fallback to .env if it doesn't exist or isn't specified
+  const devEnvPath = path.resolve(process.cwd(), '.env.development');
+  const defaultEnvPath = path.resolve(process.cwd(), '.env');
+  const fs = require('fs'); // require fs for checking file existence
+  if (fs.existsSync(devEnvPath)) {
+    dotenv.config({ path: devEnvPath });
+  } else {
+    dotenv.config({ path: defaultEnvPath }); // Load .env if .env.development is not found
+  }
+} else {
+  dotenv.config(); // Loads .env by default (e.g., for production)
+}
 
 // Define validation schema for environment variables
 const envVarsSchema = Joi.object({
