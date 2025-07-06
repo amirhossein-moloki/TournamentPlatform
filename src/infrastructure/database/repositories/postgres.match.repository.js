@@ -14,7 +14,8 @@ class PostgresMatchRepository extends MatchRepositoryInterface {
     /**
      * @param {object} models - An object containing the Sequelize models.
      * @param {import('sequelize').ModelCtor<import('sequelize').Model>} models.MatchModel
-     * @param {import('sequelize').ModelCtor<import('sequelize').Model>} [models.TournamentModel] - Optional, if needed for specific queries involving tournament details directly
+   * @param {import('sequelize').ModelCtor<import('sequelize').Model>} [models.TournamentModel]
+   * @param {import('sequelize').ModelCtor<import('sequelize').Model>} [models.GameModel]
      */
     constructor(models) {
         super();
@@ -22,9 +23,10 @@ class PostgresMatchRepository extends MatchRepositoryInterface {
             throw new Error('Required models (MatchModel) not provided to PostgresMatchRepository');
         }
         this.MatchModel = models.MatchModel;
-        // this.TournamentModel = models.TournamentModel; // If needed for includes
-        this.sequelize = models.MatchModel.sequelize; // Get sequelize instance from the model
-        this.Op = this.sequelize.Op; // Get Op from sequelize instance
+    this.TournamentModel = models.TournamentModel; // Store TournamentModel
+    this.GameModel = models.GameModel;         // Store GameModel
+    this.sequelize = models.MatchModel.sequelize;
+    this.Op = this.sequelize.Op;
     }
 
     async create(matchEntity, options = {}) {
@@ -61,16 +63,31 @@ class PostgresMatchRepository extends MatchRepositoryInterface {
         }
     }
 
-    async findById(matchId, options = {}) {
+  async findById(matchId, options = {}) { // options can include { includeTournament: true, transaction: t }
         try {
-            const includeOptions = [];
-            // Example: if (options.includeTournament && this.TournamentModel) {
-            //   includeOptions.push({ model: this.TournamentModel, as: 'tournament' });
-            // }
-            const matchModelInstance = await this.MatchModel.findByPk(matchId, {
+      const queryOptions = {
                 transaction: options.transaction,
-                include: includeOptions
-                });
+        include: [],
+      };
+
+      if (options.includeTournament && this.TournamentModel) {
+        const tournamentInclude = {
+          model: this.TournamentModel,
+          as: 'tournament', // This 'as' must match the alias in MatchModel.associate
+        };
+        if (this.GameModel) { // If GameModel is available, include it nested under Tournament
+          tournamentInclude.include = [{
+            model: this.GameModel,
+            as: 'game', // This 'as' must match the alias in TournamentModel.associate
+          }];
+        }
+        queryOptions.include.push(tournamentInclude);
+      }
+      // Add other includes based on options if necessary
+
+      const matchModelInstance = await this.MatchModel.findByPk(matchId, queryOptions);
+
+      // The toDomainEntity method for Match should be able to handle nested tournament and game objects
             return matchModelInstance ? matchModelInstance.toDomainEntity() : null;
         } catch (error) {
             // console.error(`Error in PostgresMatchRepository.findById: ${error.message}`, error);

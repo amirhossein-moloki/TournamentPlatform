@@ -1,9 +1,11 @@
 // src/infrastructure/database/models/index.js
 const { sequelize } = require('../postgres.connector'); // Your Sequelize instance
+const initGameModel = require('./game.model'); // Import Game model definer
 const defineTournamentModel = require('./tournament.model');
 const defineMatchModel = require('./match.model');
 const defineTournamentParticipantModel = require('./tournamentParticipant.model');
 const defineUserModel = require('./user.model'); // Import UserModel definer
+const initUserGameProfileModel = require('./userGameProfile.model'); // Import UserGameProfile model definer
 const defineWalletModel = require('./wallet.model'); // Import WalletModel definer
 const defineTransactionModel = require('./transaction.model'); // Import TransactionModel definer
 const defineDisputeTicketModel = require('./disputeTicket.model'); // Import DisputeTicketModel definer
@@ -15,43 +17,54 @@ db.Sequelize = require('sequelize'); // Export Sequelize library itself if neede
 db.sequelize = sequelize; // Export configured instance
 
 // Initialize models
+db.GameModel = initGameModel(sequelize); // Initialize GameModel
 db.TournamentModel = defineTournamentModel(sequelize);
 db.MatchModel = defineMatchModel(sequelize);
 db.TournamentParticipantModel = defineTournamentParticipantModel(sequelize);
 db.UserModel = defineUserModel(sequelize); // Initialize UserModel
+db.UserGameProfileModel = initUserGameProfileModel(sequelize); // Initialize UserGameProfileModel
 db.WalletModel = defineWalletModel(sequelize); // Initialize WalletModel
 db.TransactionModel = defineTransactionModel(sequelize); // Initialize TransactionModel
 db.DisputeTicketModel = defineDisputeTicketModel(sequelize); // Initialize DisputeTicketModel
 db.IdempotencyRequestModel = defineIdempotencyRequestModel(sequelize); // Initialize IdempotencyRequestModel
 
 // Define associations
+// Call associate method on each model if it exists
+// This centralizes association definitions within the models themselves.
 
-// User <-> Tournament (Created By)
-db.UserModel.hasMany(db.TournamentModel, {
-  foreignKey: 'createdBy',
-  as: 'createdTournaments',
-  onUpdate: 'CASCADE',
-  onDelete: 'SET NULL', // Or 'NO ACTION' or 'RESTRICT' depending on desired behavior
-});
-db.TournamentModel.belongsTo(db.UserModel, {
-  foreignKey: 'createdBy',
-  as: 'creator', // Alias for when fetching Tournament and including User
+Object.keys(db).forEach(modelName => {
+  if (db[modelName] && db[modelName].associate) {
+    db[modelName].associate(db);
+  }
 });
 
+// User <-> Tournament (Created By) - This should be defined in UserModel.associate and TournamentModel.associate
+// db.UserModel.hasMany(db.TournamentModel, {
+//   foreignKey: 'organizerId', // Assuming 'createdBy' was changed to 'organizerId'
+//   as: 'createdTournaments',
+//   onUpdate: 'CASCADE',
+//   onDelete: 'SET NULL',
+// });
+// db.TournamentModel.belongsTo(db.UserModel, {
+//   foreignKey: 'organizerId',
+//   as: 'organizer',
+// });
 
-// Tournament <-> Match
-db.TournamentModel.hasMany(db.MatchModel, {
-  foreignKey: { name: 'tournamentId', allowNull: false },
-  as: 'matches',
-  onDelete: 'CASCADE',
-  onUpdate: 'CASCADE',
-});
-db.MatchModel.belongsTo(db.TournamentModel, {
-  foreignKey: { name: 'tournamentId', allowNull: false },
-  as: 'tournament',
-});
+
+// Tournament <-> Match - This should be defined in TournamentModel.associate and MatchModel.associate
+// db.TournamentModel.hasMany(db.MatchModel, {
+//   foreignKey: { name: 'tournamentId', allowNull: false },
+//   as: 'matches',
+//   onDelete: 'CASCADE',
+//   onUpdate: 'CASCADE',
+// });
+// db.MatchModel.belongsTo(db.TournamentModel, {
+//   foreignKey: { name: 'tournamentId', allowNull: false },
+//   as: 'tournament',
+// });
 
 // Match <-> Match (for nextMatchId, nextMatchLoserId)
+// This should be defined in MatchModel.associate
 db.MatchModel.belongsTo(db.MatchModel, {
     as: 'nextMatch',
     foreignKey: 'nextMatchId',
@@ -93,19 +106,20 @@ db.TournamentParticipantModel.belongsTo(db.TournamentModel, {
 // Sequelize doesn't directly support polymorphic relations on the model level as cleanly as some other ORMs.
 // The current structure with participantId and participantType is a common way to handle it.
 
-// User <-> Wallet (One-to-One)
-db.UserModel.hasOne(db.WalletModel, {
-  foreignKey: { name: 'userId', allowNull: false, unique: true }, // Ensure userId is unique in Wallets
-  as: 'wallet',
-  onDelete: 'CASCADE', // If User is deleted, their Wallet is also deleted
-  onUpdate: 'CASCADE',
-});
-db.WalletModel.belongsTo(db.UserModel, {
-  foreignKey: { name: 'userId', allowNull: false },
-  as: 'user',
-});
+// User <-> Wallet (One-to-One) - Moved to UserModel.associate
+// db.UserModel.hasOne(db.WalletModel, {
+//   foreignKey: { name: 'userId', allowNull: false, unique: true }, // Ensure userId is unique in Wallets
+//   as: 'wallet',
+//   onDelete: 'CASCADE', // If User is deleted, their Wallet is also deleted
+//   onUpdate: 'CASCADE',
+// });
+// db.WalletModel.belongsTo(db.UserModel, {
+//   foreignKey: { name: 'userId', allowNull: false },
+//   as: 'user',
+// });
 
 // Wallet <-> Transaction (One-to-Many)
+// This should be in WalletModel.associate and TransactionModel.associate
 db.WalletModel.hasMany(db.TransactionModel, {
   foreignKey: { name: 'walletId', allowNull: false },
   as: 'transactions',
@@ -129,40 +143,40 @@ db.DisputeTicketModel.belongsTo(db.MatchModel, {
   as: 'match',
 });
 
-// User <-> DisputeTicket (Reported By)
-db.UserModel.hasMany(db.DisputeTicketModel, {
-  foreignKey: { name: 'reporterId', allowNull: false },
-  as: 'reportedDisputes',
-  onDelete: 'SET NULL', // If reporter User is deleted, reporterId in DisputeTicket becomes NULL
-  onUpdate: 'CASCADE',
-});
-db.DisputeTicketModel.belongsTo(db.UserModel, {
-  foreignKey: { name: 'reporterId', allowNull: false },
-  as: 'reporter',
-});
+// User <-> DisputeTicket (Reported By) - Moved to UserModel.associate and DisputeTicketModel.associate
+// db.UserModel.hasMany(db.DisputeTicketModel, {
+//   foreignKey: { name: 'reporterId', allowNull: false },
+//   as: 'reportedDisputes',
+//   onDelete: 'SET NULL',
+//   onUpdate: 'CASCADE',
+// });
+// db.DisputeTicketModel.belongsTo(db.UserModel, {
+//   foreignKey: { name: 'reporterId', allowNull: false },
+//   as: 'reporter',
+// });
 
-// User <-> DisputeTicket (Moderated By)
-db.UserModel.hasMany(db.DisputeTicketModel, {
-  foreignKey: { name: 'moderatorId', allowNull: true }, // moderatorId can be null
-  as: 'moderatedDisputes',
-  onDelete: 'SET NULL', // If moderator User is deleted, moderatorId in DisputeTicket becomes NULL
-  onUpdate: 'CASCADE',
-});
-db.DisputeTicketModel.belongsTo(db.UserModel, {
-  foreignKey: { name: 'moderatorId', allowNull: true },
-  as: 'moderator',
-});
+// User <-> DisputeTicket (Moderated By) - Moved to UserModel.associate and DisputeTicketModel.associate
+// db.UserModel.hasMany(db.DisputeTicketModel, {
+//   foreignKey: { name: 'moderatorId', allowNull: true },
+//   as: 'moderatedDisputes',
+//   onDelete: 'SET NULL',
+//   onUpdate: 'CASCADE',
+// });
+// db.DisputeTicketModel.belongsTo(db.UserModel, {
+//   foreignKey: { name: 'moderatorId', allowNull: true },
+//   as: 'moderator',
+// });
 
-// User <-> IdempotencyRequest (One-to-Many)
-db.UserModel.hasMany(db.IdempotencyRequestModel, {
-  foreignKey: { name: 'userId', allowNull: false },
-  as: 'idempotencyRequests',
-  onDelete: 'CASCADE', // If User is deleted, their idempotency records are also deleted
-  onUpdate: 'CASCADE',
-});
-db.IdempotencyRequestModel.belongsTo(db.UserModel, {
-  foreignKey: { name: 'userId', allowNull: false },
-  as: 'user',
-});
+// User <-> IdempotencyRequest (One-to-Many) - Moved to UserModel.associate and IdempotencyRequestModel.associate
+// db.UserModel.hasMany(db.IdempotencyRequestModel, {
+//   foreignKey: { name: 'userId', allowNull: false },
+//   as: 'idempotencyRequests',
+//   onDelete: 'CASCADE',
+//   onUpdate: 'CASCADE',
+// });
+// db.IdempotencyRequestModel.belongsTo(db.UserModel, {
+//   foreignKey: { name: 'userId', allowNull: false },
+//   as: 'user',
+// });
 
 module.exports = db;

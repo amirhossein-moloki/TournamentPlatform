@@ -6,6 +6,32 @@ class TournamentModel extends Model {
   toDomainEntity() {
     return Tournament.fromPersistence(this.toJSON());
   }
+
+  static associate(models) {
+    // A tournament belongs to a game.
+    this.belongsTo(models.Game, {
+      foreignKey: 'gameId',
+      as: 'game', // This allows us to include game details when querying tournaments
+    });
+
+    // A tournament is organized by a user (organizer).
+    this.belongsTo(models.User, { // Assuming your User model is named 'User'
+      foreignKey: 'organizerId',
+      as: 'organizer',
+    });
+
+    // A tournament can have many matches.
+    this.hasMany(models.Match, {
+      foreignKey: 'tournamentId',
+      as: 'matches',
+    });
+
+    // Add other associations if needed, e.g., with TournamentParticipant
+    // this.hasMany(models.TournamentParticipant, {
+    //   foreignKey: 'tournamentId',
+    //   as: 'participants',
+    // });
+  }
 }
 
 module.exports = (sequelize) => {
@@ -20,9 +46,20 @@ module.exports = (sequelize) => {
       type: DataTypes.STRING,
       allowNull: false,
     },
-    gameName: { // Changed from gameType
-      type: DataTypes.STRING,
+    // gameName is replaced by gameId
+    // gameName: {
+    //   type: DataTypes.STRING,
+    //   allowNull: false,
+    // },
+    gameId: {
+      type: DataTypes.UUID,
       allowNull: false,
+      references: {
+        model: 'Games', // Name of the Games table (created from Game model)
+        key: 'id',
+      },
+      onUpdate: 'CASCADE',
+      onDelete: 'CASCADE', // Or SET NULL if you want to keep tournaments of deleted games
     },
     description: {
       type: DataTypes.TEXT,

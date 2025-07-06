@@ -14,13 +14,14 @@ class ListTournamentsUseCase {
    * @param {object} options - Options for listing.
    * @param {number} [options.page=1] - Page number.
    * @param {number} [options.limit=10] - Items per page.
-   * @param {object} [options.filters] - Filters (e.g., { status, gameType }).
+   * @param {object} [options.filters] - Filters (e.g., { status, gameId }).
    * @param {string} [options.sortBy='startDate'] - Field to sort by.
    * @param {string} [options.sortOrder='ASC'] - Sort order ('ASC' or 'DESC').
+   * @param {boolean} [options.includeGameDetails=true] - Whether to include associated game details.
    * @returns {Promise<{tournaments: Tournament[], totalItems: number, totalPages: number, currentPage: number, pageSize: number}>}
    * @throws {ApiError} If fetching fails.
    */
-  async execute({ page = 1, limit = 10, filters = {}, sortBy = 'startDate', sortOrder = 'ASC' }) {
+  async execute({ page = 1, limit = 10, filters = {}, sortBy = 'startDate', sortOrder = 'ASC', includeGameDetails = true }) {
     // Input validation for page and limit can be done here or assumed to be handled
     // by Joi schema at the presentation layer.
     if (page < 1) page = 1;
@@ -34,6 +35,7 @@ class ListTournamentsUseCase {
         filters,
         sortBy,
         sortOrder,
+        includeGame: includeGameDetails, // Pass the option to the repository
       });
 
       // The repository's findAll is expected to return:

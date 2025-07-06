@@ -3,11 +3,14 @@ const httpStatusCodes = require('http-status-codes');
 
 class GetMatchUseCase {
   /**
-   * @param {object} tournamentRepository - Repository for fetching match data.
-   *                                      (Could be a dedicated MatchRepository in the future).
+   * @param {object} tournamentRepository - Repository for fetching tournament and match data.
+   * @param {object} userGameProfileRepository - Repository for fetching user in-game names.
+   * @param {object} matchRepository - (Optional) Dedicated MatchRepository.
    */
-  constructor(tournamentRepository) {
-    this.tournamentRepository = tournamentRepository;
+  constructor(tournamentRepository, userGameProfileRepository, matchRepository = null) {
+    this.tournamentRepository = tournamentRepository; // Used for finding match and its tournament
+    this.userGameProfileRepository = userGameProfileRepository;
+    this.matchRepository = matchRepository || tournamentRepository; // Fallback to tournamentRepository if no dedicated matchRepo
   }
 
   /**
@@ -23,37 +26,70 @@ class GetMatchUseCase {
     }
 
     // The findMatchById method in PostgresTournamentRepository currently takes (matchId, options)
-    // It does not inherently take tournamentId as a top-level param if matchId is global.
-    const match = await this.tournamentRepository.findMatchById(matchId);
+    const matchData = await this.matchRepository.findMatchById(matchId, { includeTournament: true });
 
-    if (!match) {
+    if (!matchData) {
       throw new ApiError(httpStatusCodes.NOT_FOUND, 'Match not found.');
     }
 
-    // Optional: Authorization logic
-    // For example, if matches are not public and only participants or admins can view them.
-    // if (requestingUserId) {
-    //   const isParticipant = match.participant1Id === requestingUserId || match.participant2Id === requestingUserId;
-    //   // const isAdmin = await checkUserRole(requestingUserId, 'Admin'); // Needs UserRepository
-    //   if (!isParticipant /* && !isAdmin */) {
-    //     throw new ApiError(httpStatusCodes.FORBIDDEN, 'You are not authorized to view this match.');
-    //   }
-    // }
+    // Assuming matchData is a domain entity or an object that can be converted to one.
+    // And it includes tournament.id and tournament.gameId (or similar path to gameId)
+    // For simplicity, let's assume matchData.tournament.gameId exists.
+    // If not, an additional fetch for the tournament might be needed if matchData only has tournamentId.
 
-    // Returns the full Match domain entity.
-    // The presentation layer can decide what parts of it to expose (e.g., via a DTO or specific properties).
-    return match;
+    let gameId;
+    if (matchData.tournament && matchData.tournament.gameId) {
+        gameId = matchData.tournament.gameId;
+    } else if (matchData.tournamentId) {
+        // If gameId is not directly available, fetch the tournament to get its gameId
+        const tournament = await this.tournamentRepository.findById(matchData.tournamentId);
+        if (!tournament || !tournament.gameId) {
+            throw new ApiError(httpStatusCodes.INTERNAL_SERVER_ERROR, 'Could not determine game for the match.');
+        }
+        gameId = tournament.gameId;
+        // Optionally attach full tournament info to matchData if not already there
+        if(!matchData.tournament) matchData.tournament = tournament;
+    } else {
+        throw new ApiError(httpStatusCodes.INTERNAL_SERVER_ERROR, 'Match data is missing tournament information.');
+    }
+
+
+    // Enhance participant details with inGameName
+    // This assumes participant1Id and participant2Id are user IDs.
+    // And participant1Type/participant2Type would be 'user' if this distinction exists.
+    const participantDetails = {};
+
+    if (matchData.participant1Id) {
+        const profile1 = await this.userGameProfileRepository.findByUserIdAndGameId(matchData.participant1Id, gameId);
+        participantDetails.participant1InGameName = profile1 ? profile1.inGameName : null;
+        // Optionally, include full user details if needed, e.g., from a UserRepository
+        // participantDetails.participant1Username = ... (fetch from UserRepository if matchData.participant1 is not populated)
+    }
+    if (matchData.participant2Id) {
+        const profile2 = await this.userGameProfileRepository.findByUserIdAndGameId(matchData.participant2Id, gameId);
+        participantDetails.participant2InGameName = profile2 ? profile2.inGameName : null;
+    }
+
+    // Combine original match data with new participant details
+    // The structure of the returned object can be a DTO (Data Transfer Object)
+    const matchWithInGameNames = {
+      ...matchData, // Spread the original match properties (or matchData.toPlainObject() if it's an entity)
+      ...participantDetails, // Add in-game names
+    };
+
+    // Optional: Authorization logic (as before)
+    // if (requestingUserId) { ... }
+
+    return matchWithInGameNames;
   }
 }
 
 module.exports = GetMatchUseCase;
 
 // Notes:
-// - Fetches a single match by its ID.
-// - Relies on `tournamentRepository.findMatchById()`.
-// - Includes a placeholder for authorization logic if needed (e.g., only participants/admins can view).
-//   This would require passing the `requestingUserId` and potentially `UserRepository` for role checks.
-// - Returns the Match domain entity.
-// - The `tournamentRepository.findMatchById` method in `PostgresTournamentRepository` has signature `async findMatchById(matchId, options = {})`.
-//   This use case calls it as `findMatchById(matchId)`. This is compatible as `options` is optional.
-//   If transaction support or other options were needed here, they could be passed.
+// - Now injects UserGameProfileRepository.
+// - Assumes matchRepository.findMatchById can include tournament details or matchData has tournamentId.
+// - Fetches gameId from the tournament associated with the match.
+// - Fetches in-game names for participants using gameId and participant IDs.
+// - Returns an enhanced match object including these in-game names.
+// - This structure assumes participants are users. If teams are involved, logic for team in-game names would be needed.

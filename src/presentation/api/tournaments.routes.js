@@ -1,51 +1,14 @@
 const express = require('express');
 const Joi = require('joi').extend(require('@joi/date')); // For date validation
-const { authenticateToken, authorizeRole } = require('../../middleware/auth.middleware');
-const CreateTournamentUseCase = require('../../application/use-cases/tournament/create-tournament.usecase');
-const GetTournamentUseCase = require('../../application/use-cases/tournament/get-tournament.usecase');
-const ListTournamentsUseCase = require('../../application/use-cases/tournament/list-tournaments.usecase');
-const RegisterForTournamentUseCase = require('../../application/use-cases/tournament/register-for-tournament.usecase');
-// const UpdateTournamentUseCase = require('../../application/use-cases/tournament/update-tournament.usecase'); // For admin
-// const DeleteTournamentUseCase = require('../../application/use-cases/tournament/delete-tournament.usecase'); // For admin
-const { PostgresTournamentRepository, TournamentModel, MatchModel, TournamentParticipantModel } = require('../../infrastructure/database/repositories/postgres.tournament.repository'); // Destructure models if needed by repo constructor
-const PostgresUserRepository = require('../../infrastructure/database/repositories/postgres.user.repository');
-const PostgresWalletRepository = require('../../infrastructure/database/repositories/postgres.wallet.repository');
-const PostgresTransactionRepository = require('../../infrastructure/database/repositories/postgres.transaction.repository');
+// Middleware and Use Cases will be injected by the factory function
 const ApiError = require('../../utils/ApiError');
 const httpStatusCodes = require('http-status-codes');
 const ApiResponse = require('../../utils/ApiResponse');
 
-const router = express.Router();
-
-// Instantiate Repositories
-// Note: The constructor for PostgresTournamentRepository in the blueprint takes models as arguments.
-// This is unusual for a repository pattern where the repo itself defines/imports its models.
-// Assuming the constructor was `constructor()` and it internally uses `TournamentModel`, `MatchModel`, etc.
-// If it strictly requires models passed in:
-// const tournamentRepository = new PostgresTournamentRepository(TournamentModel, MatchModel, TournamentParticipantModel);
-// For now, assuming the simpler constructor as per typical repository pattern (models are internal).
-const tournamentRepository = new PostgresTournamentRepository(TournamentModel, MatchModel, TournamentParticipantModel); // Corrected based on repo constructor
-const userRepository = new PostgresUserRepository();
-const walletRepository = new PostgresWalletRepository();
-const transactionRepository = new PostgresTransactionRepository();
-
-// Instantiate Use Cases
-const createTournamentUseCase = new CreateTournamentUseCase(tournamentRepository, userRepository);
-const listTournamentsUseCase = new ListTournamentsUseCase(tournamentRepository);
-const getTournamentUseCase = new GetTournamentUseCase(tournamentRepository);
-const registerForTournamentUseCase = new RegisterForTournamentUseCase(
-  tournamentRepository,
-  walletRepository,
-  transactionRepository,
-  userRepository
-);
-// TODO: Instantiate UpdateTournamentUseCase, DeleteTournamentUseCase when implemented
-
-
 // --- Schemas for Validation ---
 const createTournamentSchema = Joi.object({
   name: Joi.string().min(3).max(100).required(),
-  gameName: Joi.string().min(2).max(50).required(),
+  gameId: Joi.string().uuid().required(), // Changed from gameName to gameId and added UUID validation
   description: Joi.string().max(1000).optional().allow(null, ''),
   rules: Joi.string().max(5000).optional().allow(null, ''),
   entryFee: Joi.number().min(0).precision(2).required(),
@@ -67,121 +30,130 @@ const createTournamentSchema = Joi.object({
 const listTournamentsSchema = Joi.object({
     page: Joi.number().integer().min(1).default(1),
     limit: Joi.number().integer().min(1).max(100).default(10),
-    status: Joi.string().valid('PENDING', 'REGISTRATION_OPEN', 'REGISTRATION_CLOSED', 'ONGOING', 'COMPLETED', 'CANCELED').optional(),
-    gameName: Joi.string().min(1).max(50).optional(),
+    status: Joi.string().valid('PENDING', 'UPCOMING', 'REGISTRATION_OPEN', 'REGISTRATION_CLOSED', 'ONGOING', 'COMPLETED', 'CANCELED').optional(),
+    gameId: Joi.string().uuid().optional(), // Changed from gameName to gameId
     sortBy: Joi.string().valid('startDate', 'name', 'entryFee', 'prizePool').default('startDate'),
     sortOrder: Joi.string().valid('ASC', 'DESC').default('ASC'),
+    includeGameDetails: Joi.boolean().default(true), // Added for controlling game details inclusion
 });
 
-
-// --- Route Handlers ---
-
-/**
- * POST /api/v1/tournaments
- * Create a new tournament. (Requires 'Admin' role or specific 'Organizer' role)
- */
-router.post('/', authenticateToken, authorizeRole(['Admin']), async (req, res, next) => {
-  try {
-    const { error, value: tournamentData } = createTournamentSchema.validate(req.body);
-    if (error) {
-      throw new ApiError(httpStatusCodes.BAD_REQUEST, 'Validation Error', error.details.map(d => d.message));
-    }
-
-    // Add organizerId from authenticated user if not provided, or based on role logic
-    // For now, assuming admin creates it, organizerId can be explicitly passed or null.
-    // If an admin creates it, they might be the organizerId, or they specify one.
-    // const dataToCreate = { ...tournamentData, organizerId: tournamentData.organizerId || req.user.sub };
-    // The CreateTournamentUseCase already handles optional organizerId.
-
-    const tournament = await createTournamentUseCase.execute(tournamentData);
-    return new ApiResponse(res, httpStatusCodes.CREATED, 'Tournament created successfully.', tournament).send();
-  } catch (error) {
-    next(error);
-  }
-});
-
-/**
- * GET /api/v1/tournaments
- * List tournaments (publicly accessible).
- */
-router.get('/', async (req, res, next) => {
-  try {
-    const { error, value: queryParams } = listTournamentsSchema.validate(req.query);
-    if (error) {
-      throw new ApiError(httpStatusCodes.BAD_REQUEST, 'Validation Error', error.details.map(d => d.message));
-    }
-
-    const result = await listTournamentsUseCase.execute(queryParams);
-
-    return new ApiResponse(res, httpStatusCodes.OK, 'Tournaments listed successfully.', result).send();
-  } catch (error) {
-    next(error);
-  }
-});
-
-/**
- * GET /api/v1/tournaments/:id
- * Get details of a specific tournament (publicly accessible).
- */
 const tournamentIdParamSchema = Joi.object({
     id: Joi.string().uuid().required().messages({
         'string.guid': 'Tournament ID must be a valid UUID.'
     })
 });
-router.get('/:id', async (req, res, next) => {
-  try {
-    const { error: idError, value: idParams } = tournamentIdParamSchema.validate(req.params);
-    if (idError) {
-        throw new ApiError(httpStatusCodes.BAD_REQUEST, 'Invalid Tournament ID.', idError.details.map(d => d.message));
-    }
 
-    // Options for GetTournamentUseCase, e.g., from query params like ?include=participants,matches
-    const includeOptions = {};
-    if (req.query.include) {
-        const includes = req.query.include.split(',');
-        if (includes.includes('participants')) includeOptions.includeParticipants = true;
-        if (includes.includes('matches')) includeOptions.includeMatches = true;
-    }
+module.exports = (
+    { createTournamentUseCase, listTournamentsUseCase, getTournamentUseCase, registerForTournamentUseCase }, // Use Cases
+    authenticateToken,
+    authorizeRole
+) => {
+    const router = express.Router();
 
-    const tournament = await getTournamentUseCase.execute(idParams.id, includeOptions);
-
-    // GetTournamentUseCase throws ApiError if not found, so direct check not strictly needed here
-    // if (!tournament) {
-    //   throw new ApiError(httpStatusCodes.NOT_FOUND, 'Tournament not found.');
-    // }
-    return new ApiResponse(res, httpStatusCodes.OK, 'Tournament details retrieved.', tournament).send();
-  } catch (error) {
-    next(error);
-  }
-});
-
-/**
- * POST /api/v1/tournaments/:id/register
- * Register the authenticated user for a tournament.
- */
-router.post('/:id/register', authenticateToken, async (req, res, next) => {
-  try {
-    const { error: idError, value: idParams } = tournamentIdParamSchema.validate(req.params);
-    if (idError) {
-        throw new ApiError(httpStatusCodes.BAD_REQUEST, 'Invalid Tournament ID.', idError.details.map(d => d.message));
-    }
-    const tournamentId = idParams.id;
-    const userId = req.user.sub; // User ID from JWT (authMiddleware ensures req.user exists)
-
-    const result = await registerForTournamentUseCase.execute(userId, tournamentId);
-
-    return new ApiResponse(res, httpStatusCodes.OK, result.message, result.registrationDetails).send();
-  } catch (error) {
-    next(error);
-  }
-});
+    /**
+     * POST /api/v1/tournaments
+     * Create a new tournament. (Requires 'Admin' role)
+     */
+    router.post('/', authenticateToken, authorizeRole(['Admin']), async (req, res, next) => {
+        try {
+            const { error, value: tournamentData } = createTournamentSchema.validate(req.body);
+            if (error) {
+                throw new ApiError(httpStatusCodes.BAD_REQUEST, 'Validation Error', error.details.map(d => d.message));
+            }
+            // organizerId might be req.user.sub if admin is also an organizer or passed in body
+            const dataToCreate = { ...tournamentData, organizerId: tournamentData.organizerId || req.user.sub };
 
 
-// Admin-only routes for managing tournaments (e.g., update status, delete)
-// Example: PUT /api/v1/tournaments/:id/status
-// router.put('/:id/status', authenticateToken, authorizeRole(['Admin']), async (req, res, next) => { ... });
+            const tournament = await createTournamentUseCase.execute(dataToCreate);
+            return new ApiResponse(res, httpStatusCodes.CREATED, 'Tournament created successfully.', tournament.toPlainObject ? tournament.toPlainObject() : tournament).send();
+        } catch (error) {
+            next(error);
+        }
+    });
 
-module.exports = router;
+    /**
+     * GET /api/v1/tournaments
+     * List tournaments (publicly accessible).
+     */
+    router.get('/', async (req, res, next) => {
+        try {
+            const { error, value: queryParams } = listTournamentsSchema.validate(req.query);
+            if (error) {
+                throw new ApiError(httpStatusCodes.BAD_REQUEST, 'Validation Error', error.details.map(d => d.message));
+            }
+
+            // Destructure includeGameDetails from queryParams and pass it to use case
+            const { includeGameDetails, ...filtersAndPagination } = queryParams;
+
+            const result = await listTournamentsUseCase.execute({ ...filtersAndPagination, includeGameDetails });
+
+            // Assuming result.tournaments are domain entities
+            const responseData = {
+                ...result,
+                tournaments: result.tournaments.map(t => t.toPlainObject ? t.toPlainObject() : t)
+            };
+            return new ApiResponse(res, httpStatusCodes.OK, 'Tournaments listed successfully.', responseData).send();
+        } catch (error) {
+            next(error);
+        }
+    });
+
+    /**
+     * GET /api/v1/tournaments/:id
+     * Get details of a specific tournament (publicly accessible).
+     */
+    router.get('/:id', async (req, res, next) => {
+        try {
+            const { error: idError, value: idParams } = tournamentIdParamSchema.validate(req.params);
+            if (idError) {
+                throw new ApiError(httpStatusCodes.BAD_REQUEST, 'Invalid Tournament ID.', idError.details.map(d => d.message));
+            }
+
+            const includeOptions = { includeGame: true }; // Default to include game for single fetch
+            if (req.query.include) { // Allow overriding or adding other includes via query param
+                const includes = req.query.include.split(',');
+                if (includes.includes('participants')) includeOptions.includeParticipants = true;
+                if (includes.includes('matches')) includeOptions.includeMatches = true;
+                // if client explicitly says ?include=game, it's fine, already true.
+                // if client says ?include=nogame, we might want to set includeGame: false
+            }
+
+            const tournament = await getTournamentUseCase.execute(idParams.id, includeOptions);
+            return new ApiResponse(res, httpStatusCodes.OK, 'Tournament details retrieved.', tournament.toPlainObject ? tournament.toPlainObject() : tournament).send();
+        } catch (error) {
+            next(error);
+        }
+    });
+
+    /**
+     * POST /api/v1/tournaments/:id/register
+     * Register the authenticated user for a tournament.
+     */
+    router.post('/:id/register', authenticateToken, async (req, res, next) => {
+        try {
+            const { error: idError, value: idParams } = tournamentIdParamSchema.validate(req.params);
+            if (idError) {
+                throw new ApiError(httpStatusCodes.BAD_REQUEST, 'Invalid Tournament ID.', idError.details.map(d => d.message));
+            }
+            const tournamentId = idParams.id;
+            const userId = req.user.sub;
+
+            const registrationResult = await registerForTournamentUseCase.execute(userId, tournamentId);
+            // Assuming registerForTournamentUseCase returns an object like { message: '...', details: ... } or just the participant object
+            return new ApiResponse(res, httpStatusCodes.OK, 'Successfully registered for tournament.', registrationResult.toPlainObject ? registrationResult.toPlainObject() : registrationResult).send();
+        } catch (error) {
+            // Specific error handling for registration failures (e.g., tournament full, already registered, no inGameName)
+            if (error instanceof ApiError) { // If use case throws ApiError
+                 next(error);
+            } else {
+                 next(new ApiError(httpStatusCodes.INTERNAL_SERVER_ERROR, error.message || 'Failed to register for tournament.'));
+            }
+        }
+    });
+
+    return router;
+};
+
 
 // Notes:
 // - Uses Joi with @joi/date for enhanced date validation including format and comparison.

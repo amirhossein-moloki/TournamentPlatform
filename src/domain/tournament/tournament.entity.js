@@ -6,7 +6,8 @@ class Tournament {
   /**
    * @param {string} id - The unique identifier for the tournament (UUID).
    * @param {string} name - Name of the tournament.
-   * @param {string} gameName - Name of the game for the tournament.
+   * @param {string} gameId - ID of the game for the tournament.
+   * @param {import('../game/game.entity').default} [game] - Optional Game entity associated with the tournament.
    * @param {string|null} description - Optional description of the tournament.
    * @param {string|null} rules - Optional rules for the tournament.
    * @param {string} status - Current status of the tournament (e.g., 'PENDING', 'REGISTRATION_OPEN', 'ONGOING', 'COMPLETED').
@@ -25,7 +26,7 @@ class Tournament {
   constructor(
     id,
     name,
-    gameName,
+    gameId, // Changed from gameName
     description,
     rules,
     status = 'PENDING',
@@ -47,7 +48,7 @@ class Tournament {
   ) {
     if (!id) throw new Error('Tournament ID is required.');
     if (!name) throw new Error('Tournament name is required.');
-    if (!gameName) throw new Error('Game name is required.');
+    if (!gameId) throw new Error('Game ID is required.'); // Changed from gameName
     if (entryFee == null || entryFee < 0) throw new Error('Valid entry fee is required and must be non-negative.');
     if (prizePool == null || prizePool < 0) throw new Error('Valid prize pool is required and must be non-negative.');
     if (!maxParticipants || maxParticipants <= 1) throw new Error('Max participants must be greater than 1.');
@@ -59,7 +60,8 @@ class Tournament {
 
     this.id = id;
     this.name = name;
-    this.gameName = gameName;
+    this.gameId = gameId; // Changed from gameName
+    // this.game = game; // Store the associated Game entity if provided/fetched
     this.description = description;
     this.rules = rules;
     this.status = status;
@@ -88,10 +90,13 @@ class Tournament {
   // --- Factory Method ---
   static fromPersistence(data) {
     if (!data) return null;
+    // Ensure Game entity is also correctly imported if needed here
+    // import Game from '../game/game.entity';
+
     return new Tournament(
       data.id,
       data.name,
-      data.gameName || data.gameType, // Handle potential name difference from model
+      data.gameId, // Changed from gameName
       data.description,
       data.rules,
       data.status,
@@ -246,7 +251,8 @@ class Tournament {
       throw new Error(`Cannot update details for a tournament that is ${this.status}.`);
     }
     if (details.name) this.name = details.name;
-    if (details.gameName) this.gameName = details.gameName;
+    // if (details.gameName) this.gameName = details.gameName; // Keep gameId instead
+    if (details.gameId) this.gameId = details.gameId; // Allow updating gameId
     if (details.description !== undefined) this.description = details.description;
     if (details.rules !== undefined) this.rules = details.rules;
     if (details.entryFee !== undefined && parseFloat(details.entryFee) >= 0) this.entryFee = parseFloat(details.entryFee);

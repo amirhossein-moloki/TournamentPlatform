@@ -13,6 +13,31 @@ const teamsRoutes = require('./presentation/api/teams.routes');
 const tournamentsRoutes = require('./presentation/api/tournaments.routes');
 const usersRoutes = require('./presentation/api/users.routes');
 const walletRoutes = require('./presentation/api/wallet.routes');
+// Import game routes factory and dependencies
+const gamesRoutesFactory = require('./presentation/api/games.routes');
+const { gameController } = require('./config/dependencies'); // Assuming gameController is exported
+// Assuming auth middlewares are available
+const { authMiddleware, adminRoleMiddleware, authenticateToken, authorizeRole } = require('./middleware/auth.middleware'); // Added authenticateToken, authorizeRole
+const {
+    gameController,
+    userGameProfileController,
+    // User use cases needed by usersRoutesFactory
+    getUserProfileUseCase,
+    updateUserProfileUseCase,
+    listUsersUseCase,
+    adminUpdateUserUseCase,
+    adminDeleteUserUseCase,
+    // Tournament use cases needed by tournamentsRoutesFactory
+    createTournamentUseCase,
+    listTournamentsUseCase,
+    getTournamentUseCase,
+    registerForTournamentUseCase,
+    // Match use cases needed by matchesRoutesFactory
+    getMatchUseCase,
+    getMatchUploadUrlUseCase,
+    submitMatchResultUseCase
+} = require('./config/dependencies');
+
 
 const app = express();
 
@@ -37,11 +62,34 @@ const apiRouter = express.Router();
 apiRouter.use('/admin', adminRoutes);
 apiRouter.use('/auth', authRoutes);
 apiRouter.use('/leaderboards', leaderboardsRoutes);
-apiRouter.use('/matches', matchesRoutes);
+// apiRouter.use('/matches', matchesRoutes); // Will be replaced by the factory call
+const matchesRoutesInstance = matchesRoutes( // matchesRoutes is now a factory
+    { getMatchUseCase, getMatchUploadUrlUseCase, submitMatchResultUseCase },
+    authenticateToken || ((req,res,next)=>next())
+);
+apiRouter.use('/matches', matchesRoutesInstance);
 apiRouter.use('/teams', teamsRoutes);
-apiRouter.use('/tournaments', tournamentsRoutes);
-apiRouter.use('/users', usersRoutes);
+// apiRouter.use('/tournaments', tournamentsRoutes); // Will be replaced by the factory call
+const tournamentsRoutesInstance = tournamentsRoutes( // tournamentsRoutes is now a factory
+    { createTournamentUseCase, listTournamentsUseCase, getTournamentUseCase, registerForTournamentUseCase },
+    authenticateToken || ((req,res,next)=>next()),
+    authorizeRole || ((roles)=>(req,res,next)=>next())
+);
+apiRouter.use('/tournaments', tournamentsRoutesInstance);
+// apiRouter.use('/users', usersRoutes); // Will be replaced by the factory call
+const usersRoutesInstance = usersRoutes( // usersRoutes is now a factory
+    { getUserProfileUseCase, updateUserProfileUseCase, listUsersUseCase, adminUpdateUserUseCase, adminDeleteUserUseCase },
+    userGameProfileController,
+    authenticateToken || ((req,res,next)=>next()), // Placeholder for authenticateToken
+    authorizeRole || ((roles)=>(req,res,next)=>next()) // Placeholder for authorizeRole
+);
+apiRouter.use('/users', usersRoutesInstance);
 apiRouter.use('/wallet', walletRoutes);
+
+// Register Game API routes
+// Ensure authMiddleware and adminRoleMiddleware are correctly implemented or use placeholders
+const gamesRouter = gamesRoutesFactory(gameController, authMiddleware || ((req,res,next)=>next()), adminRoleMiddleware || ((req,res,next)=>next()));
+apiRouter.use('/games', gamesRouter);
 
 app.use('/api/v1', apiRouter);
 
