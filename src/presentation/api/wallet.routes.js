@@ -4,8 +4,8 @@ const { authenticateToken } = require('../../middleware/auth.middleware');
 const InitializeDepositUseCase = require('../../application/use-cases/wallet/initialize-deposit.usecase');
 const GetTransactionHistoryUseCase = require('../../application/use-cases/wallet/get-transaction-history.usecase');
 const RequestWithdrawalUseCase = require('../../application/use-cases/wallet/request-withdrawal.usecase');
-const PostgresWalletRepository = require('../../infrastructure/database/repositories/postgres.wallet.repository');
-const PostgresTransactionRepository = require('../../infrastructure/database/repositories/postgres.transaction.repository');
+const { PostgresWalletRepository } = require('../../infrastructure/database/repositories/postgres.wallet.repository');
+const { PostgresTransactionRepository } = require('../../infrastructure/database/repositories/postgres.transaction.repository');
 const { appConfig } = require('../../../config/config');
 const ApiError = require('../../utils/ApiError');
 const httpStatusCodes = require('http-status-codes');
@@ -14,9 +14,12 @@ const ApiResponse = require('../../utils/ApiResponse');
 
 const router = express.Router();
 
+// Import database models
+const dbModels = require('../../infrastructure/database/models'); // Correctly imports the db object
+
 // Instantiate Repositories
-const walletRepository = new PostgresWalletRepository();
-const transactionRepository = new PostgresTransactionRepository();
+const walletRepository = new PostgresWalletRepository(dbModels);
+const transactionRepository = new PostgresTransactionRepository(dbModels);
 
 // Instantiate Use Cases
 // Note: InitializeDepositUseCase and RequestWithdrawalUseCase might need a notificationService

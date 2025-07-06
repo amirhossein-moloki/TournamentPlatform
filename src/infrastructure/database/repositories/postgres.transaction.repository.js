@@ -75,72 +75,73 @@ class PostgresTransactionRepository extends TransactionRepositoryInterface {
   }
 
   async findAllByWalletId({ walletId, page = 1, limit = 10, filters = {}, sortBy = 'transactionDate', sortOrder = 'DESC' }, options = {}) {
-    const offset = (parseInt(page, 10) - 1) * parseInt(limit, 10);
-    const whereClause = { walletId };
+    try {
+      const offset = (parseInt(page, 10) - 1) * parseInt(limit, 10);
+      const whereClause = { walletId };
 
-    if (filters.type) whereClause.type = filters.type;
-    if (filters.status) whereClause.status = filters.status;
-    if (filters.startDate && filters.endDate) {
-      whereClause.transactionDate = { [this.Op.between]: [new Date(filters.startDate), new Date(filters.endDate)] };
-    } else if (filters.startDate) {
-      whereClause.transactionDate = { [this.Op.gte]: new Date(filters.startDate) };
-    } else if (filters.endDate) {
-      whereClause.transactionDate = { [this.Op.lte]: new Date(filters.endDate) };
+      if (filters.type) whereClause.type = filters.type;
+      if (filters.status) whereClause.status = filters.status;
+      if (filters.startDate && filters.endDate) {
+        whereClause.transactionDate = { [this.Op.between]: [new Date(filters.startDate), new Date(filters.endDate)] };
+      } else if (filters.startDate) {
+        whereClause.transactionDate = { [this.Op.gte]: new Date(filters.startDate) };
+      } else if (filters.endDate) {
+        whereClause.transactionDate = { [this.Op.lte]: new Date(filters.endDate) };
+      }
+
+      const { count, rows } = await this.TransactionModel.findAndCountAll({
+        where: whereClause,
+        limit: parseInt(limit, 10),
+        offset,
+        order: [[sortBy, sortOrder.toUpperCase()]],
+        transaction: options.transaction,
+      });
+
+      return {
+        transactions: rows.map(tx => this.TransactionModel.toDomainEntity(tx)),
+        total: count,
+        page: parseInt(page, 10),
+        limit: parseInt(limit, 10),
+      };
+    } catch (error) {
+      // console.error(`Error in PostgresTransactionRepository.findAllByWalletId: ${error.message}`, error);
+      throw new ApiError(httpStatus.INTERNAL_SERVER_ERROR, `Database error finding transactions by wallet ID: ${error.message}`);
     }
-
-    const { count, rows } = await this.TransactionModel.findAndCountAll({
-      where: whereClause,
-      limit: parseInt(limit, 10),
-      offset,
-      order: [[sortBy, sortOrder.toUpperCase()]],
-      transaction: options.transaction,
-    });
-
-    return {
-      transactions: rows.map(tx => this.TransactionModel.toDomainEntity(tx)),
-      total: count,
-      page: parseInt(page, 10),
-      limit: parseInt(limit, 10),
-    };
-  } catch (error) {
-    // console.error(`Error in PostgresTransactionRepository.findAllByWalletId: ${error.message}`, error);
-    throw new ApiError(httpStatus.INTERNAL_SERVER_ERROR, `Database error finding transactions by wallet ID: ${error.message}`);
   }
-}
 
   async findAll({ page = 1, limit = 10, filters = {}, sortBy = 'transactionDate', sortOrder = 'DESC', options = {} }) { // Added options
-    const offset = (parseInt(page, 10) - 1) * parseInt(limit, 10);
-    const whereClause = { ...filters };
-    // Add advanced filtering for dates etc. similar to findAllByWalletId if needed
-    if (filters.startDate && filters.endDate) {
-      whereClause.transactionDate = { [this.Op.between]: [new Date(filters.startDate), new Date(filters.endDate)] };
-    } else if (filters.startDate) {
-      whereClause.transactionDate = { [this.Op.gte]: new Date(filters.startDate) };
-    } else if (filters.endDate) {
-      whereClause.transactionDate = { [this.Op.lte]: new Date(filters.endDate) };
+    try {
+      const offset = (parseInt(page, 10) - 1) * parseInt(limit, 10);
+      const whereClause = { ...filters };
+      // Add advanced filtering for dates etc. similar to findAllByWalletId if needed
+      if (filters.startDate && filters.endDate) {
+        whereClause.transactionDate = { [this.Op.between]: [new Date(filters.startDate), new Date(filters.endDate)] };
+      } else if (filters.startDate) {
+        whereClause.transactionDate = { [this.Op.gte]: new Date(filters.startDate) };
+      } else if (filters.endDate) {
+        whereClause.transactionDate = { [this.Op.lte]: new Date(filters.endDate) };
+      }
+
+      const { count, rows } = await this.TransactionModel.findAndCountAll({
+        where: whereClause,
+        limit: parseInt(limit, 10),
+        offset,
+        order: [[sortBy, sortOrder.toUpperCase()]],
+        transaction: options.transaction,
+        // include: [{ model: this.WalletModel, as: 'wallet' }] // Example include
+      });
+
+      return {
+        transactions: rows.map(tx => this.TransactionModel.toDomainEntity(tx)),
+        total: count,
+        page: parseInt(page, 10),
+        limit: parseInt(limit, 10),
+      };
+    } catch (error) {
+      // console.error(`Error in PostgresTransactionRepository.findAll: ${error.message}`, error);
+      throw new ApiError(httpStatus.INTERNAL_SERVER_ERROR, `Database error finding all transactions: ${error.message}`);
     }
-
-
-    const { count, rows } = await this.TransactionModel.findAndCountAll({
-      where: whereClause,
-      limit: parseInt(limit, 10),
-      offset,
-      order: [[sortBy, sortOrder.toUpperCase()]],
-      transaction: options.transaction,
-      // include: [{ model: this.WalletModel, as: 'wallet' }] // Example include
-    });
-
-    return {
-      transactions: rows.map(tx => this.TransactionModel.toDomainEntity(tx)),
-      total: count,
-      page: parseInt(page, 10),
-      limit: parseInt(limit, 10),
-    };
-  } catch (error) {
-    // console.error(`Error in PostgresTransactionRepository.findAll: ${error.message}`, error);
-    throw new ApiError(httpStatus.INTERNAL_SERVER_ERROR, `Database error finding all transactions: ${error.message}`);
   }
-}
 
   async create(transactionEntityOrData, options = {}) { // Added options
     const txData = {
