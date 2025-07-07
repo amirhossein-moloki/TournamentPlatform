@@ -1,11 +1,11 @@
 // src/infrastructure/database/models/index.js
 const { sequelize } = require('../postgres.connector'); // Your Sequelize instance
-const initGameModel = require('./game.model'); // Import Game model definer
+const initGameModel = require('./game.model').default; // Import Game model definer
 const defineTournamentModel = require('./tournament.model');
 const defineMatchModel = require('./match.model');
 const defineTournamentParticipantModel = require('./tournamentParticipant.model');
 const defineUserModel = require('./user.model'); // Import UserModel definer
-const initUserGameProfileModel = require('./userGameProfile.model'); // Import UserGameProfile model definer
+const initUserGameProfileModel = require('./userGameProfile.model').default; // Import UserGameProfile model definer
 const defineWalletModel = require('./wallet.model'); // Import WalletModel definer
 const defineTransactionModel = require('./transaction.model'); // Import TransactionModel definer
 const defineDisputeTicketModel = require('./disputeTicket.model'); // Import DisputeTicketModel definer

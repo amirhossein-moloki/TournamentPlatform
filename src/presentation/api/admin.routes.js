@@ -5,12 +5,16 @@ const ListDisputesUseCase = require('../../application/use-cases/admin/list-disp
 const ResolveDisputeUseCase = require('../../application/use-cases/admin/resolve-dispute.usecase');
 const ListWithdrawalsUseCase = require('../../application/use-cases/admin/list-withdrawals.usecase');
 const ApproveWithdrawalUseCase = require('../../application/use-cases/admin/approve-withdrawal.usecase');
-const RejectWithdrawalUseCase = require('../../application/use-cases/admin/reject-withdrawal.usecase');
+const RejectWithdrawalUseCase = require('../../application/use-cases/admin/reject-withdrawal.usecase.js');
 
-const PostgresDisputeRepository = require('../../infrastructure/database/repositories/postgres.dispute.repository');
-const { PostgresTournamentRepository, TournamentModel, MatchModel, TournamentParticipantModel } = require('../../infrastructure/database/repositories/postgres.tournament.repository');
-const PostgresTransactionRepository = require('../../infrastructure/database/repositories/postgres.transaction.repository');
-const PostgresWalletRepository = require('../../infrastructure/database/repositories/postgres.wallet.repository');
+// Centralized model import
+const db = require('../../infrastructure/database/models'); // db object contains all models
+
+const { PostgresDisputeRepository } = require('../../infrastructure/database/repositories/postgres.dispute.repository');
+const { PostgresTournamentRepository } = require('../../infrastructure/database/repositories/postgres.tournament.repository');
+const { PostgresTransactionRepository } = require('../../infrastructure/database/repositories/postgres.transaction.repository'); // Assuming this might also need models
+const { PostgresWalletRepository } = require('../../infrastructure/database/repositories/postgres.wallet.repository'); // Assuming this might also need models
+
 // Conceptual: PaymentService and NotificationService would be imported if implemented
 // const PaymentService = require('../../infrastructure/services/payment.service');
 // const NotificationService = require('../../infrastructure/services/notification.service');
@@ -20,11 +24,26 @@ const ApiResponse = require('../../utils/ApiResponse');
 
 const router = express.Router();
 
-// Instantiate Repositories
-const disputeRepository = new PostgresDisputeRepository();
-const tournamentRepository = new PostgresTournamentRepository(TournamentModel, MatchModel, TournamentParticipantModel);
-const transactionRepository = new PostgresTransactionRepository();
-const walletRepository = new PostgresWalletRepository();
+// Instantiate Repositories with injected models
+const disputeRepository = new PostgresDisputeRepository({
+  DisputeTicketModel: db.DisputeTicketModel,
+  UserModel: db.UserModel,
+  MatchModel: db.MatchModel
+});
+const tournamentRepository = new PostgresTournamentRepository({
+  TournamentModel: db.TournamentModel,
+  TournamentParticipantModel: db.TournamentParticipantModel,
+  UserModel: db.UserModel,
+  GameModel: db.GameModel
+});
+const transactionRepository = new PostgresTransactionRepository({
+  TransactionModel: db.TransactionModel,
+  WalletModel: db.WalletModel
+});
+const walletRepository = new PostgresWalletRepository({
+  WalletModel: db.WalletModel,
+  UserModel: db.UserModel
+});
 // const paymentService = null; // new PaymentService(); // Placeholder
 // const notificationService = null; // new NotificationService(); // Placeholder
 

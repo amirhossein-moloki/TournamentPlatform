@@ -311,12 +311,9 @@ class PostgresTournamentRepository extends TournamentRepositoryInterface {
       throw new ApiError(httpStatus.INTERNAL_SERVER_ERROR, `Database error decrementing participant count: ${error.message}`);
     }
   }
-
-
   // Match methods removed - they are now in PostgresMatchRepository
-}
+} // Closing brace for PostgresTournamentRepository class
 
 module.exports = {
-    PostgresTournamentRepository // Models should not be exported from repositories
+    PostgresTournamentRepository
 };
-```

@@ -1,5 +1,5 @@
 // src/infrastructure/database/repositories/userGameProfile.repository.js
-const IUserGameProfileRepository = require('../../../domain/user/userGameProfile.repository.interface.js');
+const IUserGameProfileRepository = require('../../../domain/user/userGameProfile.repository.interface.js').default; // Corrected import
 const UserGameProfile = require('../../../domain/user/userGameProfile.entity.js');
 // const Game = require('../../../domain/game/game.entity.js');
 

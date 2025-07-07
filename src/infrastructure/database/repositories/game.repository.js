@@ -1,5 +1,5 @@
 // src/infrastructure/database/repositories/game.repository.js
-const IGameRepository = require('../../../domain/game/game.repository.interface.js');
+const IGameRepository = require('../../../domain/game/game.repository.interface.js').default; // Corrected import
 const Game = require('../../../domain/game/game.entity.js');
 const { Op } = require('sequelize'); // For more complex queries if needed
 

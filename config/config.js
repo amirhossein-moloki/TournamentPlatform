@@ -25,15 +25,15 @@ const envVarsSchema = Joi.object({
   PORT: Joi.number().default(3000),
   API_BASE_URL: Joi.string().default('/api/v1'),
 
-  DB_HOST: Joi.string().required().description('Database host'),
+  DB_HOST: Joi.string().default('localhost').description('Database host'),
   DB_PORT: Joi.number().default(5432),
-  DB_USER: Joi.string().required().description('Database user'),
-  DB_PASSWORD: Joi.string().required().description('Database password'),
-  DB_NAME: Joi.string().required().description('Database name'),
+  DB_USER: Joi.string().default('postgres').description('Database user'),
+  DB_PASSWORD: Joi.string().default('postgres').description('Database password'),
+  DB_NAME: Joi.string().default('mydb').description('Database name'),
   DB_SSL_ENABLED: Joi.boolean().default(false),
   DB_DIALECT: Joi.string().default('postgres'), // Added for Sequelize explicit config
 
-  JWT_SECRET: Joi.string().required().description('JWT secret key'),
+  JWT_SECRET: Joi.string().default('your-secret-key').description('JWT secret key'),
   JWT_ACCESS_TOKEN_EXPIRATION: Joi.string().default('15m').description('Access token expiration'),
   JWT_REFRESH_TOKEN_EXPIRATION: Joi.string().default('7d').description('Refresh token expiration'),
   JWT_REFRESH_COOKIE_NAME: Joi.string().default('jid'),
@@ -43,26 +43,26 @@ const envVarsSchema = Joi.object({
   REDIS_PASSWORD: Joi.string().allow('').optional(),
   REDIS_TLS_ENABLED: Joi.boolean().default(false),
 
-  RABBITMQ_URL: Joi.string().required().description('RabbitMQ connection string'),
+  RABBITMQ_URL: Joi.string().default('amqp://localhost').description('RabbitMQ connection string'),
   RABBITMQ_PRIZE_QUEUE: Joi.string().default('prize_payout_queue'),
   RABBITMQ_DISPUTE_QUEUE: Joi.string().default('dispute_resolution_queue'),
   RABBITMQ_FILE_SCAN_QUEUE: Joi.string().default('file_scan_queue'),
 
-  PAYMENT_GATEWAY_API_KEY: Joi.string().required().description('Payment gateway API key'),
-  PAYMENT_GATEWAY_WEBHOOK_SECRET: Joi.string().required().description('Payment gateway webhook secret'),
+  PAYMENT_GATEWAY_API_KEY: Joi.string().default('your-payment-api-key').description('Payment gateway API key'),
+  PAYMENT_GATEWAY_WEBHOOK_SECRET: Joi.string().default('your-payment-webhook-secret').description('Payment gateway webhook secret'),
 
-  AWS_ACCESS_KEY_ID: Joi.string().required().description('AWS Access Key ID'),
-  AWS_SECRET_ACCESS_KEY: Joi.string().required().description('AWS Secret Access Key'),
-  AWS_REGION: Joi.string().required().description('AWS Region'),
-  AWS_S3_BUCKET_NAME: Joi.string().required().description('AWS S3 Bucket Name'),
+  AWS_ACCESS_KEY_ID: Joi.string().default('your-aws-access-key-id').description('AWS Access Key ID'),
+  AWS_SECRET_ACCESS_KEY: Joi.string().default('your-aws-secret-access-key').description('AWS Secret Access Key'),
+  AWS_REGION: Joi.string().default('us-east-1').description('AWS Region'),
+  AWS_S3_BUCKET_NAME: Joi.string().default('your-s3-bucket-name').description('AWS S3 Bucket Name'),
   AWS_S3_SIGNED_URL_EXPIRATION: Joi.number().default(300),
 
   LOG_LEVEL: Joi.string().valid('error', 'warn', 'info', 'http', 'verbose', 'debug', 'silly').default('info'),
   LOG_FILE_PATH: Joi.string().default('logs/app.log'),
   LOG_ERROR_FILE_PATH: Joi.string().default('logs/error.log'),
 
-  ADMIN_EMAIL: Joi.string().email().required().description('Default admin email for seeder'),
-  ADMIN_PASSWORD: Joi.string().required().description('Default admin password for seeder'),
+  ADMIN_EMAIL: Joi.string().email().default('admin@example.com').description('Default admin email for seeder'),
+  ADMIN_PASSWORD: Joi.string().default('adminpassword').description('Default admin password for seeder'),
 
   RATE_LIMIT_WINDOW_MS: Joi.number().default(15 * 60 * 1000), // 15 minutes
   RATE_LIMIT_MAX_REQUESTS: Joi.number().default(100),
@@ -88,7 +88,7 @@ const envVarsSchema = Joi.object({
   //   otherwise: Joi.optional(),
   // }).description('AWS SES Region (if different from general AWS_REGION)'),
 
-  ZARINPAL_MERCHANT_ID: Joi.string().required().description('Zarinpal Merchant ID'),
+  ZARINPAL_MERCHANT_ID: Joi.string().default('YOUR_ZARINPAL_MERCHANT_ID').description('Zarinpal Merchant ID'),
   ZARINPAL_ACCESS_TOKEN: Joi.string().optional().description('Zarinpal Access Token for refunds etc.'),
 
 

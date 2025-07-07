@@ -833,27 +833,212 @@ components:
           description: Match not found
         '500':
           description: Failed to update match result
-tags:
-  - name: Auth
-    description: Authentication related endpoints
-  - name: Wallet
-    description: Wallet and transaction management
-  - name: Tournaments
-    description: Tournament management
-  - name: Matches
-    description: Match management and result submission
-  - name: Admin - Disputes
-    description: Admin routes for dispute management
-  - name: Admin - Withdrawals
-    description: Admin routes for withdrawal management
-  - name: Leaderboards
-    description: Leaderboard information
-  - name: Teams
-    description: Team creation and management
-  - name: Users
-    description: User profile management (self-service)
-  - name: Admin - Users
-    description: Admin routes for user management
+  /admin/disputes:
+    get:
+      tags:
+        - Admin - Disputes
+      summary: List disputes (Admin/DisputeModerator)
+      security:
+        - BearerAuth: [] # Requires Admin or DisputeModerator role
+      parameters:
+        - name: page
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 10
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [OPEN, UNDER_REVIEW, RESOLVED_PARTICIPANT1_WIN, RESOLVED_PARTICIPANT2_WIN, RESOLVED_REPLAY, CLOSED, CLOSED_INVALID]
+        - name: tournamentId
+          in: query
+          schema:
+            type: string
+            format: uuid
+        - name: matchId
+          in: query
+          schema:
+            type: string
+            format: uuid
+        - name: moderatorId
+          in: query
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: A list of disputes
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ListDisputesResponse'
+        '400':
+          description: Validation Error
+        '401':
+          description: Unauthorized
+        '403':
+          description: Forbidden
+  /admin/disputes/{id}/resolve:
+    post:
+      tags:
+        - Admin - Disputes
+      summary: Resolve a dispute (Admin/DisputeModerator)
+      security:
+        - BearerAuth: [] # Requires Admin or DisputeModerator role
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: Dispute ID
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ResolveDisputeRequest'
+      responses:
+        '200':
+          description: Dispute resolved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ResolveDisputeResponse'
+        '400':
+          description: Validation Error or Invalid Dispute ID
+        '401':
+          description: Unauthorized
+        '403':
+          description: Forbidden
+        '404':
+          description: Dispute not found
+  /admin/withdrawals:
+    get:
+      tags:
+        - Admin - Withdrawals
+      summary: List withdrawal requests (Admin/FinanceManager)
+      security:
+        - BearerAuth: [] # Requires Admin or FinanceManager role
+      parameters:
+        - name: page
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 10
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [PENDING_APPROVAL, APPROVED, REJECTED, PROCESSING, COMPLETED, FAILED]
+        - name: userId
+          in: query
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: A list of withdrawal requests
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ListWithdrawalsResponse'
+        '400':
+          description: Validation Error
+        '401':
+          description: Unauthorized
+        '403':
+          description: Forbidden
+  /admin/withdrawals/{id}/approve:
+    post:
+      tags:
+        - Admin - Withdrawals
+      summary: Approve a withdrawal request (Admin/FinanceManager)
+      security:
+        - BearerAuth: [] # Requires Admin or FinanceManager role
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: Withdrawal ID (Transaction ID)
+      requestBody:
+        required: false # Notes are optional
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ApproveWithdrawalRequest'
+      responses:
+        '200':
+          description: Withdrawal request approved
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Transaction' # Returns the updated transaction
+        '400':
+          description: Validation Error or Invalid Withdrawal ID
+        '401':
+          description: Unauthorized
+        '403':
+          description: Forbidden
+        '404':
+          description: Withdrawal request not found
+  /admin/withdrawals/{id}/reject:
+    post:
+      tags:
+        - Admin - Withdrawals
+      summary: Reject a withdrawal request (Admin/FinanceManager)
+      security:
+        - BearerAuth: [] # Requires Admin or FinanceManager role
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: Withdrawal ID (Transaction ID)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RejectWithdrawalRequest'
+      responses:
+        '200':
+          description: Withdrawal request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Transaction' # Returns the updated transaction
+        '400':
+          description: Validation Error or Invalid Withdrawal ID
+        '401':
+          description: Unauthorized
+        '403':
+          description: Forbidden
+        '404':
+          description: Withdrawal request not found
   /users/me:
     get:
       tags:
@@ -1538,3 +1723,25 @@ tags:
           description: Forbidden
         '404':
           description: Withdrawal request not found
+
+tags:
+  - name: Auth
+    description: Authentication related endpoints
+  - name: Wallet
+    description: Wallet and transaction management
+  - name: Tournaments
+    description: Tournament management
+  - name: Matches
+    description: Match management and result submission
+  - name: Admin - Disputes
+    description: Admin routes for dispute management
+  - name: Admin - Withdrawals
+    description: Admin routes for withdrawal management
+  - name: Leaderboards
+    description: Leaderboard information
+  - name: Teams
+    description: Team creation and management
+  - name: Users
+    description: User profile management (self-service)
+  - name: Admin - Users
+    description: Admin routes for user management

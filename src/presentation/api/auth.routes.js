@@ -5,8 +5,9 @@ const RegisterUserUseCase = require('../../application/use-cases/auth/register-u
 const RefreshTokenUseCase = require('../../application/use-cases/auth/refresh-token.usecase');
 const SendVerificationEmailUseCase = require('../../application/use-cases/auth/send-verification-email.usecase');
 const VerifyEmailUseCase = require('../../application/use-cases/auth/verify-email.usecase');
-const PostgresUserRepository = require('../../infrastructure/database/repositories/postgres.user.repository');
-const PostgresWalletRepository = require('../../infrastructure/database/repositories/postgres.wallet.repository');
+const { PostgresUserRepository } = require('../../infrastructure/database/repositories/postgres.user.repository');
+const { PostgresWalletRepository } = require('../../infrastructure/database/repositories/postgres.wallet.repository');
+const db = require('../../infrastructure/database/models'); // Centralized models
 const ConsoleEmailService = require('../../infrastructure/email/console.email.service'); // Using ConsoleEmailService for now
 const { appConfig } = require('../../../config/config');
 const ms = require('ms'); // Added ms library
@@ -18,8 +19,8 @@ const authMiddleware = require('../../middleware/auth.middleware').authenticateT
 const router = express.Router();
 
 // Instantiate repositories
-const userRepository = new PostgresUserRepository();
-const walletRepository = new PostgresWalletRepository(); // Instantiate wallet repository
+const userRepository = new PostgresUserRepository({ UserModel: db.UserModel });
+const walletRepository = new PostgresWalletRepository({ WalletModel: db.WalletModel, UserModel: db.UserModel }); // Instantiate wallet repository
 
 // Instantiate use cases
 const loginUseCase = new LoginUseCase(userRepository);

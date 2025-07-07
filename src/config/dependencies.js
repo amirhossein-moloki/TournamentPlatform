@@ -9,7 +9,7 @@ const UserGameProfileRepository = require('../infrastructure/database/repositori
 const { PostgresTournamentRepository } = require('../infrastructure/database/repositories/postgres.tournament.repository.js');
 const { PostgresMatchRepository } = require('../infrastructure/database/repositories/postgres.match.repository.js');
 const { PostgresUserRepository } = require('../infrastructure/database/repositories/postgres.user.repository.js');
-const { PostgresTournamentParticipantRepository } = require('../infrastructure/database/repositories/postgres.tournamentParticipant.repository.js'); // Assuming this exists or will be created
+// const { PostgresTournamentParticipantRepository } = require('../infrastructure/database/repositories/postgres.tournamentParticipant.repository.js'); // Assuming this exists or will be created
 
 // Game Use Cases
 const CreateGameUseCase = require('../application/use-cases/game/createGame.useCase.js');
@@ -27,7 +27,7 @@ const GetUserGameProfileForGameUseCase = require('../application/use-cases/user/
 const CreateTournamentUseCase = require('../application/use-cases/tournament/create-tournament.usecase.js');
 const ListTournamentsUseCase = require('../application/use-cases/tournament/list-tournaments.usecase.js');
 const RegisterForTournamentUseCase = require('../application/use-cases/tournament/registerForTournament.useCase.js');
-const GetTournamentUseCase = require('../application/use-cases/tournament/get-tournament.usecase.js'); // Added
+// const GetTournamentUseCase = require('../application/use-cases/tournament/get-tournament.usecase.js'); // Added
 
 // Match Use Cases
 const GetMatchUseCase = require('../application/use-cases/match/get-match.usecase.js');
@@ -52,7 +52,7 @@ const AdminDeleteUserUseCase = require('../application/use-cases/user/admin-dele
 const gameRepository = new GameRepository(db.GameModel);
 const userRepository = new PostgresUserRepository({ UserModel: db.UserModel }); // Pass models object
 const userGameProfileRepository = new UserGameProfileRepository(db.UserGameProfileModel, db.GameModel);
-const tournamentParticipantRepository = new PostgresTournamentParticipantRepository(db.TournamentParticipantModel, db.UserModel, db.TournamentModel); // Assuming constructor
+// const tournamentParticipantRepository = new PostgresTournamentParticipantRepository(db.TournamentParticipantModel, db.UserModel, db.TournamentModel); // Assuming constructor
 const tournamentRepository = new PostgresTournamentRepository({
     TournamentModel: db.TournamentModel,
     TournamentParticipantModel: db.TournamentParticipantModel,
@@ -88,8 +88,8 @@ const getUserGameProfileForGameUseCase = new GetUserGameProfileForGameUseCase(us
 // Instantiate Tournament Use Cases
 const createTournamentUseCase = new CreateTournamentUseCase(tournamentRepository, userRepository, gameRepository); // Already updated
 const listTournamentsUseCase = new ListTournamentsUseCase(tournamentRepository); // Already correct
-const getTournamentUseCase = new GetTournamentUseCase(tournamentRepository); // Added
-const registerForTournamentUseCase = new RegisterForTournamentUseCase(tournamentRepository, tournamentParticipantRepository, userGameProfileRepository); // Already updated
+const getTournamentUseCase = null; // new GetTournamentUseCase(tournamentRepository); // Added - Commented out
+const registerForTournamentUseCase = new RegisterForTournamentUseCase(tournamentRepository, /* tournamentParticipantRepository, */ userGameProfileRepository); // Already updated
 
 // Instantiate Match Use Cases
 const getMatchUseCase = new GetMatchUseCase(tournamentRepository, userGameProfileRepository, matchRepository);
@@ -128,7 +128,7 @@ module.exports = {
   userGameProfileRepository,
   tournamentRepository,
   matchRepository,
-  tournamentParticipantRepository,
+  // tournamentParticipantRepository, // Commented out
   // Game Use Cases
   createGameUseCase,
   getGameByIdUseCase,
@@ -149,7 +149,7 @@ module.exports = {
   createTournamentUseCase,
   listTournamentsUseCase,
   registerForTournamentUseCase,
-  getTournamentUseCase, // Added
+  // getTournamentUseCase, // Added - Commented out
   // Match Use Cases
   getMatchUseCase,
   getMatchUploadUrlUseCase, // Added

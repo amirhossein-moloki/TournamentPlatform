@@ -82,9 +82,18 @@ class UserRepositoryInterface {
   async findAll({ page = 1, limit = 10, filters = {} } = {}) {
     // Default implementation to satisfy ESLint, will be overridden by concrete class.
     // This also makes it clear what the expected return structure is.
-    console.warn('Method "findAll" not implemented. Using default empty response.', page, limit, filters);
-    return { users: [], total: 0, page, limit };
-    // throw new Error('Method "findAll" not implemented.');
+    // console.warn('Method "findAll" not implemented. Using default empty response.', page, limit, filters);
+    // return { users: [], total: 0, page, limit };
+    throw new Error('Method "findAll" not implemented.');
+  }
+
+  /**
+   * Finds a user by their verification token.
+   * @param {string} verificationToken - The verification token.
+   * @returns {Promise<User|null>} The User entity if found, otherwise null.
+   */
+  async findByVerificationToken(verificationToken) {
+    throw new Error('Method "findByVerificationToken" not implemented.');
   }
 }
 
@@ -96,25 +105,5 @@ module.exports = UserRepositoryInterface;
 // Concrete repository implementations (e.g., PostgresUserRepository) will extend or implement this "interface".
 // The methods are async, reflecting that data operations are typically I/O bound.
 // The User type referred to in return types is the domain entity `User` from `user.entity.js`.
-// The `findAll` method includes a default implementation that logs a warning,
-// which can be helpful during development if a concrete implementation is missing a method.
-// However, the primary purpose is to define the contract, so throwing an error is standard.
-// I've chosen to throw errors for most methods to strictly enforce implementation.
-// For `findAll`, I added a console warning and a default return to illustrate an alternative,
-// but for strict interface adherence, throwing an error is better.
-// Let's revert `findAll` to throw an error for consistency.
-
-// Reverting findAll to throw error for strict interface definition:
-UserRepositoryInterface.prototype.findAll = async function({ page = 1, limit = 10, filters = {} } = {}) {
-  throw new Error('Method "findAll" not implemented.');
-};
-
-  /**
-   * Finds a user by their verification token.
-   * @param {string} verificationToken - The verification token.
-   * @returns {Promise<User|null>} The User entity if found, otherwise null.
-   */
-  async findByVerificationToken(verificationToken) {
-    throw new Error('Method "findByVerificationToken" not implemented.');
-  }
+// For strict interface adherence, throwing an error is standard for all methods.
 // This ensures any class attempting to use this interface must implement all methods.

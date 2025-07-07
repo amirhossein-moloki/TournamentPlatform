@@ -31,7 +31,7 @@ class UserModel extends Model {
 
   static associate(models) {
     // User -> UserGameProfile (One-to-Many)
-    this.hasMany(models.UserGameProfile, {
+    this.hasMany(models.UserGameProfileModel, { // Corrected
       foreignKey: 'userId',
       as: 'gameProfiles',
       onDelete: 'CASCADE',
@@ -39,14 +39,14 @@ class UserModel extends Model {
 
     // User -> Tournament (Organizer/Creator) (One-to-Many)
     // Note: The foreignKey in TournamentModel was 'organizerId'
-    this.hasMany(models.Tournament, { // Assuming TournamentModel is models.Tournament
+    this.hasMany(models.TournamentModel, { // Corrected
       foreignKey: 'organizerId', // This FK must exist in TournamentModel
       as: 'organizedTournaments', // Alias for tournaments organized by the user
       onDelete: 'SET NULL', // Or 'CASCADE' if tournaments should be deleted with user
     });
 
     // User -> Wallet (One-to-One)
-    this.hasOne(models.Wallet, { // Assuming WalletModel is models.Wallet
+    this.hasOne(models.WalletModel, { // Corrected
       foreignKey: 'userId',
       as: 'wallet',
       onDelete: 'CASCADE',
@@ -57,21 +57,21 @@ class UserModel extends Model {
     // Otherwise, this is typically accessed via user.getWallet().then(wallet => wallet.getTransactions())
 
     // User -> DisputeTicket (Reporter) (One-to-Many)
-    this.hasMany(models.DisputeTicket, { // Assuming DisputeTicketModel is models.DisputeTicket
+    this.hasMany(models.DisputeTicketModel, { // Corrected
       foreignKey: 'reporterId',
       as: 'reportedDisputes',
       onDelete: 'SET NULL',
     });
 
     // User -> DisputeTicket (Moderator) (One-to-Many)
-    this.hasMany(models.DisputeTicket, {
+    this.hasMany(models.DisputeTicketModel, { // Corrected
       foreignKey: 'moderatorId',
       as: 'moderatedDisputes',
       onDelete: 'SET NULL',
     });
 
     // User -> IdempotencyRequest (One-to-Many)
-    this.hasMany(models.IdempotencyRequest, { // Assuming IdempotencyRequestModel is models.IdempotencyRequest
+    this.hasMany(models.IdempotencyRequestModel, { // Corrected
       foreignKey: 'userId',
       as: 'idempotencyRequests',
       onDelete: 'CASCADE',
@@ -80,7 +80,7 @@ class UserModel extends Model {
     // User -> TournamentParticipant (if a user can be a participant directly)
     // This depends on how TournamentParticipant is structured.
     // If TournamentParticipant links a User to a Tournament:
-    // this.hasMany(models.TournamentParticipant, {
+    // this.hasMany(models.TournamentParticipantModel, { // Corrected
     //   foreignKey: 'userId', // Assuming TournamentParticipant has userId
     //   as: 'participations',
     // });
