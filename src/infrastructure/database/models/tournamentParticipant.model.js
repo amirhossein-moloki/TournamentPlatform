@@ -7,6 +7,19 @@ class TournamentParticipantModel extends Model {
     if (!modelInstance) return null;
     return TournamentParticipant.fromPersistence(modelInstance.get({ plain: true }));
   }
+
+  static associate(models) {
+    // A tournament participant record belongs to a tournament
+    this.belongsTo(models.TournamentModel, {
+      foreignKey: 'tournamentId',
+      as: 'tournament',
+    });
+
+    // Note: Associations for participantId (to UserModel or TeamModel)
+    // are typically handled at the application/repository layer due to polymorphism.
+    // If you wanted to attempt this at the model level, you might use hooks
+    // or define separate, nullable foreign keys (e.g., userId, teamId).
+  }
 }
 
 module.exports = (sequelize) => {

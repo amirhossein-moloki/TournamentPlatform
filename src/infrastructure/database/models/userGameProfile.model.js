@@ -15,14 +15,14 @@ const initUserGameProfileModel = (sequelize) => {
      */
     static associate(models) {
       // A UserGameProfile belongs to a User
-      this.belongsTo(models.User, {
+      this.belongsTo(models.UserModel, { // Corrected
         foreignKey: 'userId',
         as: 'user',
         onDelete: 'CASCADE', // If user is deleted, their game profiles are also deleted
       });
 
       // A UserGameProfile belongs to a Game
-      this.belongsTo(models.Game, {
+      this.belongsTo(models.GameModel, { // Corrected
         foreignKey: 'gameId',
         as: 'game',
         onDelete: 'CASCADE', // If a game is deleted, associated user profiles for that game are also deleted

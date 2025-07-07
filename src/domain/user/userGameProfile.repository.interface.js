@@ -23,7 +23,7 @@ class IUserGameProfileRepository {
      * @param {string} gameId - The ID of the game.
      * @returns {Promise<import('./userGameProfile.entity').default|null>} The profile entity or null if not found.
      */
-    asyncfindByUserIdAndGameId(userId, gameId) {
+    async findByUserIdAndGameId(userId, gameId) {
       throw new Error('Method not implemented.');
     }
 
@@ -32,7 +32,7 @@ class IUserGameProfileRepository {
      * @param {string} userId - The ID of the user.
      * @returns {Promise<import('./userGameProfile.entity').default[]>} A list of game profile entities for the user.
      */
-    asyncfindAllByUserId(userId) {
+    async findAllByUserId(userId) {
       throw new Error('Method not implemented.');
     }
 
@@ -41,7 +41,7 @@ class IUserGameProfileRepository {
      * @param {string} gameId - The ID of the game.
      * @returns {Promise<import('./userGameProfile.entity').default[]>} A list of game profile entities for the game.
      */
-    asyncfindAllByGameId(gameId) {
+    async findAllByGameId(gameId) {
       throw new Error('Method not implemented.');
     }
 

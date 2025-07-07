@@ -17,12 +17,12 @@ db.Sequelize = require('sequelize'); // Export Sequelize library itself if neede
 db.sequelize = sequelize; // Export configured instance
 
 // Initialize models
-db.GameModel = initGameModel(sequelize); // Initialize GameModel
+db.GameModel = initGameModel.default(sequelize); // Initialize GameModel
 db.TournamentModel = defineTournamentModel(sequelize);
 db.MatchModel = defineMatchModel(sequelize);
 db.TournamentParticipantModel = defineTournamentParticipantModel(sequelize);
 db.UserModel = defineUserModel(sequelize); // Initialize UserModel
-db.UserGameProfileModel = initUserGameProfileModel(sequelize); // Initialize UserGameProfileModel
+db.UserGameProfileModel = initUserGameProfileModel.default(sequelize); // Initialize UserGameProfileModel
 db.WalletModel = defineWalletModel(sequelize); // Initialize WalletModel
 db.TransactionModel = defineTransactionModel(sequelize); // Initialize TransactionModel
 db.DisputeTicketModel = defineDisputeTicketModel(sequelize); // Initialize DisputeTicketModel
@@ -87,10 +87,10 @@ db.TournamentModel.hasMany(db.TournamentParticipantModel, {
   onDelete: 'CASCADE',
   onUpdate: 'CASCADE',
 });
-db.TournamentParticipantModel.belongsTo(db.TournamentModel, {
-  foreignKey: { name: 'tournamentId', allowNull: false },
-  as: 'tournament',
-});
+// db.TournamentParticipantModel.belongsTo(db.TournamentModel, {
+//   foreignKey: { name: 'tournamentId', allowNull: false },
+//   as: 'tournament',
+// });
 
 // User <-> Tournament (Created By) - Assuming UserModel is defined and available as db.UserModel
 // This needs UserModel to be part of this centralized model system.
@@ -120,16 +120,16 @@ db.TournamentParticipantModel.belongsTo(db.TournamentModel, {
 
 // Wallet <-> Transaction (One-to-Many)
 // This should be in WalletModel.associate and TransactionModel.associate
-db.WalletModel.hasMany(db.TransactionModel, {
-  foreignKey: { name: 'walletId', allowNull: false },
-  as: 'transactions',
-  onDelete: 'CASCADE', // If a Wallet is deleted, its Transactions are also deleted. Could be RESTRICT.
-  onUpdate: 'CASCADE',
-});
-db.TransactionModel.belongsTo(db.WalletModel, {
-  foreignKey: { name: 'walletId', allowNull: false },
-  as: 'wallet',
-});
+// db.WalletModel.hasMany(db.TransactionModel, {
+//   foreignKey: { name: 'walletId', allowNull: false },
+//   as: 'transactions',
+//   onDelete: 'CASCADE', // If a Wallet is deleted, its Transactions are also deleted. Could be RESTRICT.
+//   onUpdate: 'CASCADE',
+// });
+// db.TransactionModel.belongsTo(db.WalletModel, {
+//   foreignKey: { name: 'walletId', allowNull: false },
+//   as: 'wallet',
+// });
 
 // Match <-> DisputeTicket (One-to-One, as matchId is unique in DisputeTickets)
 db.MatchModel.hasOne(db.DisputeTicketModel, {
@@ -138,10 +138,10 @@ db.MatchModel.hasOne(db.DisputeTicketModel, {
   onDelete: 'CASCADE', // If Match is deleted, DisputeTicket is also deleted
   onUpdate: 'CASCADE',
 });
-db.DisputeTicketModel.belongsTo(db.MatchModel, {
-  foreignKey: { name: 'matchId', allowNull: false },
-  as: 'match',
-});
+// db.DisputeTicketModel.belongsTo(db.MatchModel, {  // This is now defined in DisputeTicketModel.associate
+//   foreignKey: { name: 'matchId', allowNull: false },
+//   as: 'match',
+// });
 
 // User <-> DisputeTicket (Reported By) - Moved to UserModel.associate and DisputeTicketModel.associate
 // db.UserModel.hasMany(db.DisputeTicketModel, {

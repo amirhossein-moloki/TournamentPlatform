@@ -20,6 +20,14 @@ class TransactionModel extends Model {
       data.updatedAt
     );
   }
+
+  static associate(models) {
+    // A transaction belongs to a wallet
+    this.belongsTo(models.WalletModel, {
+      foreignKey: 'walletId',
+      as: 'wallet',
+    });
+  }
 }
 
 module.exports = (sequelize) => { // sequelize instance is passed here

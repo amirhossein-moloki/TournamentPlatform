@@ -15,6 +15,20 @@ class WalletModel extends Model {
       data.updatedAt
     );
   }
+
+  static associate(models) {
+    // A wallet belongs to a user
+    this.belongsTo(models.UserModel, {
+      foreignKey: 'userId',
+      as: 'user',
+    });
+
+    // A wallet can have many transactions
+    this.hasMany(models.TransactionModel, {
+      foreignKey: 'walletId',
+      as: 'transactions',
+    });
+  }
 }
 
 module.exports = (sequelize) => {

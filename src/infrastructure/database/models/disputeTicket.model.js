@@ -8,6 +8,26 @@ class DisputeTicketModel extends Model {
     // DisputeTicket.fromPersistence will handle the mapping
     return DisputeTicket.fromPersistence(modelInstance.get({ plain: true }));
   }
+
+  static associate(models) {
+    // A dispute ticket belongs to a match
+    this.belongsTo(models.MatchModel, {
+      foreignKey: 'matchId',
+      as: 'match',
+    });
+
+    // A dispute ticket is reported by a user
+    this.belongsTo(models.UserModel, {
+      foreignKey: 'reporterId',
+      as: 'reporter',
+    });
+
+    // A dispute ticket can be assigned to a moderator (user)
+    this.belongsTo(models.UserModel, {
+      foreignKey: 'moderatorId',
+      as: 'moderator', // Alias for the moderator user
+    });
+  }
 }
 
 module.exports = (sequelize) => {
