@@ -28,7 +28,7 @@ async function connectToDatabase() {
     // logger.info('Database synchronized.');
   } catch (error) {
     logger.error('Unable to connect to the database:', error);
-    process.exit(1); // Exit if database connection fails
+    // process.exit(1); // Exit if database connection fails
   }
 }
 
@@ -42,7 +42,7 @@ async function connectToMessageQueue() {
     // require('./src/workers/file.scan.worker').start();
   } catch (error) {
     logger.error('Failed to connect to RabbitMQ:', error);
-    process.exit(1); // Exit if RabbitMQ connection fails
+    // process.exit(1); // Exit if RabbitMQ connection fails
   }
 }
 
