@@ -12,22 +12,25 @@ const initGameModel = (sequelize) => {
      * This method is not a part of Sequelize lifecycle.
      * The `models/index.js` file will call this method automatically.
      */
-    static associate(models) {
+    static associate(models) { // 'models' here is the 'db' object from index.js
       // A game can have many tournaments.
-      this.hasMany(models.Tournament, {
+      this.hasMany(models.TournamentModel, { // Corrected: models.TournamentModel
         foreignKey: 'gameId',
         as: 'tournaments',
       });
 
       // A game can have many teams.
-      this.hasMany(models.Team, { // Assuming models.Team will exist
-        foreignKey: 'gameId',
-        as: 'teams',
-        // onDelete: 'CASCADE', // Or 'SET NULL' depending on desired behavior if a Game is deleted
-      });
+      // Assuming TeamModel will be db.TeamModel
+      if (models.TeamModel) { // Check if TeamModel exists before associating
+          this.hasMany(models.TeamModel, { // Corrected: models.TeamModel
+            foreignKey: 'gameId',
+            as: 'teams',
+            // onDelete: 'CASCADE', // Or 'SET NULL' depending on desired behavior if a Game is deleted
+          });
+      }
 
       // A game can have many user game profiles (linking users to this game with their in-game names)
-      this.hasMany(models.UserGameProfile, { // Assuming UserGameProfileModel is models.UserGameProfile
+      this.hasMany(models.UserGameProfileModel, { // Corrected: models.UserGameProfileModel
         foreignKey: 'gameId',
         as: 'userGameProfiles', // Alias for user profiles specific to this game
         onDelete: 'CASCADE', // If a game is deleted, the specific user profiles for it are also deleted

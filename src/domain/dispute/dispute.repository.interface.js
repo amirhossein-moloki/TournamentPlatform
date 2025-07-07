@@ -69,6 +69,6 @@ module.exports = DisputeRepositoryInterface;
 // - Methods support transaction options for consistency, although not all operations might require them.
 // - `findAll` includes common pagination, filtering, and sorting parameters.
 // - `findByMatchId` is included as it's a common lookup requirement for disputes.`DisputeRepositoryInterface.js` has been created in `src/domain/dispute/`.
-This interface defines the contract for dispute data operations.
-
-Next, I need to create the corresponding domain entity `src/domain/dispute/dispute.entity.js`. The database migration for `DisputeTickets` provides the schema for this.
+// This interface defines the contract for dispute data operations.
+//
+// Next, I need to create the corresponding domain entity `src/domain/dispute/dispute.entity.js`. The database migration for `DisputeTickets` provides the schema for this.

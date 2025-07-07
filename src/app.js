@@ -15,7 +15,6 @@ const usersRoutes = require('./presentation/api/users.routes');
 const walletRoutes = require('./presentation/api/wallet.routes');
 // Import game routes factory and dependencies
 const gamesRoutesFactory = require('./presentation/api/games.routes');
-const { gameController } = require('./config/dependencies'); // Assuming gameController is exported
 // Assuming auth middlewares are available
 const { authMiddleware, adminRoleMiddleware, authenticateToken, authorizeRole } = require('./middleware/auth.middleware'); // Added authenticateToken, authorizeRole
 const {

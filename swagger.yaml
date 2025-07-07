@@ -125,735 +125,6 @@ paths:
           description: Unauthorized
         '404':
           description: Wallet not found
-  /wallet/deposit/initialize:
-    post:
-      tags:
-        - Wallet
-      summary: Initialize a deposit
-      security:
-        - BearerAuth: []
-      parameters:
-        - name: X-Idempotency-Key
-          in: header
-          required: true
-          schema:
-            type: string
-            format: uuid
-          description: Idempotency key to prevent duplicate requests.
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/InitializeDepositRequest'
-      responses:
-        '200':
-          description: Deposit initialized successfully or idempotent replay
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/InitializeDepositResponse'
-        '400':
-          description: Validation Error or Invalid Idempotency Key
-        '401':
-          description: Unauthorized
-        '409':
-          description: Idempotency conflict (e.g. key used with different request)
-  /wallet/history:
-    get:
-      tags:
-        - Wallet
-      summary: Get transaction history
-      security:
-        - BearerAuth: []
-      parameters:
-        - name: page
-          in: query
-          schema:
-            type: integer
-            minimum: 1
-            default: 1
-        - name: limit
-          in: query
-          schema:
-            type: integer
-            minimum: 1
-            maximum: 100
-            default: 10
-        - name: type
-          in: query
-          schema:
-            type: string
-            enum: [DEPOSIT, WITHDRAWAL, TOURNAMENT_FEE, PRIZE_PAYOUT, REFUND, ADJUSTMENT_CREDIT, ADJUSTMENT_DEBIT]
-        - name: status
-          in: query
-          schema:
-            type: string
-            enum: [PENDING, COMPLETED, FAILED, CANCELED, REQUIRES_APPROVAL, PROCESSING, REFUNDED]
-        - name: sortBy
-          in: query
-          schema:
-            type: string
-            enum: [transactionDate, amount]
-            default: transactionDate
-        - name: sortOrder
-          in: query
-          schema:
-            type: string
-            enum: [ASC, DESC]
-            default: DESC
-      responses:
-        '200':
-          description: Transaction history retrieved
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/TransactionHistoryResponse'
-        '400':
-          description: Validation Error
-        '401':
-          description: Unauthorized
-  /wallet/withdrawals:
-    post:
-      tags:
-        - Wallet
-      summary: Request a withdrawal
-      security:
-        - BearerAuth: []
-      parameters:
-        - name: X-Idempotency-Key
-          in: header
-          required: true
-          schema:
-            type: string
-            format: uuid
-          description: Idempotency key to prevent duplicate requests.
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/RequestWithdrawalRequest'
-      responses:
-        '200': # For idempotent replay of an already processed request
-          description: Withdrawal request already processed (idempotent replay)
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/RequestWithdrawalResponse'
-        '202': # For new withdrawal request accepted
-          description: Withdrawal request accepted for processing
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/RequestWithdrawalResponse'
-        '400':
-          description: Validation Error or Invalid Idempotency Key
-        '401':
-          description: Unauthorized
-        '409':
-          description: Idempotency conflict
-components:
-  schemas:
-    RegisterRequest:
-      type: object
-      properties:
-        username:
-          type: string
-          minLength: 3
-          maxLength: 30
-        email:
-          type: string
-          format: email
-        password:
-          type: string
-          minLength: 8
-    LoginRequest:
-      type: object
-      properties:
-        email:
-          type: string
-          format: email
-        password:
-          type: string
-    VerifyEmailRequest:
-      type: object
-      properties:
-        token:
-          type: string
-          description: The verification token received by email.
-    AuthResponse:
-      type: object
-      properties:
-        user:
-          $ref: '#/components/schemas/User'
-        accessToken:
-          type: string
-    User: # Basic User schema, expand as needed
-      type: object
-      properties:
-        id:
-          type: string
-          format: uuid
-        username:
-          type: string
-        email:
-          type: string
-          format: email
-        isEmailVerified:
-          type: boolean
-    WalletDetailsResponse:
-      type: object
-      properties:
-        id:
-          type: string
-          format: uuid
-        userId:
-          type: string
-          format: uuid
-        balance:
-          type: number
-          format: float
-        currency:
-          type: string
-          example: "USD"
-        createdAt:
-          type: string
-          format: date-time
-        updatedAt:
-          type: string
-          format: date-time
-    InitializeDepositRequest:
-      type: object
-      required:
-        - amount
-        - currency
-      properties:
-        amount:
-          type: number
-          format: float
-          # positive: true, OpenAPI v3 doesn't have 'positive' keyword, use minimum/exclusiveMinimum
-          minimum: 0
-          exclusiveMinimum: true # Ensures positive
-          description: Amount to deposit (e.g., 10.50), validated for max 2 decimal places in backend.
-        currency:
-          type: string
-          length: 3
-          pattern: '^[A-Z]{3}$'
-          description: 3-letter currency code (e.g., USD).
-    InitializeDepositResponse:
-      type: object
-      properties:
-        paymentGatewayUrl:
-          type: string
-          format: url
-          description: URL to redirect the user for payment.
-        transactionId:
-          type: string
-          format: uuid
-          description: Unique ID for this transaction.
-        status:
-          type: string
-          description: Status of the transaction, especially for idempotent replays.
-    Transaction:
-      type: object
-      properties:
-        id:
-          type: string
-          format: uuid
-        walletId:
-          type: string
-          format: uuid
-        type:
-          type: string
-          enum: [DEPOSIT, WITHDRAWAL, TOURNAMENT_FEE, PRIZE_PAYOUT, REFUND, ADJUSTMENT_CREDIT, ADJUSTMENT_DEBIT]
-        amount:
-          type: number
-          format: float
-        currency:
-          type: string
-        status:
-          type: string
-          enum: [PENDING, COMPLETED, FAILED, CANCELED, REQUIRES_APPROVAL, PROCESSING, REFUNDED]
-        transactionDate:
-          type: string
-          format: date-time
-        idempotencyKey:
-          type: string
-          format: uuid
-          nullable: true
-        metadata:
-          type: object
-          additionalProperties: true
-    TransactionHistoryResponse:
-      type: object
-      properties:
-        transactions:
-          type: array
-          items:
-            $ref: '#/components/schemas/Transaction'
-        totalItems:
-          type: integer
-        totalPages:
-          type: integer
-        currentPage:
-          type: integer
-        pageSize:
-          type: integer
-    RequestWithdrawalRequest:
-      type: object
-      required:
-        - amount
-        - currency
-        - withdrawalMethodDetails
-      properties:
-        amount:
-          type: number
-          format: float
-          minimum: 0
-          exclusiveMinimum: true # Ensures positive
-          description: Amount to withdraw (e.g., 10.50), validated for max 2 decimal places in backend.
-        currency:
-          type: string
-          length: 3
-          pattern: '^[A-Z]{3}$'
-        withdrawalMethodDetails:
-          type: object
-          minProperties: 1
-          description: Details for the withdrawal method (e.g., PayPal email, bank account info). Example structure not enforced by base schema.
-          example:
-            paypalEmail: "user@example.com"
-            # or bankAccount: { "number": "12345", "routing": "01000001" }
-    RequestWithdrawalResponse:
-      type: object
-      properties:
-        transactionId:
-          type: string
-          format: uuid
-        status:
-          type: string
-          description: Current status of the withdrawal request.
-  /tournaments:
-    post:
-      tags:
-        - Tournaments
-      summary: Create a new tournament (Admin only)
-      security:
-        - BearerAuth: [] # Requires Admin role
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/CreateTournamentRequest'
-      responses:
-        '201':
-          description: Tournament created successfully
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/TournamentResponse'
-        '400':
-          description: Validation Error
-        '401':
-          description: Unauthorized
-        '403':
-          description: Forbidden (User is not an Admin)
-    get:
-      tags:
-        - Tournaments
-      summary: List all tournaments
-      parameters:
-        - name: page
-          in: query
-          schema:
-            type: integer
-            minimum: 1
-            default: 1
-        - name: limit
-          in: query
-          schema:
-            type: integer
-            minimum: 1
-            maximum: 100
-            default: 10
-        - name: status
-          in: query
-          schema:
-            type: string
-            enum: [PENDING, REGISTRATION_OPEN, REGISTRATION_CLOSED, ONGOING, COMPLETED, CANCELED]
-        - name: gameName
-          in: query
-          schema:
-            type: string
-            minLength: 1
-            maxLength: 50
-        - name: sortBy
-          in: query
-          schema:
-            type: string
-            enum: [startDate, name, entryFee, prizePool]
-            default: startDate
-        - name: sortOrder
-          in: query
-          schema:
-            type: string
-            enum: [ASC, DESC]
-            default: ASC
-      responses:
-        '200':
-          description: A list of tournaments
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ListTournamentsResponse'
-        '400':
-          description: Validation Error
-  /tournaments/{id}:
-    get:
-      tags:
-        - Tournaments
-      summary: Get tournament details
-      parameters:
-        - name: id
-          in: path
-          required: true
-          schema:
-            type: string
-            format: uuid
-          description: Tournament ID
-        - name: include
-          in: query
-          schema:
-            type: string
-          description: Comma-separated list of relations to include (e.g., participants,matches)
-      responses:
-        '200':
-          description: Tournament details
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/TournamentResponse' # Assuming it includes participants and matches if requested
-        '400':
-          description: Invalid Tournament ID
-        '404':
-          description: Tournament not found
-  /tournaments/{id}/register:
-    post:
-      tags:
-        - Tournaments
-      summary: Register for a tournament
-      security:
-        - BearerAuth: []
-      parameters:
-        - name: id
-          in: path
-          required: true
-          schema:
-            type: string
-            format: uuid
-          description: Tournament ID
-      responses:
-        '200':
-          description: Successfully registered for the tournament
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/TournamentRegistrationResponse'
-        '400':
-          description: Validation Error (e.g., invalid ID, registration closed, already registered)
-        '401':
-          description: Unauthorized
-        '403':
-          description: Forbidden (e.g., tournament full, user banned)
-        '404':
-          description: Tournament not found
-        '409': # Conflict, e.g. already registered
-            description: Conflict (e.g. already registered, insufficient balance)
-  securitySchemes:
-    BearerAuth:
-      type: http
-      scheme: bearer
-      bearerFormat: JWT
-    CreateTournamentRequest:
-      type: object
-      required:
-        - name
-        - gameName
-        - entryFee
-        - prizePool
-        - maxParticipants
-        - startDate
-      properties:
-        name:
-          type: string
-          minLength: 3
-          maxLength: 100
-        gameName:
-          type: string
-          minLength: 2
-          maxLength: 50
-        description:
-          type: string
-          maxLength: 1000
-          nullable: true
-        rules:
-          type: string
-          maxLength: 5000
-          nullable: true
-        entryFee:
-          type: number
-          format: float
-          minimum: 0
-          description: Entry fee for the tournament, validated for max 2 decimal places in backend.
-        prizePool:
-          type: number
-          format: float
-          minimum: 0
-          description: Total prize pool, validated for max 2 decimal places in backend.
-        maxParticipants:
-          type: integer
-          minimum: 2
-          maximum: 1024
-        startDate:
-          type: string
-          format: date-time
-          description: Must be in the future. ISO 8601 format (YYYY-MM-DDTHH:mm:ss.SSSZ).
-        endDate:
-          type: string
-          format: date-time
-          nullable: true
-          description: Must be after startDate. ISO 8601 format.
-    TournamentResponse: # Can be used for GET /tournaments/:id and POST /tournaments
-      type: object
-      properties:
-        id:
-          type: string
-          format: uuid
-        name:
-          type: string
-        gameName:
-          type: string
-        description:
-          type: string
-          nullable: true
-        rules:
-          type: string
-          nullable: true
-        entryFee:
-          type: number
-          format: float
-        prizePool:
-          type: number
-          format: float
-        maxParticipants:
-          type: integer
-        currentParticipants:
-          type: integer
-        startDate:
-          type: string
-          format: date-time
-        endDate:
-          type: string
-          format: date-time
-          nullable: true
-        status:
-          type: string
-          enum: [PENDING, REGISTRATION_OPEN, REGISTRATION_CLOSED, ONGOING, COMPLETED, CANCELED, DRAFT]
-        organizerId:
-          type: string
-          format: uuid
-          nullable: true
-        createdAt:
-          type: string
-          format: date-time
-        updatedAt:
-          type: string
-          format: date-time
-        participants: # Optionally included based on ?include=participants
-          type: array
-          items:
-            $ref: '#/components/schemas/TournamentParticipant'
-          nullable: true
-        matches: # Optionally included based on ?include=matches
-          type: array
-          items:
-            type: object # Placeholder for Match schema, ideally $ref: '#/components/schemas/MatchSummary' or similar
-            description: "Structure of a match object. Define more specifically if details are known."
-          nullable: true
-    TournamentParticipant:
-      type: object
-      properties:
-        userId:
-          type: string
-          format: uuid
-        username: # Denormalized for convenience
-          type: string
-        registeredAt:
-          type: string
-          format: date-time
-        # Add other relevant participant details like seed, status in tournament etc.
-    ListTournamentsResponse:
-      type: object
-      properties:
-        tournaments:
-          type: array
-          items:
-            $ref: '#/components/schemas/TournamentResponse' # Could be a slimmer version for lists
-        totalItems:
-          type: integer
-        totalPages:
-          type: integer
-        currentPage:
-          type: integer
-        pageSize:
-          type: integer
-    TournamentRegistrationResponse:
-      type: object
-      properties:
-        message:
-          type: string
-        registrationDetails:
-          type: object # Define specific registration details if any
-          properties:
-            tournamentId:
-              type: string
-              format: uuid
-            userId:
-              type: string
-              format: uuid
-            status: # e.g. "REGISTERED", "WAITLISTED"
-              type: string
-            registeredAt:
-              type: string
-              format: date-time
-            transactionId: # If entry fee was processed
-              type: string
-              format: uuid
-              nullable: true
-  /matches/{id}:
-    get:
-      tags:
-        - Matches
-      summary: Get match details
-      security:
-        - BearerAuth: []
-      parameters:
-        - name: id
-          in: path
-          required: true
-          schema:
-            type: string
-            format: uuid
-          description: Match ID
-      responses:
-        '200':
-          description: Match details retrieved
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/MatchResponse'
-        '400':
-          description: Invalid Match ID format
-        '401':
-          description: Unauthorized
-        '404':
-          description: Match not found
-  /matches/{id}/results/upload-url:
-    post:
-      tags:
-        - Matches
-      summary: Get a pre-signed URL for uploading match result screenshot
-      security:
-        - BearerAuth: []
-      parameters:
-        - name: id
-          in: path
-          required: true
-          schema:
-            type: string
-            format: uuid
-          description: Match ID
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/MatchUploadUrlRequest'
-      responses:
-        '200':
-          description: Upload URL generated successfully
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/MatchUploadUrlResponse'
-        '400':
-          description: Validation Error or Invalid Match ID
-        '401':
-          description: Unauthorized
-        '403':
-          description: Forbidden (user not a participant or match not in correct state)
-        '404':
-          description: Match not found
-  /matches/{id}/results:
-    post:
-      tags:
-        - Matches
-      summary: Submit match results
-      security:
-        - BearerAuth: []
-      parameters:
-        - name: id
-          in: path
-          required: true
-          schema:
-            type: string
-            format: uuid
-          description: Match ID
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/SubmitMatchResultRequest'
-      responses:
-        '200':
-          description: Match result submitted successfully, awaiting confirmation
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/MatchResponse' # Returns the updated match
-        '400':
-          description: Validation Error or Invalid Match ID or invalid winner ID
-        '401':
-          description: Unauthorized
-        '403':
-          description: Forbidden (user not a participant or match not in correct state)
-        '404':
-          description: Match not found
-        '500':
-          description: Failed to update match result
-tags:
-  - name: Auth
-    description: Authentication related endpoints
-  - name: Wallet
-    description: Wallet and transaction management
-  - name: Tournaments
-    description: Tournament management
-  - name: Matches
-    description: Match management and result submission
-  - name: Admin - Disputes
-    description: Admin routes for dispute management
-  - name: Admin - Withdrawals
-    description: Admin routes for withdrawal management
-  - name: Leaderboards
-    description: Leaderboard information
-  - name: Teams
-    description: Team creation and management
-  - name: Users
-    description: User profile management (self-service)
-  - name: Admin - Users
-    description: Admin routes for user management
   /users/me:
     get:
       tags:
@@ -1237,34 +508,49 @@ tags:
           description: Forbidden (not authorized to remove member)
         '404':
           description: Team or Member not found
-  /leaderboards:
-    get:
+# End of paths. Tags section should follow.
+  /wallet/deposit/initialize:
+    post:
       tags:
-        - Leaderboards
-      summary: Get leaderboard data
+        - Wallet
+      summary: Initialize a deposit
+      security:
+        - BearerAuth: []
       parameters:
-        - name: gameName
-          in: query
+        - name: X-Idempotency-Key
+          in: header
           required: true
           schema:
             type: string
-            minLength: 2
-            maxLength: 50
-          description: Name of the game for the leaderboard.
-        - name: metric
-          in: query
-          schema:
-            type: string
-            enum: [wins, score, rating, earnings]
-            default: rating
-          description: Metric to rank by.
-        - name: period
-          in: query
-          schema:
-            type: string
-            enum: [daily, weekly, monthly, all_time]
-            default: all_time
-          description: Time period for the leaderboard.
+            format: uuid
+          description: Idempotency key to prevent duplicate requests.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/InitializeDepositRequest'
+      responses:
+        '200':
+          description: Deposit initialized successfully or idempotent replay
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InitializeDepositResponse'
+        '400':
+          description: Validation Error or Invalid Idempotency Key
+        '401':
+          description: Unauthorized
+        '409':
+          description: Idempotency conflict (e.g. key used with different request)
+  /wallet/history:
+    get:
+      tags:
+        - Wallet
+      summary: Get transaction history
+      security:
+        - BearerAuth: []
+      parameters:
         - name: page
           in: query
           schema:
@@ -1277,68 +563,741 @@ tags:
             type: integer
             minimum: 1
             maximum: 100
-            default: 20
+            default: 10
+        - name: type
+          in: query
+          schema:
+            type: string
+            enum: [DEPOSIT, WITHDRAWAL, TOURNAMENT_FEE, PRIZE_PAYOUT, REFUND, ADJUSTMENT_CREDIT, ADJUSTMENT_DEBIT]
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [PENDING, COMPLETED, FAILED, CANCELED, REQUIRES_APPROVAL, PROCESSING, REFUNDED]
+        - name: sortBy
+          in: query
+          schema:
+            type: string
+            enum: [transactionDate, amount]
+            default: transactionDate
+        - name: sortOrder
+          in: query
+          schema:
+            type: string
+            enum: [ASC, DESC]
+            default: DESC
       responses:
         '200':
-          description: Leaderboard data retrieved successfully
+          description: Transaction history retrieved
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/LeaderboardResponse'
+                $ref: '#/components/schemas/TransactionHistoryResponse'
         '400':
           description: Validation Error
-  /leaderboards/user/{userId}:
+        '401':
+          description: Unauthorized
+  /wallet/withdrawals:
+    post:
+      tags:
+        - Wallet
+      summary: Request a withdrawal
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: X-Idempotency-Key
+          in: header
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: Idempotency key to prevent duplicate requests.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RequestWithdrawalRequest'
+      responses:
+        '200': # For idempotent replay of an already processed request
+          description: Withdrawal request already processed (idempotent replay)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RequestWithdrawalResponse'
+        '202': # For new withdrawal request accepted
+          description: Withdrawal request accepted for processing
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RequestWithdrawalResponse'
+        '400':
+          description: Validation Error or Invalid Idempotency Key
+        '401':
+          description: Unauthorized
+        '409':
+          description: Idempotency conflict
+  /users/me:
     get:
       tags:
-        - Leaderboards
-      summary: Get a user's rank on leaderboards
+        - Users
+      summary: Get current user's profile
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: User profile retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserProfileResponse'
+        '401':
+          description: Unauthorized
+    put:
+      tags:
+        - Users
+      summary: Update current user's profile
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateUserProfileRequest'
+      responses:
+        '200':
+          description: Profile updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserProfileResponse'
+        '400':
+          description: Validation Error or no data provided
+        '401':
+          description: Unauthorized
+  /users:
+    get:
+      tags:
+        - Admin - Users
+      summary: List all users (Admin only)
+      security:
+        - BearerAuth: []
       parameters:
+        - name: page
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 10
+        - name: role
+          in: query
+          schema:
+            type: string
+            enum: [User, Admin, DisputeModerator, FinanceManager]
+          description: Filter by user role.
+        - name: isVerified
+          in: query
+          schema:
+            type: boolean
+          description: Filter by email verification status.
+      responses:
+        '200':
+          description: A list of users
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ListUsersResponse'
+        '401':
+          description: Unauthorized
+        '403':
+          description: Forbidden (User is not an Admin)
+  /users/{id}:
+    get:
+      tags:
+        - Admin - Users
+      summary: Get user profile by ID (Admin only)
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: User ID
+      responses:
+        '200':
+          description: User profile retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserProfileResponse'
+        '400':
+          description: Invalid User ID format
+        '401':
+          description: Unauthorized
+        '403':
+          description: Forbidden (User is not an Admin)
+        '404':
+          description: User not found
+    put:
+      tags:
+        - Admin - Users
+      summary: Update user profile by ID (Admin only)
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: User ID
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AdminUpdateUserRequest'
+      responses:
+        '200':
+          description: User updated successfully by admin
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserProfileResponse'
+        '400':
+          description: Validation Error or Invalid User ID or no data provided
+        '401':
+          description: Unauthorized
+        '403':
+          description: Forbidden (User is not an Admin)
+        '404':
+          description: User not found
+    delete:
+      tags:
+        - Admin - Users
+      summary: Delete a user by ID (Admin only)
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: User ID
+      responses:
+        '200':
+          description: User deleted successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+        '400':
+          description: Invalid User ID format
+        '401':
+          description: Unauthorized
+        '403':
+          description: Forbidden (Admin cannot delete self via this endpoint or not an Admin)
+        '404':
+          description: User not found
+  /teams:
+    post:
+      tags:
+        - Teams
+      summary: Create a new team
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TeamRequest'
+      responses:
+        '201':
+          description: Team created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TeamResponse'
+        '400':
+          description: Validation Error
+        '401':
+          description: Unauthorized
+    get:
+      tags:
+        - Teams
+      summary: List all teams
+      parameters:
+        - name: page
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 10
+        - name: gameName
+          in: query
+          schema:
+            type: string
+          description: Filter teams by game name (if applicable).
+      responses:
+        '200':
+          description: A list of teams
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ListTeamsResponse'
+  /teams/{id}:
+    get:
+      tags:
+        - Teams
+      summary: Get team details
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+          description: Team ID or unique tag/slug.
+      responses:
+        '200':
+          description: Team details retrieved
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TeamResponse'
+        '404':
+          description: Team not found
+    put:
+      tags:
+        - Teams
+      summary: Update team details
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+          description: Team ID.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TeamRequest'
+      responses:
+        '200':
+          description: Team updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TeamResponse'
+        '400':
+          description: Validation Error
+        '401':
+          description: Unauthorized
+        '403':
+          description: Forbidden (not authorized to update)
+        '404':
+          description: Team not found
+    delete:
+      tags:
+        - Teams
+      summary: Delete a team
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+          description: Team ID.
+      responses:
+        '200':
+          description: Team deleted successfully
+        '401':
+          description: Unauthorized
+        '403':
+          description: Forbidden (not authorized to delete)
+        '404':
+          description: Team not found
+  /teams/{id}/members:
+    post:
+      tags:
+        - Teams
+      summary: Add a member to a team
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+          description: Team ID.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AddTeamMemberRequest'
+      responses:
+        '200':
+          description: Member added successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TeamResponse'
+        '400':
+          description: Validation Error
+        '401':
+          description: Unauthorized
+        '403':
+          description: Forbidden (not authorized to add member)
+        '404':
+          description: Team or User to add not found
+        '409':
+          description: User is already a member
+  /teams/{id}/members/{userId}:
+    delete:
+      tags:
+        - Teams
+      summary: Remove a member from a team
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+          description: Team ID.
         - name: userId
           in: path
           required: true
           schema:
-            type: string # Could be UUID or other alphanumeric format
-          description: ID of the user (e.g., UUID or custom alphanumeric ID).
-        - name: gameName
-          in: query
-          required: true
-          schema:
             type: string
-            minLength: 2
-            maxLength: 50
-          description: Name of the game for the leaderboard.
-        - name: metric
-          in: query
-          schema:
-            type: string
-            enum: [wins, score, rating, earnings]
-            default: rating
-          description: Metric to rank by.
-        - name: period
-          in: query
-          schema:
-            type: string
-            enum: [daily, weekly, monthly, all_time]
-            default: all_time
-          description: Time period for the leaderboard.
+            format: uuid
+          description: ID of the member to remove.
       responses:
         '200':
-          description: User rank details retrieved successfully
+          description: Member removed successfully
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/UserLeaderboardRankResponse'
+                $ref: '#/components/schemas/TeamResponse'
         '400':
-          description: Validation Error or Invalid User ID
+          description: Cannot remove sole owner
+        '401':
+          description: Unauthorized
+        '403':
+          description: Forbidden (not authorized to remove member)
         '404':
-          description: User not found on the specified leaderboard
-  /admin/disputes:
+          description: Team or Member not found
+components:
+  schemas:
+    RegisterRequest:
+      type: object
+      properties:
+        username:
+          type: string
+          minLength: 3
+          maxLength: 30
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+          minLength: 8
+    LoginRequest:
+      type: object
+      properties:
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+    VerifyEmailRequest:
+      type: object
+      properties:
+        token:
+          type: string
+          description: The verification token received by email.
+    AuthResponse:
+      type: object
+      properties:
+        user:
+          $ref: '#/components/schemas/User'
+        accessToken:
+          type: string
+    User: # Basic User schema, expand as needed
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        username:
+          type: string
+        email:
+          type: string
+          format: email
+        isEmailVerified:
+          type: boolean
+    WalletDetailsResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        userId:
+          type: string
+          format: uuid
+        balance:
+          type: number
+          format: float
+        currency:
+          type: string
+          example: "USD"
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+    InitializeDepositRequest:
+      type: object
+      required:
+        - amount
+        - currency
+      properties:
+        amount:
+          type: number
+          format: float
+          # positive: true, OpenAPI v3 doesn't have 'positive' keyword, use minimum/exclusiveMinimum
+          minimum: 0
+          exclusiveMinimum: true # Ensures positive
+          description: Amount to deposit (e.g., 10.50), validated for max 2 decimal places in backend.
+        currency:
+          type: string
+          length: 3
+          pattern: '^[A-Z]{3}$'
+          description: 3-letter currency code (e.g., USD).
+    InitializeDepositResponse:
+      type: object
+      properties:
+        paymentGatewayUrl:
+          type: string
+          format: url
+          description: URL to redirect the user for payment.
+        transactionId:
+          type: string
+          format: uuid
+          description: Unique ID for this transaction.
+        status:
+          type: string
+          description: Status of the transaction, especially for idempotent replays.
+    Transaction:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        walletId:
+          type: string
+          format: uuid
+        type:
+          type: string
+          enum: [DEPOSIT, WITHDRAWAL, TOURNAMENT_FEE, PRIZE_PAYOUT, REFUND, ADJUSTMENT_CREDIT, ADJUSTMENT_DEBIT]
+        amount:
+          type: number
+          format: float
+        currency:
+          type: string
+        status:
+          type: string
+          enum: [PENDING, COMPLETED, FAILED, CANCELED, REQUIRES_APPROVAL, PROCESSING, REFUNDED]
+        transactionDate:
+          type: string
+          format: date-time
+        idempotencyKey:
+          type: string
+          format: uuid
+          nullable: true
+        metadata:
+          type: object
+          additionalProperties: true
+    TransactionHistoryResponse:
+      type: object
+      properties:
+        transactions:
+          type: array
+          items:
+            $ref: '#/components/schemas/Transaction'
+        totalItems:
+          type: integer
+        totalPages:
+          type: integer
+        currentPage:
+          type: integer
+        pageSize:
+          type: integer
+    RequestWithdrawalRequest:
+      type: object
+      required:
+        - amount
+        - currency
+        - withdrawalMethodDetails
+      properties:
+        amount:
+          type: number
+          format: float
+          minimum: 0
+          exclusiveMinimum: true # Ensures positive
+          description: Amount to withdraw (e.g., 10.50), validated for max 2 decimal places in backend.
+        currency:
+          type: string
+          length: 3
+          pattern: '^[A-Z]{3}$'
+        withdrawalMethodDetails:
+          type: object
+          minProperties: 1
+          description: Details for the withdrawal method (e.g., PayPal email, bank account info). Example structure not enforced by base schema.
+          example:
+            paypalEmail: "user@example.com"
+            # or bankAccount: { "number": "12345", "routing": "01000001" }
+    RequestWithdrawalResponse:
+      type: object
+      properties:
+        transactionId:
+          type: string
+          format: uuid
+        status:
+          type: string
+          description: Current status of the withdrawal request.
+components:
+  schemas:
+    # Schemas from RegisterRequest to RequestWithdrawalResponse are here in the original
+    RequestWithdrawalResponse: # This is the last schema before the misplaced items
+      type: object
+      properties:
+        transactionId:
+          type: string
+          format: uuid
+        status:
+          type: string
+          description: Current status of the withdrawal request.
+    CreateTournamentRequest: # MOVED HERE
+      type: object
+      required:
+        - name
+        - gameName
+        - entryFee
+        - prizePool
+        - maxParticipants
+        - startDate
+      properties:
+        name:
+          type: string
+          minLength: 3
+          maxLength: 100
+        gameName:
+          type: string
+          minLength: 2
+          maxLength: 50
+        description:
+          type: string
+          maxLength: 1000
+          nullable: true
+        rules:
+          type: string
+          maxLength: 5000
+          nullable: true
+        entryFee:
+          type: number
+          format: float
+          minimum: 0
+          description: Entry fee for the tournament, validated for max 2 decimal places in backend.
+        prizePool:
+          type: number
+          format: float
+          minimum: 0
+          description: Total prize pool, validated for max 2 decimal places in backend.
+        maxParticipants:
+          type: integer
+          minimum: 2
+          maximum: 1024
+        startDate:
+          type: string
+          format: date-time
+          description: Must be in the future. ISO 8601 format (YYYY-MM-DDTHH:mm:ss.SSSZ).
+        endDate:
+          type: string
+          format: date-time
+          nullable: true
+          description: Must be after startDate. ISO 8601 format.
+    # TournamentResponse schema starts here in the original, ensure it's preserved or correctly placed
+  securitySchemes: # MOVED HERE
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  # Original /tournaments path definition and other top-level keys like 'tags' follow
+  /tournaments:
+    post:
+      tags:
+        - Tournaments
+      summary: Create a new tournament (Admin only)
+      security:
+        - BearerAuth: [] # Requires Admin role
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateTournamentRequest' # Path now correct
+      responses:
+        '201':
+          description: Tournament created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TournamentResponse'
+        '400':
+          description: Validation Error
+        '401':
+          description: Unauthorized
+        '403':
+          description: Forbidden (User is not an Admin)
     get:
       tags:
-        - Admin - Disputes
-      summary: List disputes (Admin/DisputeModerator)
-      security:
-        - BearerAuth: [] # Requires Admin or DisputeModerator role
+        - Tournaments
+      summary: List all tournaments
       parameters:
         - name: page
           in: query
@@ -1357,122 +1316,39 @@ tags:
           in: query
           schema:
             type: string
-            enum: [OPEN, UNDER_REVIEW, RESOLVED_PARTICIPANT1_WIN, RESOLVED_PARTICIPANT2_WIN, RESOLVED_REPLAY, CLOSED, CLOSED_INVALID]
-        - name: tournamentId
+            enum: [PENDING, REGISTRATION_OPEN, REGISTRATION_CLOSED, ONGOING, COMPLETED, CANCELED]
+        - name: gameName
           in: query
           schema:
             type: string
-            format: uuid
-        - name: matchId
+            minLength: 1
+            maxLength: 50
+        - name: sortBy
           in: query
           schema:
             type: string
-            format: uuid
-        - name: moderatorId
+            enum: [startDate, name, entryFee, prizePool]
+            default: startDate
+        - name: sortOrder
           in: query
           schema:
             type: string
-            format: uuid
+            enum: [ASC, DESC]
+            default: ASC
       responses:
         '200':
-          description: A list of disputes
+          description: A list of tournaments
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ListDisputesResponse'
+                $ref: '#/components/schemas/ListTournamentsResponse'
         '400':
           description: Validation Error
-        '401':
-          description: Unauthorized
-        '403':
-          description: Forbidden
-  /admin/disputes/{id}/resolve:
-    post:
-      tags:
-        - Admin - Disputes
-      summary: Resolve a dispute (Admin/DisputeModerator)
-      security:
-        - BearerAuth: [] # Requires Admin or DisputeModerator role
-      parameters:
-        - name: id
-          in: path
-          required: true
-          schema:
-            type: string
-            format: uuid
-          description: Dispute ID
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/ResolveDisputeRequest'
-      responses:
-        '200':
-          description: Dispute resolved successfully
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ResolveDisputeResponse'
-        '400':
-          description: Validation Error or Invalid Dispute ID
-        '401':
-          description: Unauthorized
-        '403':
-          description: Forbidden
-        '404':
-          description: Dispute not found
-  /admin/withdrawals:
+  /tournaments/{id}:
     get:
       tags:
-        - Admin - Withdrawals
-      summary: List withdrawal requests (Admin/FinanceManager)
-      security:
-        - BearerAuth: [] # Requires Admin or FinanceManager role
-      parameters:
-        - name: page
-          in: query
-          schema:
-            type: integer
-            minimum: 1
-            default: 1
-        - name: limit
-          in: query
-          schema:
-            type: integer
-            minimum: 1
-            maximum: 100
-            default: 10
-        - name: status
-          in: query
-          schema:
-            type: string
-            enum: [PENDING_APPROVAL, APPROVED, REJECTED, PROCESSING, COMPLETED, FAILED]
-        - name: userId
-          in: query
-          schema:
-            type: string
-            format: uuid
-      responses:
-        '200':
-          description: A list of withdrawal requests
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ListWithdrawalsResponse'
-        '400':
-          description: Validation Error
-        '401':
-          description: Unauthorized
-        '403':
-          description: Forbidden
-  /admin/withdrawals/{id}/approve:
-    post:
-      tags:
-        - Admin - Withdrawals
-      summary: Approve a withdrawal request (Admin/FinanceManager)
-      security:
-        - BearerAuth: [] # Requires Admin or FinanceManager role
+        - Tournaments
+      summary: Get tournament details
       parameters:
         - name: id
           in: path
@@ -1480,35 +1356,30 @@ tags:
           schema:
             type: string
             format: uuid
-          description: Withdrawal ID (Transaction ID)
-      requestBody:
-        required: false # Notes are optional
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/ApproveWithdrawalRequest'
+          description: Tournament ID
+        - name: include
+          in: query
+          schema:
+            type: string
+          description: Comma-separated list of relations to include (e.g., participants,matches)
       responses:
         '200':
-          description: Withdrawal request approved
+          description: Tournament details
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Transaction' # Returns the updated transaction
+                $ref: '#/components/schemas/TournamentResponse' # Assuming it includes participants and matches if requested
         '400':
-          description: Validation Error or Invalid Withdrawal ID
-        '401':
-          description: Unauthorized
-        '403':
-          description: Forbidden
+          description: Invalid Tournament ID
         '404':
-          description: Withdrawal request not found
-  /admin/withdrawals/{id}/reject:
+          description: Tournament not found
+  /tournaments/{id}/register:
     post:
       tags:
-        - Admin - Withdrawals
-      summary: Reject a withdrawal request (Admin/FinanceManager)
+        - Tournaments
+      summary: Register for a tournament
       security:
-        - BearerAuth: [] # Requires Admin or FinanceManager role
+        - BearerAuth: []
       parameters:
         - name: id
           in: path
@@ -1516,25 +1387,254 @@ tags:
           schema:
             type: string
             format: uuid
-          description: Withdrawal ID (Transaction ID)
+          description: Tournament ID
+      responses:
+        '200':
+          description: Successfully registered for the tournament
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TournamentRegistrationResponse'
+        '400':
+          description: Validation Error (e.g., invalid ID, registration closed, already registered)
+        '401':
+          description: Unauthorized
+        '403':
+          description: Forbidden (e.g., tournament full, user banned)
+        '404':
+          description: Tournament not found
+        '409': # Conflict, e.g. already registered
+            description: Conflict (e.g. already registered, insufficient balance)
+    TournamentResponse: # Can be used for GET /tournaments/:id and POST /tournaments
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        gameName:
+          type: string
+        description:
+          type: string
+          nullable: true
+        rules:
+          type: string
+          nullable: true
+        entryFee:
+          type: number
+          format: float
+        prizePool:
+          type: number
+          format: float
+        maxParticipants:
+          type: integer
+        currentParticipants:
+          type: integer
+        startDate:
+          type: string
+          format: date-time
+        endDate:
+          type: string
+          format: date-time
+          nullable: true
+        status:
+          type: string
+          enum: [PENDING, REGISTRATION_OPEN, REGISTRATION_CLOSED, ONGOING, COMPLETED, CANCELED, DRAFT]
+        organizerId:
+          type: string
+          format: uuid
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+        participants: # Optionally included based on ?include=participants
+          type: array
+          items:
+            $ref: '#/components/schemas/TournamentParticipant'
+          nullable: true
+        matches: # Optionally included based on ?include=matches
+          type: array
+          items:
+            type: object # Placeholder for Match schema, ideally $ref: '#/components/schemas/MatchSummary' or similar
+            description: "Structure of a match object. Define more specifically if details are known."
+          nullable: true
+    TournamentParticipant:
+      type: object
+      properties:
+        userId:
+          type: string
+          format: uuid
+        username: # Denormalized for convenience
+          type: string
+        registeredAt:
+          type: string
+          format: date-time
+        # Add other relevant participant details like seed, status in tournament etc.
+    ListTournamentsResponse:
+      type: object
+      properties:
+        tournaments:
+          type: array
+          items:
+            $ref: '#/components/schemas/TournamentResponse' # Could be a slimmer version for lists
+        totalItems:
+          type: integer
+        totalPages:
+          type: integer
+        currentPage:
+          type: integer
+        pageSize:
+          type: integer
+    TournamentRegistrationResponse:
+      type: object
+      properties:
+        message:
+          type: string
+        registrationDetails:
+          type: object # Define specific registration details if any
+          properties:
+            tournamentId:
+              type: string
+              format: uuid
+            userId:
+              type: string
+              format: uuid
+            status: # e.g. "REGISTERED", "WAITLISTED"
+              type: string
+            registeredAt:
+              type: string
+              format: date-time
+            transactionId: # If entry fee was processed
+              type: string
+              format: uuid
+              nullable: true
+  /matches/{id}:
+    get:
+      tags:
+        - Matches
+      summary: Get match details
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: Match ID
+      responses:
+        '200':
+          description: Match details retrieved
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MatchResponse'
+        '400':
+          description: Invalid Match ID format
+        '401':
+          description: Unauthorized
+        '404':
+          description: Match not found
+  /matches/{id}/results/upload-url:
+    post:
+      tags:
+        - Matches
+      summary: Get a pre-signed URL for uploading match result screenshot
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: Match ID
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/RejectWithdrawalRequest'
+              $ref: '#/components/schemas/MatchUploadUrlRequest'
       responses:
         '200':
-          description: Withdrawal request rejected
+          description: Upload URL generated successfully
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Transaction' # Returns the updated transaction
+                $ref: '#/components/schemas/MatchUploadUrlResponse'
         '400':
-          description: Validation Error or Invalid Withdrawal ID
+          description: Validation Error or Invalid Match ID
         '401':
           description: Unauthorized
         '403':
-          description: Forbidden
+          description: Forbidden (user not a participant or match not in correct state)
         '404':
-          description: Withdrawal request not found
+          description: Match not found
+  /matches/{id}/results:
+    post:
+      tags:
+        - Matches
+      summary: Submit match results
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: Match ID
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SubmitMatchResultRequest'
+      responses:
+        '200':
+          description: Match result submitted successfully, awaiting confirmation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MatchResponse' # Returns the updated match
+        '400':
+          description: Validation Error or Invalid Match ID or invalid winner ID
+        '401':
+          description: Unauthorized
+        '403':
+          description: Forbidden (user not a participant or match not in correct state)
+        '404':
+          description: Match not found
+        '500':
+          description: Failed to update match result
+tags:
+  - name: Auth
+    description: Authentication related endpoints
+  - name: Wallet
+    description: Wallet and transaction management
+  - name: Tournaments
+    description: Tournament management
+  - name: Matches
+    description: Match management and result submission
+  - name: Admin - Disputes
+    description: Admin routes for dispute management
+  - name: Admin - Withdrawals
+    description: Admin routes for withdrawal management
+  - name: Leaderboards
+    description: Leaderboard information
+  - name: Teams
+    description: Team creation and management
+  - name: Users
+    description: User profile management (self-service)
+  - name: Admin - Users
+    description: Admin routes for user management
+# This effectively removes the /teams:... block from the root by replacing it with nothing.
+# The user paths were already removed from the tags list in the previous step.
+# The next step will be to re-insert both user and team paths under the main 'paths:' key.

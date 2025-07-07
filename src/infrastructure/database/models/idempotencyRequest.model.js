@@ -12,6 +12,14 @@ const IdempotencyStatus = {
 class IdempotencyRequestModel extends Model {
   // No toDomainEntity for now, as this is primarily an infrastructure concern record.
   // If a domain concept of an "IdempotentOperation" emerges, this could map to it.
+
+  static associate(models) {
+    // An idempotency request belongs to a user
+    this.belongsTo(models.UserModel, {
+      foreignKey: 'userId',
+      as: 'user',
+    });
+  }
 }
 
 module.exports = (sequelize) => {

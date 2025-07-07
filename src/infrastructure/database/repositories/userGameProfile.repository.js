@@ -3,7 +3,7 @@ const IUserGameProfileRepository = require('../../../domain/user/userGameProfile
 const UserGameProfile = require('../../../domain/user/userGameProfile.entity.js');
 // const Game = require('../../../domain/game/game.entity.js');
 
-class UserGameProfileRepository extends IUserGameProfileRepository {
+class UserGameProfileRepository extends IUserGameProfileRepository.default {
   constructor(userGameProfileModel, gameModel) { // gameModel for including game details
     super();
     this.UserGameProfileModel = userGameProfileModel;

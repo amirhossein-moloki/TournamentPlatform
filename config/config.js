@@ -80,7 +80,7 @@ const envVarsSchema = Joi.object({
   SENDGRID_API_KEY: Joi.string().when('EMAIL_SERVICE_PROVIDER', {
     is: 'SENDGRID',
     then: Joi.required(),
-    otherwise: Joi.optional(),
+    otherwise: Joi.string().allow('').optional(),
   }).description('SendGrid API Key'),
   // AWS_SES_REGION: Joi.string().when('EMAIL_SERVICE_PROVIDER', { // Covered by AWS_REGION if SES is used in same region
   //   is: 'SES',

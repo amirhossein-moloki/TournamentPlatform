@@ -6,6 +6,47 @@ class MatchModel extends Model {
     toDomainEntity() {
         return Match.fromPersistence(this.toJSON());
     }
+
+    static associate(models) {
+        // A match belongs to a tournament
+        this.belongsTo(models.TournamentModel, {
+            foreignKey: 'tournamentId',
+            as: 'tournament',
+        });
+
+        // Self-referential associations for bracket logic (next match, next loser match)
+        // These are also defined in index.js. It's generally better to keep them in one place.
+        // If defined here, they should be removed from index.js to avoid duplication.
+        // For now, let's assume index.js handles these as they are already there.
+        // this.belongsTo(models.MatchModel, {
+        //   as: 'nextMatch',
+        //   foreignKey: 'nextMatchId',
+        //   targetKey: 'id',
+        //   onDelete: 'SET NULL',
+        //   onUpdate: 'CASCADE',
+        // });
+        // this.belongsTo(models.MatchModel, {
+        //   as: 'nextMatchLoser',
+        //   foreignKey: 'nextMatchLoserId',
+        //   targetKey: 'id',
+        //   onDelete: 'SET NULL',
+        //   onUpdate: 'CASCADE',
+        // });
+
+        // A match can have one dispute ticket
+        // This is also defined in index.js as MatchModel.hasOne(DisputeTicketModel)
+        // this.hasOne(models.DisputeTicketModel, {
+        //   foreignKey: 'matchId',
+        //   as: 'disputeTicket',
+        // });
+
+        // Associations for participants (participant1Id, participant2Id) and winnerId
+        // are complex due to their polymorphic nature (User or Team).
+        // These are typically handled at the application/repository layer by checking
+        // participantXType/winnerType and then fetching the related entity.
+        // Direct Sequelize associations for these would require separate foreign keys
+        // (e.g., participant1UserId, participant1TeamId) or a more complex setup.
+    }
 }
 
 module.exports = (sequelize) => {

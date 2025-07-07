@@ -7,10 +7,13 @@ const ListWithdrawalsUseCase = require('../../application/use-cases/admin/list-w
 const ApproveWithdrawalUseCase = require('../../application/use-cases/admin/approve-withdrawal.usecase');
 const RejectWithdrawalUseCase = require('../../application/use-cases/admin/reject-withdrawal.usecase');
 
-const PostgresDisputeRepository = require('../../infrastructure/database/repositories/postgres.dispute.repository');
-const { PostgresTournamentRepository, TournamentModel, MatchModel, TournamentParticipantModel } = require('../../infrastructure/database/repositories/postgres.tournament.repository');
-const PostgresTransactionRepository = require('../../infrastructure/database/repositories/postgres.transaction.repository');
-const PostgresWalletRepository = require('../../infrastructure/database/repositories/postgres.wallet.repository');
+// Import database models
+const db = require('../../infrastructure/database/models');
+
+const { PostgresDisputeRepository } = require('../../infrastructure/database/repositories/postgres.dispute.repository');
+const { PostgresTournamentRepository } = require('../../infrastructure/database/repositories/postgres.tournament.repository');
+const { PostgresTransactionRepository } = require('../../infrastructure/database/repositories/postgres.transaction.repository');
+const { PostgresWalletRepository } = require('../../infrastructure/database/repositories/postgres.wallet.repository');
 // Conceptual: PaymentService and NotificationService would be imported if implemented
 // const PaymentService = require('../../infrastructure/services/payment.service');
 // const NotificationService = require('../../infrastructure/services/notification.service');
@@ -21,10 +24,29 @@ const ApiResponse = require('../../utils/ApiResponse');
 const router = express.Router();
 
 // Instantiate Repositories
-const disputeRepository = new PostgresDisputeRepository();
-const tournamentRepository = new PostgresTournamentRepository(TournamentModel, MatchModel, TournamentParticipantModel);
-const transactionRepository = new PostgresTransactionRepository();
-const walletRepository = new PostgresWalletRepository();
+const disputeRepository = new PostgresDisputeRepository({
+    DisputeTicketModel: db.DisputeTicketModel,
+    UserModel: db.UserModel,
+    MatchModel: db.MatchModel
+});
+const tournamentRepository = new PostgresTournamentRepository({
+    TournamentModel: db.TournamentModel,
+    TournamentParticipantModel: db.TournamentParticipantModel,
+    // Add MatchModel if PostgresTournamentRepository's constructor expects it,
+    // or if any methods used by ResolveDisputeUseCase via tournamentRepository need it.
+    // For now, assuming it might not be strictly needed for the routes in this file if methods are limited.
+    // MatchModel: db.MatchModel,
+    GameModel: db.GameModel, // Add if needed by tournament repo methods used here
+    UserModel: db.UserModel   // Add if needed by tournament repo methods used here
+});
+const transactionRepository = new PostgresTransactionRepository({
+    TransactionModel: db.TransactionModel,
+    WalletModel: db.WalletModel
+});
+const walletRepository = new PostgresWalletRepository({
+    WalletModel: db.WalletModel,
+    UserModel: db.UserModel
+});
 // const paymentService = null; // new PaymentService(); // Placeholder
 // const notificationService = null; // new NotificationService(); // Placeholder
 

@@ -9,19 +9,19 @@ class TournamentModel extends Model {
 
   static associate(models) {
     // A tournament belongs to a game.
-    this.belongsTo(models.Game, {
+    this.belongsTo(models.GameModel, { // Corrected
       foreignKey: 'gameId',
       as: 'game', // This allows us to include game details when querying tournaments
     });
 
     // A tournament is organized by a user (organizer).
-    this.belongsTo(models.User, { // Assuming your User model is named 'User'
+    this.belongsTo(models.UserModel, { // Corrected
       foreignKey: 'organizerId',
       as: 'organizer',
     });
 
     // A tournament can have many matches.
-    this.hasMany(models.Match, {
+    this.hasMany(models.MatchModel, { // Corrected
       foreignKey: 'tournamentId',
       as: 'matches',
     });

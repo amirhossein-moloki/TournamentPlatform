@@ -1,5 +1,5 @@
 const { ZarinPal } = require('zarinpal-node-sdk');
-const { appConfig } = require('./config');
+const { appConfig } = require('../../config/config.js'); // Further corrected path
 
 const zarinpalInstance = new ZarinPal({
   merchantId: appConfig.zarinpal.merchantId || 'YOUR_MERCHANT_ID_IF_NOT_SET_IN_ENV', // Fallback for safety, but ENV should be used
