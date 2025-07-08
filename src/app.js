@@ -38,7 +38,14 @@ const {
 } = require('./config/dependencies');
 
 
+const swaggerUi = require('swagger-ui-express');
+const YAML = require('yamljs');
+const path = require('path');
+
 const app = express();
+
+// Load OpenAPI specification
+const swaggerDocument = YAML.load(path.join(__dirname, '../docs/openapi.yml'));
 
 // Middlewares
 app.use(cors({
@@ -91,6 +98,9 @@ const gamesRouter = gamesRoutesFactory(gameController, authMiddleware || ((req,r
 apiRouter.use('/games', gamesRouter);
 
 app.use('/api/v1', apiRouter);
+
+// Swagger API Documentation
+app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerDocument));
 
 // Health check route
 app.get('/', (req, res) => {

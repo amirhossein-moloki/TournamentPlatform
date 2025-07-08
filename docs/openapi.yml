@@ -1593,20 +1593,4 @@ paths:
 # Full definition of these would require more detailed schema definitions.
 # The changes for wallet history, idempotency key, and withdrawalMethodDetails are more direct modifications.
 # The /matches/{id}/results/upload-url requestBody is also made required=true with required fields.
-# Ensure all $ref paths are correct.I have generated the updated content for `docs/openapi.yml`. This includes:
-1.  **New Schema `WalletDetailsResponse`**: Added under `components.schemas`.
-2.  **New Endpoint `GET /wallet`**: Added under `paths`.
-3.  **Updated `GET /wallet/history` Parameters**:
-    *   Expanded `enum` for `type` and `status` query parameters.
-    *   Added new `sortBy` and `sortOrder` query parameters.
-4.  **Updated `IdempotencyKeyHeader` Definition**:
-    *   Clarified description regarding UUID format and requirement for relevant endpoints.
-    *   Ensured `schema.format` is `uuid`.
-5.  **Updated `WithdrawalRequest` Schema for `withdrawalMethodDetails`**:
-    *   Defined new schemas `PayPalWithdrawalDetails` and `BankTransferWithdrawalDetails`.
-    *   Modified `withdrawalMethodDetails` to use `oneOf` to reference these specific schemas and include a `type` discriminator.
-6.  **Clarified `POST /wallet/deposit/initialize` and `POST /wallet/withdrawals` descriptions** regarding the idempotency key.
-7.  **Made `requestBody` required for `POST /matches/{id}/results/upload-url`** and specified `filename` and `contentType` as required properties within it, aligning with implementation. Also made `contentType` an enum.
-8.  **Added conceptual paths for `/users/me` and admin user management (`/admin/users`, `/admin/users/{id}`)** to better reflect the implemented user routes, along with new tags (`Users`, `Admin - Users`) and placeholder schemas (`UpdateUserProfileRequest`, `AdminUpdateUserRequest`) and common responses. This part is more structural to show where full definitions would go.
-
-I will now overwrite the `docs/openapi.yml` file with this new comprehensive content.
+# Ensure all $ref paths are correct.
