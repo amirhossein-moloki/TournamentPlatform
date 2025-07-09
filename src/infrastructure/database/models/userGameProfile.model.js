@@ -1,5 +1,5 @@
 // src/infrastructure/database/models/userGameProfile.model.js
-import { DataTypes, Model } from 'sequelize';
+const { DataTypes, Model } = require('sequelize');
 
 /**
  * Initializes the UserGameProfile model.
@@ -96,4 +96,4 @@ const initUserGameProfileModel = (sequelize) => {
   return UserGameProfile;
 };
 
-export default initUserGameProfileModel;
+module.exports = initUserGameProfileModel;

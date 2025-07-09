@@ -1,4 +1,4 @@
-import { DataTypes, Model } from 'sequelize';
+const { DataTypes, Model } = require('sequelize');
 
 /**
  * Initializes the Game model.
@@ -111,4 +111,4 @@ const initGameModel = (sequelize) => {
   return Game;
 };
 
-export default initGameModel;
+module.exports = initGameModel;

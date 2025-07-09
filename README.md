@@ -225,6 +225,50 @@ Secure WebSocket communication is handled via Socket.io. Key events include:
 - `npm run docker:stop`: Stops services using Docker Compose.
 - `npm run docker:logs`: Tails logs from the application container.
 
+## Testing
+
+The project uses [Jest](https://jestjs.io/) as its testing framework. Tests are categorized into unit, integration, and potentially other types (E2E, contract, performance).
+
+**Running Tests:**
+
+*   **Run all tests (unit, integration, etc.) and generate coverage report:**
+    ```bash
+    npm test
+    ```
+*   **Run only unit tests:**
+    ```bash
+    npm run test:unit
+    ```
+    Unit tests are typically located in `tests/unit/` and focus on individual modules or functions in isolation, with dependencies mocked.
+*   **Run only integration tests:**
+    ```bash
+    npm run test:integration
+    ```
+    Integration tests are located in `tests/integration/` and test the interaction between different components, such as API endpoints or services with database layers. These tests may require a running test database (as configured in `.env.test`).
+*   **Run a specific test file or suite:**
+    You can pass a path or pattern to Jest via the npm scripts:
+    ```bash
+    # Example: Run all tests in a specific directory
+    npm test -- tests/unit/domain/
+    # Example: Run a single test file
+    npm test -- tests/integration/auth.routes.test.js
+    # Example: Run tests matching a specific name (using Jest's -t flag)
+    npm test -- -t "should register a user"
+    ```
+    Note the `--` before passing Jest-specific arguments when using `npm test`. For specific scripts like `npm run test:unit`, you can often append the path directly:
+    ```bash
+    npm run test:unit tests/unit/domain/user/user.entity.test.js
+    ```
+
+**Test Environment:**
+
+*   Ensure you have a `.env.test` file configured, especially for database connection details for integration tests. This file is typically copied from `.env.example` and customized.
+*   The `NODE_ENV=test` is automatically set by the test scripts, which may alter application behavior (e.g., logging levels, database used).
+
+**Coverage:**
+
+*   The `npm test` command automatically generates a coverage report in the `coverage/` directory. You can open `coverage/lcov-report/index.html` in a browser to view detailed coverage statistics.
+
 ## CI/CD
 
 The project uses GitHub Actions for Continuous Integration and Continuous Deployment. The workflow (`.github/workflows/ci-cd.yml`) includes:

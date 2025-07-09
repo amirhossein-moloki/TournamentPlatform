@@ -76,6 +76,18 @@ class UserGameProfile {
     //   this.inGameName = newName;
     //   this.updatedAt = new Date();
     // }
+
+    updateInGameName(newName) {
+      if (!newName || newName.trim() === '') {
+        throw new Error('In-game name cannot be empty.');
+      }
+      if (newName.length > 100) {
+        throw new Error('In-game name is too long.');
+      }
+      this.inGameName = newName;
+      this.updatedAt = new Date();
+    }
   }
 
-  export default UserGameProfile;
+module.exports = { UserGameProfile };
+// export default UserGameProfile;
