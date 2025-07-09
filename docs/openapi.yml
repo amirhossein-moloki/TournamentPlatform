@@ -355,6 +355,11 @@ components:
         transactionId:
           type: string
           format: uuid
+        status:
+          type: string
+          example: "PENDING_APPROVAL" # Or whatever the initial status is
+          description: "The current status of the withdrawal transaction."
+          # Consider adding enum if it's a fixed set from Transaction statuses
 
     # Tournament Schemas
     CreateTournamentRequest:
@@ -637,7 +642,7 @@ components:
           type: string
         status:
           type: string
-          enum: [OPEN, UNDER_REVIEW, RESOLVED_PARTICIPANT1_WIN, RESOLVED_PARTICIPANT2_WIN, RESOLVED_REPLAY, CLOSED]
+          enum: [OPEN, UNDER_REVIEW, RESOLVED_PARTICIPANT1_WIN, RESOLVED_PARTICIPANT2_WIN, RESOLVED_REPLAY, CLOSED, CLOSED_INVALID]
         resolutionDetails:
           type: string
           nullable: true
@@ -1469,6 +1474,7 @@ paths:
         - bearerAuth: []
       parameters:
         - $ref: '#/components/parameters/DisputeIdPath'
+        - $ref: '#/components/parameters/IdempotencyKeyHeader'
       requestBody:
         required: true
         content:
@@ -1538,6 +1544,7 @@ paths:
         - bearerAuth: []
       parameters:
         - $ref: '#/components/parameters/WithdrawalIdPath'
+        - $ref: '#/components/parameters/IdempotencyKeyHeader'
       requestBody:
         required: false
         content:
@@ -1570,6 +1577,7 @@ paths:
         - bearerAuth: []
       parameters:
         - $ref: '#/components/parameters/WithdrawalIdPath'
+        - $ref: '#/components/parameters/IdempotencyKeyHeader'
       requestBody:
         required: true
         content:
@@ -1943,6 +1951,12 @@ paths:
 #   description: User management by administrators.
   - name: User Game Profiles
     description: Manage user's game-specific profiles (in-game names, etc.).
+  - name: Games
+    description: Game management.
+  - name: Teams
+    description: Team management and membership.
+  - name: Leaderboards
+    description: View game leaderboards.
 
 
 # The above paths for /users/me and /admin/users are added to reflect common practice and existing code.
@@ -2093,6 +2107,455 @@ paths:
         '500':
           $ref: '#/components/responses/InternalServerError'
 
+  # Games Endpoints
+  /games:
+    get:
+      tags: [Games]
+      summary: List all available games.
+      parameters:
+        - $ref: '#/components/parameters/PageParam'
+        - $ref: '#/components/parameters/LimitParam'
+        # Add other relevant query params like name, genre, platform if supported by listGamesUseCase
+      responses:
+        '200':
+          description: A paginated list of games.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedGames'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+    post:
+      tags: [Games]
+      summary: Create a new game (Admin only).
+      security:
+        - bearerAuth: [] # Requires Admin role
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKeyHeader'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateGameRequest'
+      responses:
+        '201':
+          description: Game created successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Game'
+        '400':
+          $ref: '#/components/responses/BadRequestError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /games/{gameId}:
+    get:
+      tags: [Games]
+      summary: Get details of a specific game.
+      parameters:
+        - name: gameId
+          in: path
+          required: true
+          description: ID of the game.
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Game details.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Game'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+    put:
+      tags: [Games]
+      summary: Update a game (Admin only).
+      security:
+        - bearerAuth: [] # Requires Admin role
+      parameters:
+        - name: gameId
+          in: path
+          required: true
+          description: ID of the game.
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateGameRequest'
+      responses:
+        '200':
+          description: Game updated successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Game'
+        '400':
+          $ref: '#/components/responses/BadRequestError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+    delete:
+      tags: [Games]
+      summary: Delete a game (Admin only).
+      security:
+        - bearerAuth: [] # Requires Admin role
+      parameters:
+        - name: gameId
+          in: path
+          required: true
+          description: ID of the game.
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '204':
+          description: Game deleted successfully.
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  # Teams Endpoints
+  /teams:
+    get:
+      tags: [Teams]
+      summary: List all teams.
+      parameters:
+        - $ref: '#/components/parameters/PageParam'
+        - $ref: '#/components/parameters/LimitParam'
+        - name: gameName # Example filter from placeholder code
+          in: query
+          required: false
+          schema:
+            type: string
+          description: Filter teams by game name (example).
+      responses:
+        '200':
+          description: A paginated list of teams.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedTeams' # Placeholder, needs Team schema
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+    post:
+      tags: [Teams]
+      summary: Create a new team.
+      description: Authenticated user becomes the owner.
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKeyHeader'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateTeamRequest'
+      responses:
+        '201':
+          description: Team created successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Team'
+        '400':
+          $ref: '#/components/responses/BadRequestError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /teams/{id}:
+    get:
+      tags: [Teams]
+      summary: Get details of a specific team.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: ID of the team.
+          schema:
+            type: string # Not strictly UUID in placeholder (team-1)
+            # format: uuid
+      responses:
+        '200':
+          description: Team details.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Team'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+    put:
+      tags: [Teams]
+      summary: Update a team's details.
+      description: Only team owner or admin can update.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: ID of the team.
+          schema:
+            type: string
+            # format: uuid # Team ID might not be UUID based on current spec for /teams/{id}
+        # IdempotencyKeyHeader was missing here, adding it back based on my plan
+        - $ref: '#/components/parameters/IdempotencyKeyHeader'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateTeamRequest'
+      responses:
+        '200':
+          description: Team updated successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Team'
+        '400':
+          $ref: '#/components/responses/BadRequestError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError' # If not owner/admin
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+    delete:
+      tags: [Teams]
+      summary: Delete a team.
+      description: Only team owner or admin can delete.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: ID of the team.
+          schema:
+            type: string
+            # format: uuid
+      responses:
+        '200': # Or 204 No Content
+          description: Team deleted successfully.
+        # '204':
+        #   description: Team deleted successfully.
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError' # If not owner/admin
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /teams/{id}/members:
+    post:
+      tags: [Teams]
+      summary: Add a member to a team.
+      description: Only team owner/captain or admin can add members.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id # Team ID
+          in: path
+          required: true
+          description: ID of the team.
+          schema:
+            type: string
+            # format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AddTeamMemberRequest'
+      responses:
+        '200':
+          description: Member added successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Team' # Returns updated team
+        '400':
+          $ref: '#/components/responses/BadRequestError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError' # If not authorized
+        '404':
+          $ref: '#/components/responses/NotFoundError' # Team or user to add not found
+        '409':
+          $ref: '#/components/responses/ConflictError' # User already a member
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /teams/{id}/members/{userId}:
+    delete:
+      tags: [Teams]
+      summary: Remove a member from a team.
+      description: Team owner/captain, the member themselves, or admin can remove.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id # Team ID
+          in: path
+          required: true
+          description: ID of the team.
+          schema:
+            type: string
+            # format: uuid
+        - name: userId # User ID of member to remove
+          in: path
+          required: true
+          description: ID of the user to remove from the team.
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Member removed successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Team' # Returns updated team
+        '400':
+          $ref: '#/components/responses/BadRequestError' # e.g. trying to remove sole owner
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError' # If not authorized
+        '404':
+          $ref: '#/components/responses/NotFoundError' # Team or member not found
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  # Leaderboards Endpoint
+  /leaderboards:
+    get:
+      tags: [Leaderboards]
+      summary: Get leaderboards.
+      description: Filtered by game, metric, and period.
+      parameters:
+        - name: gameName
+          in: query
+          required: true
+          schema:
+            type: string
+            minLength: 2
+            maxLength: 50
+          description: Name of the game for the leaderboard.
+        - name: metric
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [wins, score, rating, earnings]
+            default: rating
+          description: Metric to rank by.
+        - name: period
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [daily, weekly, monthly, all_time]
+            default: all_time
+          description: Time period for the leaderboard.
+        - $ref: '#/components/parameters/PageParam'
+        - $ref: '#/components/parameters/LimitParam'
+      responses:
+        '200':
+          description: Leaderboard data retrieved.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LeaderboardResponse'
+        '400':
+          $ref: '#/components/responses/BadRequestError'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /leaderboards/user/{userId}:
+    get:
+      tags: [Leaderboards]
+      summary: Get a specific user's rank and surrounding entries on leaderboards.
+      parameters:
+        - name: userId
+          in: path
+          required: true
+          schema:
+            type: string
+            # format: uuid # User ID might not always be UUID if from external system or placeholder
+          description: ID of the user.
+        - name: gameName
+          in: query
+          required: true
+          schema:
+            type: string
+            minLength: 2
+            maxLength: 50
+          description: Name of the game for the leaderboard.
+        - name: metric
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [wins, score, rating, earnings]
+            default: rating
+          description: Metric to rank by.
+        - name: period
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [daily, weekly, monthly, all_time]
+            default: all_time
+          description: Time period for the leaderboard.
+      responses:
+        '200':
+          description: User rank details retrieved.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserRankDetails'
+        '400':
+          $ref: '#/components/responses/BadRequestError'
+        '404':
+          $ref: '#/components/responses/NotFoundError' # If user or leaderboard for game not found
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+
 # Common responses (ensure this section exists and is referenced)
   responses:
     NotFoundError:
@@ -2107,12 +2570,348 @@ paths:
         application/json:
           schema:
             $ref: '#/components/schemas/ErrorResponse'
+    ForbiddenError:
+      description: Forbidden access.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
     BadRequestError:
       description: Invalid request.
       content:
         application/json:
           schema:
             $ref: '#/components/schemas/ErrorResponse'
+    ConflictError:
+      description: Conflict error (e.g. resource already exists).
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+
+    # Game Schemas
+    Game:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          example: "c1d2e3f4-a5b6-7890-1234-567890abcdef"
+        name:
+          type: string
+          example: "Valorant"
+        description:
+          type: string
+          nullable: true
+          example: "A 5v5 tactical shooter."
+        genre:
+          type: string
+          nullable: true
+          example: "FPS"
+        platform:
+          type: string
+          nullable: true
+          example: "PC"
+        releaseDate:
+          type: string
+          format: date
+          nullable: true
+          example: "2020-06-02"
+        developer:
+          type: string
+          nullable: true
+          example: "Riot Games"
+        publisher:
+          type: string
+          nullable: true
+          example: "Riot Games"
+        imageUrl:
+          type: string
+          format: url
+          nullable: true
+          example: "https://example.com/valorant.jpg"
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    CreateGameRequest:
+      type: object
+      required:
+        - name
+      properties:
+        name:
+          type: string
+          example: "Valorant"
+        description:
+          type: string
+          nullable: true
+          example: "A 5v5 tactical shooter."
+        genre:
+          type: string
+          nullable: true
+          example: "FPS"
+        platform:
+          type: string
+          nullable: true
+          example: "PC"
+        releaseDate:
+          type: string
+          format: date
+          nullable: true
+          example: "2020-06-02"
+        developer:
+          type: string
+          nullable: true
+          example: "Riot Games"
+        publisher:
+          type: string
+          nullable: true
+          example: "Riot Games"
+        imageUrl:
+          type: string
+          format: url
+          nullable: true
+          example: "https://example.com/valorant.jpg"
+
+    UpdateGameRequest:
+      type: object
+      properties:
+        name:
+          type: string
+          example: "Valorant"
+        description:
+          type: string
+          nullable: true
+          example: "A 5v5 tactical shooter."
+        genre:
+          type: string
+          nullable: true
+          example: "FPS"
+        platform:
+          type: string
+          nullable: true
+          example: "PC"
+        releaseDate:
+          type: string
+          format: date
+          nullable: true
+          example: "2020-06-02"
+        developer:
+          type: string
+          nullable: true
+          example: "Riot Games"
+        publisher:
+          type: string
+          nullable: true
+          example: "Riot Games"
+        imageUrl:
+          type: string
+          format: url
+          nullable: true
+          example: "https://example.com/valorant.jpg"
+      minProperties: 1
+
+
+    PaginatedGames:
+      type: object
+      properties:
+        page:
+          type: integer
+        limit:
+          type: integer
+        totalPages:
+          type: integer
+        totalItems:
+          type: integer
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/Game'
+
+    # Team Schemas
+    TeamMember:
+      type: object
+      properties:
+        userId:
+          type: string
+          format: uuid
+        role:
+          type: string
+          example: "owner" # Could be 'member', 'captain', 'co-captain'
+        joinedAt:
+          type: string
+          format: date-time
+
+    Team:
+      type: object
+      properties:
+        id:
+          type: string
+          # format: uuid # Placeholder IDs are team-1, team-2 etc.
+          example: "team-1"
+        name:
+          type: string
+          example: "The Cool Team"
+        tag:
+          type: string
+          nullable: true
+          example: "COOL"
+        description:
+          type: string
+          nullable: true
+          example: "The coolest team on the platform."
+        ownerId:
+          type: string
+          format: uuid
+        members:
+          type: array
+          items:
+            $ref: '#/components/schemas/TeamMember'
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    CreateTeamRequest:
+      type: object
+      required:
+        - name
+      properties:
+        name:
+          type: string
+          minLength: 3
+          maxLength: 50
+          example: "The Cool Team"
+        tag:
+          type: string
+          minLength: 2
+          maxLength: 10
+          pattern: "^[a-zA-Z0-9]*$" # Alphanumeric
+          pattern: "^[A-Z0-9]*$" # Alphanumeric, uppercase
+          nullable: true
+          example: "COOL"
+        description:
+          type: string
+          maxLength: 255
+          nullable: true
+          example: "The coolest team on the platform."
+
+    UpdateTeamRequest:
+      type: object
+      properties:
+        name:
+          type: string
+          minLength: 3
+          maxLength: 50
+        tag:
+          type: string
+          minLength: 2
+          maxLength: 10
+          pattern: "^[a-zA-Z0-9]*$"
+          uppercase: true
+          nullable: true
+        description:
+          type: string
+          maxLength: 255
+          nullable: true
+      minProperties: 1
+
+    AddTeamMemberRequest:
+      type: object
+      required:
+        - userId
+      properties:
+        userId:
+          type: string
+          format: uuid
+        # role: # Role assignment logic might be more complex or default
+        #   type: string
+        #   enum: [member, captain] # Example
+        #   default: member
+
+    PaginatedTeams:
+      type: object
+      properties:
+        page:
+          type: integer
+        limit:
+          type: integer
+        totalPages:
+          type: integer
+        totalItems:
+          type: integer
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/Team'
+
+    # Leaderboard Schemas
+    LeaderboardEntry:
+      type: object
+      properties:
+        rank:
+          type: integer
+        userId:
+          type: string
+          # format: uuid # Could be non-uuid if placeholder
+        username:
+          type: string
+        # Dynamic metric field, e.g., score, wins, rating
+        # This is hard to represent directly in static OpenAPI for the field name
+        # One way is to have a generic 'value' and describe it
+        value: # Represents the metric's value, e.g. score, rating
+          type: number # Or string if metric can be non-numeric
+          example: 1500
+        gamesPlayed: # Example additional stat
+          type: integer
+          nullable: true
+
+    LeaderboardResponse:
+      type: object
+      properties:
+        leaderboard:
+          type: array
+          items:
+            $ref: '#/components/schemas/LeaderboardEntry'
+        gameName:
+          type: string
+        metric:
+          type: string
+        period:
+          type: string
+        totalItems:
+          type: integer
+        currentPage:
+          type: integer
+        pageSize:
+          type: integer
+        totalPages:
+          type: integer
+
+    UserRankDetails:
+      type: object
+      properties:
+        userId:
+          type: string
+        gameName:
+          type: string
+        metric:
+          type: string
+        period:
+          type: string
+        rank:
+          type: integer
+        value: # Represents the metric's value
+          type: number
+        surrounding:
+          type: array
+          items:
+            $ref: '#/components/schemas/LeaderboardEntry'
     InternalServerError: # Added for consistency
       description: Internal server error.
       content:
