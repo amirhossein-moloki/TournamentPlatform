@@ -105,8 +105,15 @@ router.get('/disputes', authenticateToken, authorizeRole(['DisputeModerator', 'A
 
     const result = await listDisputesUseCase.execute(queryParams);
     // Result: {disputes, totalItems, totalPages, currentPage, pageSize}
-
-    return new ApiResponse(res, httpStatusCodes.OK, 'Disputes retrieved successfully.', result).send();
+    // Map to PaginatedDisputes schema: { page, limit, totalPages, totalItems, items: [Dispute] }
+    const responseData = {
+      page: result.currentPage,
+      limit: result.pageSize,
+      totalPages: result.totalPages,
+      totalItems: result.totalItems,
+      items: result.disputes.map(d => d.toPlainObject ? d.toPlainObject() : d) // Assuming toPlainObject() matches Dispute schema
+    };
+    return new ApiResponse(res, httpStatusCodes.OK, 'Disputes retrieved successfully.', responseData).send();
   } catch (error) {
     next(error);
   }
@@ -131,8 +138,9 @@ router.post('/disputes/:id/resolve', authenticateToken, authorizeRole(['DisputeM
 
     const result = await resolveDisputeUseCase.execute(disputeIdParam, req.user.sub, resolutionData);
     // result: { dispute: UpdatedDisputeTicket, match: UpdatedMatch }
-
-    return new ApiResponse(res, httpStatusCodes.OK, 'Dispute resolved successfully.', result).send();
+    // Return only the dispute object as per OpenAPI spec
+    const disputeResponse = result.dispute.toPlainObject ? result.dispute.toPlainObject() : result.dispute;
+    return new ApiResponse(res, httpStatusCodes.OK, 'Dispute resolved successfully.', disputeResponse).send();
   } catch (error) {
     next(error);
   }
@@ -154,8 +162,15 @@ router.get('/withdrawals', authenticateToken, authorizeRole(['FinanceManager', '
 
     const result = await listWithdrawalsUseCase.execute(queryParams);
     // result: {withdrawals, totalItems, totalPages, currentPage, pageSize}
-
-    return new ApiResponse(res, httpStatusCodes.OK, 'Withdrawal requests retrieved successfully.', result).send();
+    // Map to PaginatedWithdrawalsAdmin schema: { page, limit, totalPages, totalItems, items: [WithdrawalForAdmin] }
+    const responseData = {
+      page: result.currentPage,
+      limit: result.pageSize,
+      totalPages: result.totalPages,
+      totalItems: result.totalItems,
+      items: result.withdrawals.map(w => w.toPlainObject ? w.toPlainObject() : w) // Assuming toPlainObject() matches WithdrawalForAdmin
+    };
+    return new ApiResponse(res, httpStatusCodes.OK, 'Withdrawal requests retrieved successfully.', responseData).send();
   } catch (error) {
     next(error);
   }

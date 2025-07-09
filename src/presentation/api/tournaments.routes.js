@@ -88,9 +88,27 @@ module.exports = (
             const result = await listTournamentsUseCase.execute({ ...filtersAndPagination, includeGameDetails });
 
             // Assuming result.tournaments are domain entities
+            // Map to PaginatedTournaments schema: { page, limit, totalPages, totalItems, items: [TournamentSummary] }
             const responseData = {
-                ...result,
-                tournaments: result.tournaments.map(t => t.toPlainObject ? t.toPlainObject() : t)
+                page: result.currentPage,
+                limit: result.pageSize,
+                totalPages: result.totalPages,
+                totalItems: result.totalItems,
+                items: result.tournaments.map(t => {
+                    const plainTournament = t.toPlainObject ? t.toPlainObject() : t;
+                    // Ensure it matches TournamentSummary fields from OpenAPI
+                    return {
+                        id: plainTournament.id,
+                        name: plainTournament.name,
+                        gameName: plainTournament.game ? plainTournament.game.name : (plainTournament.gameName || 'N/A'), // Assuming game object is populated or gameName field exists
+                        status: plainTournament.status,
+                        entryFee: plainTournament.entryFee,
+                        prizePool: plainTournament.prizePool,
+                        maxParticipants: plainTournament.maxParticipants,
+                        currentParticipants: plainTournament.currentParticipantsCount === undefined ? plainTournament.participantsCount : plainTournament.currentParticipantsCount, // Adapt based on actual field name
+                        startDate: plainTournament.startDate,
+                    };
+                })
             };
             return new ApiResponse(res, httpStatusCodes.OK, 'Tournaments listed successfully.', responseData).send();
         } catch (error) {
