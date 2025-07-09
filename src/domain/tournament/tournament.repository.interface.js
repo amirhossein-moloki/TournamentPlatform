@@ -50,7 +50,7 @@ class TournamentRepositoryInterface {
    * @param {object} options - Options for listing.
    * @param {number} [options.page=1] - The page number.
    * @param {number} [options.limit=10] - The number of tournaments per page.
-   * @param {object} [options.filters] - Optional filters (e.g., { status: 'REGISTRATION_OPEN', gameName: 'Chess' }).
+   * @param {object} [options.filters] - Optional filters (e.g., { status: 'REGISTRATION_OPEN', gameId: 'uuid-of-game' }).
    * @param {string} [options.sortBy='startDate'] - Field to sort by.
    * @param {string} [options.sortOrder='ASC'] - Sort order ('ASC' or 'DESC').
    * @returns {Promise<{tournaments: Tournament[], total: number, page: number, limit: number}>} Paginated list of tournaments.

@@ -100,7 +100,7 @@ module.exports = (
                     return {
                         id: plainTournament.id,
                         name: plainTournament.name,
-                        gameName: plainTournament.game ? plainTournament.game.name : (plainTournament.gameName || 'N/A'), // Assuming game object is populated or gameName field exists
+                        gameName: plainTournament.game && plainTournament.game.name ? plainTournament.game.name : 'N/A',
                         status: plainTournament.status,
                         entryFee: plainTournament.entryFee,
                         prizePool: plainTournament.prizePool,
