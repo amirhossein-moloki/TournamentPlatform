@@ -48,11 +48,14 @@ const initializeDepositSchema = Joi.object({
 const requestWithdrawalSchema = Joi.object({
   amount: Joi.number().positive().precision(2).required(),
   currency: Joi.string().length(3).uppercase().required(),
-  withdrawalMethodDetails: Joi.object().required().min(1).description('Details for the withdrawal method, e.g., PayPal email, bank account info.'),
-  // Example for withdrawalMethodDetails:
-  // paypal: Joi.object({ email: Joi.string().email().required() })
-  // bank: Joi.object({ accountNumber: Joi.string().required(), routingNumber: Joi.string().required() })
-  // This should be more specific based on supported methods.
+  withdrawalMethodDetails: Joi.object({
+    type: Joi.string().valid('PAYPAL', 'BANK_TRANSFER').required(),
+    email: Joi.string().email().when('type', { is: 'PAYPAL', then: Joi.required(), otherwise: Joi.forbidden() }),
+    accountHolderName: Joi.string().when('type', { is: 'BANK_TRANSFER', then: Joi.required(), otherwise: Joi.forbidden() }),
+    accountNumber: Joi.string().when('type', { is: 'BANK_TRANSFER', then: Joi.required(), otherwise: Joi.forbidden() }),
+    routingNumber: Joi.string().when('type', { is: 'BANK_TRANSFER', then: Joi.required(), otherwise: Joi.forbidden() }),
+    bankName: Joi.string().when('type', { is: 'BANK_TRANSFER', then: Joi.optional().allow(null, ''), otherwise: Joi.forbidden() }),
+  }).required().description('Details for the withdrawal method. Type determines required fields.'),
 });
 
 const transactionHistorySchema = Joi.object({
@@ -149,7 +152,15 @@ router.get('/history', authenticateToken, async (req, res, next) => {
 
     // The use case already formats the pagination data:
     // {transactions, totalItems, totalPages, currentPage, pageSize}
-    return new ApiResponse(res, httpStatusCodes.OK, 'Transaction history retrieved.', result).send();
+    // Map to PaginatedTransactionHistory schema: { page, limit, totalPages, totalItems, items: [TransactionHistoryItem] }
+    const responseData = {
+      page: result.currentPage,
+      limit: result.pageSize,
+      totalPages: result.totalPages,
+      totalItems: result.totalItems,
+      items: result.transactions.map(t => t.toPlainObject ? t.toPlainObject() : t) // Assuming toPlainObject() matches TransactionHistoryItem
+    };
+    return new ApiResponse(res, httpStatusCodes.OK, 'Transaction history retrieved.', responseData).send();
   } catch (error) {
     next(error);
   }
@@ -243,3 +254,83 @@ module.exports = router;
 //   The comment was updated to reflect this.
 // - The `transactionHistorySchema` includes sorting options now.
 // - `PostgresTransactionRepository` will need `findAllByWalletId` that supports pagination, filtering, and sorting.
+
+// Placeholder for Zarinpal callback UseCase - would be properly imported
+// const VerifyZarinpalDepositUseCase = require('../../application/use-cases/wallet/verify-zarinpal-deposit.usecase');
+// const verifyZarinpalDepositUseCase = new VerifyZarinpalDepositUseCase(transactionRepository, walletRepository /*, zarinpalPaymentService */);
+
+const zarinpalCallbackSchema = Joi.object({
+    Authority: Joi.string().required(),
+    Status: Joi.string().valid('OK', 'NOK').required(),
+});
+
+/**
+ * GET /api/v1/wallet/deposit/callback
+ * Zarinpal payment callback URL.
+ */
+router.get('/deposit/callback', async (req, res, next) => {
+  try {
+    const { error, value: callbackQuery } = zarinpalCallbackSchema.validate(req.query);
+    if (error) {
+      // Zarinpal might not show a nice error page if this fails, log and redirect to a generic error page
+      console.error('Invalid Zarinpal callback query:', error.details);
+      // Redirect to a generic frontend error page
+      return res.redirect(`${appConfig.frontendUrl}/payment/failed?error=invalid_callback_params`);
+    }
+
+    const { Authority, Status } = callbackQuery;
+    const clientIp = req.ip; // For Zarinpal verification if their API uses it
+
+    // In a real scenario, this use case would interact with Zarinpal's verification API
+    // For now, this is a placeholder for the logic.
+    // const result = await verifyZarinpalDepositUseCase.execute(Authority, Status, clientIp);
+
+    // --- Placeholder Logic ---
+    let redirectUrl = `${appConfig.frontendUrl}/payment/failed?authority=${Authority}`;
+    if (Status === 'OK') {
+      // Simulate finding transaction and verifying
+      const mockTransaction = await transactionRepository.findByGatewayAuthority(Authority); // Assumes this method exists
+      if (mockTransaction && mockTransaction.status === 'PENDING') { // PENDING or INITIATED
+        // Simulate Zarinpal verification success
+        const zarinpalVerificationSuccess = true; // Placeholder
+        if (zarinpalVerificationSuccess) {
+          // Simulate crediting wallet
+          // await walletRepository.credit(mockTransaction.userId, mockTransaction.amount, 'USD', mockTransaction.id);
+          // await transactionRepository.updateStatus(mockTransaction.id, 'COMPLETED');
+          console.log(`Simulated Zarinpal payment success for Authority: ${Authority}. Transaction ID: ${mockTransaction.id}`);
+          redirectUrl = `${appConfig.frontendUrl}/payment/success?transactionId=${mockTransaction.id}&authority=${Authority}`;
+        } else {
+          // await transactionRepository.updateStatus(mockTransaction.id, 'FAILED', { failureReason: 'Zarinpal verification failed' });
+           console.log(`Simulated Zarinpal payment verification failed for Authority: ${Authority}. Transaction ID: ${mockTransaction.id}`);
+          redirectUrl = `${appConfig.frontendUrl}/payment/failed?transactionId=${mockTransaction.id}&reason=verification_failed`;
+        }
+      } else if (mockTransaction && mockTransaction.status === 'COMPLETED') {
+        console.log(`Simulated Zarinpal payment already completed for Authority: ${Authority}. Transaction ID: ${mockTransaction.id}`);
+        redirectUrl = `${appConfig.frontendUrl}/payment/success?transactionId=${mockTransaction.id}&authority=${Authority}&status=already_completed`;
+      } else {
+         console.log(`Simulated Zarinpal callback - Transaction not found or not in PENDING state for Authority: ${Authority}`);
+        redirectUrl = `${appConfig.frontendUrl}/payment/failed?authority=${Authority}&reason=transaction_not_found_or_invalid_state`;
+      }
+    } else { // Status === 'NOK' (User cancelled or Zarinpal error before verification page)
+        const mockTransaction = await transactionRepository.findByGatewayAuthority(Authority); // Assumes this method exists
+        if (mockTransaction) {
+            // await transactionRepository.updateStatus(mockTransaction.id, 'CANCELED', { failureReason: 'Payment canceled by user or Zarinpal (NOK)' });
+            console.log(`Simulated Zarinpal payment NOK (canceled/failed) for Authority: ${Authority}. Transaction ID: ${mockTransaction.id}`);
+            redirectUrl = `${appConfig.frontendUrl}/payment/failed?transactionId=${mockTransaction.id}&reason=payment_nok`;
+        } else {
+            console.log(`Simulated Zarinpal payment NOK (canceled/failed) for Authority: ${Authority}. Transaction not found.`);
+            redirectUrl = `${appConfig.frontendUrl}/payment/failed?authority=${Authority}&reason=payment_nok_tx_not_found`;
+        }
+    }
+    // --- End Placeholder Logic ---
+
+    // Redirect based on the outcome
+    // res.redirect(result.redirectPath || `${appConfig.frontendUrl}/payment/failed`); // Use result from actual use case
+    res.redirect(redirectUrl);
+
+  } catch (error) {
+    console.error('Error in Zarinpal callback:', error);
+    // Generic error redirect, as we can't send JSON response to Zarinpal redirect
+    res.redirect(`${appConfig.frontendUrl}/payment/error?code=internal_error`);
+  }
+});

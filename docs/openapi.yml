@@ -357,6 +357,63 @@ components:
           format: uuid
 
     # Tournament Schemas
+    CreateTournamentRequest:
+      type: object
+      required:
+        - name
+        - gameId
+        - entryFee
+        - prizePool
+        - maxParticipants
+        - startDate
+      properties:
+        name:
+          type: string
+          minLength: 3
+          maxLength: 100
+          example: "Valorant Weekly Clash"
+        gameId:
+          type: string
+          format: uuid
+          example: "some-game-uuid-12345"
+        description:
+          type: string
+          maxLength: 1000
+          nullable: true
+          example: "Join us for the weekly Valorant tournament!"
+        rules:
+          type: string
+          maxLength: 5000
+          nullable: true
+          example: "Standard competitive rules apply. Single elimination."
+        entryFee:
+          type: number
+          format: float # Assuming precision 2 handled by validation
+          minimum: 0
+          example: 10.00
+        prizePool:
+          type: number
+          format: float # Assuming precision 2 handled by validation
+          minimum: 0
+          example: 1000.00
+        maxParticipants:
+          type: integer
+          minimum: 2
+          maximum: 1024 # Example
+          example: 64
+        startDate:
+          type: string
+          format: date-time # ISO 8601
+          description: "Tournament start date and time. Must be in the future."
+          example: "2024-08-01T18:00:00Z"
+        endDate:
+          type: string
+          format: date-time # ISO 8601
+          nullable: true
+          description: "Tournament end date and time. Must be after startDate."
+          example: "2024-08-01T22:00:00Z"
+        # organizerId is typically set by the system based on authenticated admin user
+
     TournamentSummary:
       type: object
       properties:
@@ -433,6 +490,87 @@ components:
           format: uuid
 
     # Match Schemas
+    MatchParticipantInfo: # Helper schema for MatchDetails
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          description: Participant's User ID or Team ID.
+        name:
+          type: string
+          description: Username or Team Name.
+        inGameName: # Added from GetMatchUseCase logic
+          type: string
+          nullable: true
+          description: In-game name for the relevant game.
+
+    MatchDetails:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        tournamentId:
+          type: string
+          format: uuid
+        round:
+          type: integer
+          example: 1
+        matchNumberInRound:
+          type: integer
+          example: 1
+        participant1:
+          $ref: '#/components/schemas/MatchParticipantInfo'
+        participant2:
+          $ref: '#/components/schemas/MatchParticipantInfo'
+        status:
+          type: string
+          enum: [PENDING, ONGOING, COMPLETED, DISPUTED, CANCELED]
+          example: "PENDING"
+        scheduledTime:
+          type: string
+          format: date-time
+          nullable: true
+        actualStartTime:
+          type: string
+          format: date-time
+          nullable: true
+        actualEndTime:
+          type: string
+          format: date-time
+          nullable: true
+        winningParticipantId:
+          type: string
+          format: uuid
+          nullable: true
+        scoreParticipant1:
+          type: integer
+          nullable: true
+        scoreParticipant2:
+          type: integer
+          nullable: true
+        resultScreenshotUrl: # Changed from fileKey for client consumption
+          type: string
+          format: url
+          nullable: true
+        resultComments:
+          type: string
+          nullable: true
+        nextMatchId:
+          type: string
+          format: uuid
+          nullable: true
+        nextMatchIsLoserBracket: # For double elimination
+          type: boolean
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
     MatchResultUploadUrlResponse:
       type: object
       properties:
@@ -1072,14 +1210,38 @@ paths:
           required: false
           schema:
             type: string
-            enum: [PENDING, REGISTRATION_OPEN, REGISTRATION_CLOSED, ONGOING, COMPLETED, CANCELED]
+            enum: [PENDING, UPCOMING, REGISTRATION_OPEN, REGISTRATION_CLOSED, ONGOING, COMPLETED, CANCELED] # Added UPCOMING
           description: Filter by tournament status.
-        - name: gameName
+        - name: gameId # Changed from gameName to gameId
           in: query
           required: false
           schema:
             type: string
-          description: Filter by game name.
+            format: uuid
+          description: Filter by game ID.
+        - name: sortBy
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [startDate, name, entryFee, prizePool]
+            default: startDate
+          description: Field to sort tournaments by.
+        - name: sortOrder
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [ASC, DESC]
+            default: ASC
+          description: Sort order.
+        - name: includeGameDetails # From listTournamentsSchema
+          in: query
+          required: false
+          schema:
+            type: boolean
+            default: true
+          description: Whether to include detailed game information for each tournament.
       responses:
         '200':
           description: A paginated list of tournaments.
@@ -1096,6 +1258,13 @@ paths:
       summary: Get details of a specific tournament.
       parameters:
         - $ref: '#/components/parameters/TournamentIdPath'
+        - name: include
+          in: query
+          required: false
+          schema:
+            type: string # Could be array with style form, commaDelimited: true
+            example: "participants,matches"
+          description: Comma-separated list of relations to include (e.g., participants, matches).
       responses:
         '200':
           description: Tournament details.
@@ -1207,6 +1376,39 @@ paths:
         '500':
           description: Internal server error.
 
+  /matches/{id}:
+    get:
+      tags: [Matches]
+      summary: Get details of a specific match.
+      description: Retrieves detailed information about a specific match, accessible by authenticated users (potentially participants or tournament viewers).
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/MatchIdPath'
+      responses:
+        '200':
+          description: Match details retrieved successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MatchDetails' # Needs to be defined
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          description: Forbidden (User may not have permission to view this match if not a participant or if private).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Match not found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
   # Admin Panel Endpoints
   /admin/disputes:
     get:
@@ -1222,7 +1424,7 @@ paths:
           required: false
           schema:
             type: string
-            enum: [OPEN, UNDER_REVIEW, RESOLVED_PARTICIPANT1_WIN, RESOLVED_PARTICIPANT2_WIN, RESOLVED_REPLAY, CLOSED]
+            enum: [OPEN, UNDER_REVIEW, RESOLVED_PARTICIPANT1_WIN, RESOLVED_PARTICIPANT2_WIN, RESOLVED_REPLAY, CLOSED, CLOSED_INVALID] # Added CLOSED_INVALID
           description: Filter by dispute status.
         - name: tournamentId
           in: query
@@ -1231,6 +1433,20 @@ paths:
             type: string
             format: uuid
           description: Filter by tournament ID.
+        - name: matchId # Added from code
+          in: query
+          required: false
+          schema:
+            type: string
+            format: uuid
+          description: Filter by match ID.
+        - name: moderatorId # Added from code
+          in: query
+          required: false
+          schema:
+            type: string
+            format: uuid
+          description: Filter by moderator ID.
       responses:
         '200':
           description: A paginated list of disputes.
@@ -1386,6 +1602,39 @@ paths:
 # Placeholder for other routes like users, teams, leaderboards if they have HTTP endpoints
 # /users/me (GET) - Get current user's profile (Now explicitly defined under /users)
 # /teams (POST, GET) - Manage teams (Future scope)
+
+  /tournaments:
+    post:
+      tags: [Tournaments]
+      summary: Create a new tournament (Admin only).
+      description: Allows administrators to create new tournaments.
+      security:
+        - bearerAuth: [] # Requires Admin role, to be enforced by authorizeRole middleware
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateTournamentRequest' # Needs to be defined
+      responses:
+        '201':
+          description: Tournament created successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TournamentDetails' # Return full details of created tournament
+        '400':
+          $ref: '#/components/responses/BadRequestError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          description: Forbidden (User is not an Admin).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
 # /leaderboards/{game} (GET) - Get leaderboards (Future scope)
 # These are not explicitly detailed in the initial prompt's API list but are in the file structure.
 # For now, focusing on the explicitly listed API endpoints.
@@ -1447,20 +1696,39 @@ paths:
       parameters:
         - $ref: '#/components/parameters/PageParam'
         - $ref: '#/components/parameters/LimitParam'
-        # Add filters like role, isVerified if supported by ListUsersUseCase
+        - name: role
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [User, Admin, DisputeModerator, FinanceManager]
+          description: Filter by user role.
+        - name: isVerified
+          in: query
+          required: false
+          schema:
+            type: boolean
+          description: Filter by verification status.
       responses:
         '200':
           description: A paginated list of users.
           content:
             application/json:
-              schema:
-                type: object # Define a PaginatedUsers schema
+              schema: # Define a PaginatedUsers schema
+                type: object
                 properties:
-                  users:
+                  page:
+                    type: integer
+                  limit:
+                    type: integer
+                  totalPages:
+                    type: integer
+                  totalItems:
+                    type: integer
+                  items: # Changed from 'users' to 'items' for consistency
                     type: array
                     items:
                       $ref: '#/components/schemas/UserPublicProfile' # Or a more detailed AdminUserView
-                  # pagination fields...
         # Other responses 401, 403, 500
 
   /admin/users/{id}:
@@ -1582,11 +1850,100 @@ paths:
           type: boolean
       minProperties: 1
 
+    # Auth additional schemas
+    VerifyEmailRequest:
+      type: object
+      required:
+        - token
+      properties:
+        token:
+          type: string
+          description: "The verification token received by email."
+          example: "verylongverificationtokenstring"
+
+    VerifyEmailResponse:
+      type: object
+      properties:
+        message:
+          type: string
+          example: "Email verified successfully."
+        userId:
+          type: string
+          format: uuid
+          example: "a1b2c3d4-e5f6-7890-1234-567890abcdef"
+
+    RequestVerificationEmailResponse:
+      type: object
+      properties:
+        message:
+          type: string
+          example: "Verification email sent. Please check your inbox."
+
+    # User Game Profile Schemas
+    UserGameProfileBase:
+      type: object
+      properties:
+        gameId:
+          type: string
+          format: uuid
+          description: "ID of the game."
+          example: "c1d2e3f4-a5b6-7890-1234-567890abcdef"
+        inGameName:
+          type: string
+          description: "User's in-game name or identifier for this game."
+          example: "PlayerOne#1234"
+        additionalInfo:
+          type: object
+          nullable: true
+          description: "Any other game-specific details, e.g., region, platform."
+          example: { region: "NA", platform: "PC" }
+
+    UserGameProfileRequest:
+      allOf:
+        - $ref: '#/components/schemas/UserGameProfileBase'
+      required: # Make gameId and inGameName required for creation/update
+        - gameId
+        - inGameName
+
+    UserGameProfileResponse:
+      allOf:
+        - $ref: '#/components/schemas/UserGameProfileBase'
+        - type: object
+          properties:
+            userId:
+              type: string
+              format: uuid
+              description: "ID of the user."
+            id: # Assuming game profiles have their own ID
+              type: string
+              format: uuid
+              description: "ID of the user game profile record."
+            createdAt:
+              type: string
+              format: date-time
+            updatedAt:
+              type: string
+              format: date-time
+
+    ListOfUserGameProfiles:
+      type: object
+      properties:
+        profiles:
+          type: array
+          items:
+            $ref: '#/components/schemas/UserGameProfileResponse'
+        count:
+          type: integer
+          example: 1
+
 # Add new tags if used
 # - name: Users
 #   description: User profile management.
 # - name: Admin - Users
 #   description: User management by administrators.
+  - name: User Game Profiles
+    description: Manage user's game-specific profiles (in-game names, etc.).
+
 
 # The above paths for /users/me and /admin/users are added to reflect common practice and existing code.
 # The original OpenAPI spec was minimal on these.
@@ -1594,3 +1951,171 @@ paths:
 # The changes for wallet history, idempotency key, and withdrawalMethodDetails are more direct modifications.
 # The /matches/{id}/results/upload-url requestBody is also made required=true with required fields.
 # Ensure all $ref paths are correct.
+
+# Add new paths for auth and user game profiles
+
+  /auth/request-verification-email:
+    post:
+      tags: [Authentication]
+      summary: Request a new email verification link.
+      description: User must be authenticated. The verification email is sent to the user's registered email address.
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Verification email sent successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RequestVerificationEmailResponse'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '404':
+          description: User not found or email not associated.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          $ref: '#/components/responses/InternalServerError' # Added for consistency
+
+  /auth/verify-email:
+    post:
+      tags: [Authentication]
+      summary: Verify user's email using a token.
+      description: Submits the token received via email to verify the user's email address.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/VerifyEmailRequest'
+      responses:
+        '200':
+          description: Email verified successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/VerifyEmailResponse'
+        '400':
+          description: Invalid or expired token, or other validation error.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          $ref: '#/components/responses/InternalServerError' # Added for consistency
+
+  /users/me/game-profiles:
+    get:
+      tags: [User Game Profiles]
+      summary: Get all game profiles for the current user.
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: A list of the user's game profiles.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ListOfUserGameProfiles'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+    post:
+      tags: [User Game Profiles]
+      summary: Create or update a game profile for the current user.
+      description: If a profile for the given gameId already exists for the user, it will be updated. Otherwise, a new one is created.
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UserGameProfileRequest'
+      responses:
+        '200': # For update
+          description: Game profile updated successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserGameProfileResponse'
+        '201': # For create
+          description: Game profile created successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserGameProfileResponse'
+        '400':
+          $ref: '#/components/responses/BadRequestError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '404':
+          description: Game ID not found (if validation is performed).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /users/me/game-profiles/{gameId}:
+    get:
+      tags: [User Game Profiles]
+      summary: Get a specific game profile for the current user by game ID.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: gameId
+          in: path
+          required: true
+          description: ID of the game for which to retrieve the profile.
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: The user's game profile for the specified game.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserGameProfileResponse'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '404':
+          description: Game profile not found for this user and game.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+# Common responses (ensure this section exists and is referenced)
+  responses:
+    NotFoundError:
+      description: The requested resource was not found.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    UnauthorizedError:
+      description: Unauthorized access.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    BadRequestError:
+      description: Invalid request.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    InternalServerError: # Added for consistency
+      description: Internal server error.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'

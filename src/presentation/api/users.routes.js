@@ -70,13 +70,15 @@ module.exports = (
             if (req.query.role) filters.role = req.query.role;
             if (req.query.isVerified) filters.isVerified = req.query.isVerified === 'true';
             const result = await listUsersUseCase.execute({ page, limit, filters });
-            return new ApiResponse(res, httpStatusCodes.OK, 'Users listed successfully.', {
-                users: result.users.map(user => user.toPublicProfile()),
-                totalItems: result.total,
-                currentPage: result.page,
-                pageSize: result.limit,
-                totalPages: Math.ceil(result.total / result.limit),
-            }).send();
+            // Map to PaginatedUsers schema: { page, limit, totalPages, totalItems, items: [UserPublicProfile or AdminUserView] }
+            const responseData = {
+                page: result.page, // Assuming use case returns 'page'
+                limit: result.limit, // Assuming use case returns 'limit'
+                totalPages: result.totalPages, // Assuming use case returns 'totalPages'
+                totalItems: result.total, // Assuming use case returns 'total'
+                items: result.users.map(user => user.toPublicProfile()), // Assuming UserPublicProfile is the target schema for items
+            };
+            return new ApiResponse(res, httpStatusCodes.OK, 'Users listed successfully.', responseData).send();
         } catch (error) {
             next(error);
         }

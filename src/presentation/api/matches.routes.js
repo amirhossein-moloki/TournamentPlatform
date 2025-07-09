@@ -118,7 +118,13 @@ module.exports = (
             // The use case handles fetching match, auth checks, result recording, and persistence.
             const result = await submitMatchResultUseCase.execute(userId, matchId, resultPayload);
             // result expected: { match: UpdatedMatchDomainEntity, message: string }
-            return new ApiResponse(res, httpStatusCodes.OK, result.message, result.match.toPlainObject ? result.match.toPlainObject() : result.match).send();
+            // Align with OpenAPI spec: MatchResultResponse (message, matchId, status)
+            const responsePayload = {
+              message: result.message,
+              matchId: result.match.id,
+              status: result.match.status, // Assuming match object has id and status
+            };
+            return new ApiResponse(res, httpStatusCodes.OK, responsePayload.message, responsePayload).send();
         } catch (error) {
             if (error instanceof ApiError) return next(error);
             next(new ApiError(httpStatusCodes.INTERNAL_SERVER_ERROR, error.message || 'Failed to submit match result.'));
