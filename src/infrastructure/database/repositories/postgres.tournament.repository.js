@@ -319,4 +319,3 @@ class PostgresTournamentRepository extends TournamentRepositoryInterface {
 module.exports = {
     PostgresTournamentRepository // Models should not be exported from repositories
 };
-```
