@@ -74,10 +74,13 @@ class TournamentParticipant {
   }
 
   assignSeed(newSeed) {
-    if (newSeed !== null && (isNaN(parseInt(newSeed, 10)) || parseInt(newSeed, 10) <= 0)) {
-      throw new Error('Seed must be a positive integer or null.');
+    if (newSeed !== null) {
+      if (!Number.isInteger(newSeed) || newSeed <= 0) {
+        throw new Error('Seed must be a positive integer or null.');
+      }
     }
-    this.seed = newSeed !== null ? parseInt(newSeed, 10) : null;
+    // If newSeed is null, it's allowed. If it's a valid positive integer, it's assigned.
+    this.seed = newSeed;
     this.updatedAt = new Date();
   }
 }

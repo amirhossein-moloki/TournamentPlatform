@@ -17,12 +17,12 @@ db.Sequelize = require('sequelize'); // Export Sequelize library itself if neede
 db.sequelize = sequelize; // Export configured instance
 
 // Initialize models
-db.GameModel = initGameModel.default(sequelize); // Initialize GameModel
+db.GameModel = initGameModel(sequelize); // Initialize GameModel
 db.TournamentModel = defineTournamentModel(sequelize);
 db.MatchModel = defineMatchModel(sequelize);
 db.TournamentParticipantModel = defineTournamentParticipantModel(sequelize);
 db.UserModel = defineUserModel(sequelize); // Initialize UserModel
-db.UserGameProfileModel = initUserGameProfileModel.default(sequelize); // Initialize UserGameProfileModel
+db.UserGameProfileModel = initUserGameProfileModel(sequelize); // Initialize UserGameProfileModel
 db.WalletModel = defineWalletModel(sequelize); // Initialize WalletModel
 db.TransactionModel = defineTransactionModel(sequelize); // Initialize TransactionModel
 db.DisputeTicketModel = defineDisputeTicketModel(sequelize); // Initialize DisputeTicketModel

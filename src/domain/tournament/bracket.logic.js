@@ -111,9 +111,11 @@ class BracketLogic {
         numMatchesInCurrentRound = (participantsInRound1Play.length / 2) + numByes;
     }
 
-
-    while (numMatchesInCurrentRound > 1 || (numMatchesInCurrentRound === 1 && roundNumber <= numRounds )) {
-        if(matchesInPreviousRound.length <=1 && roundNumber > 1) break; // Final match was in previous round.
+    // Corrected loop condition: continue as long as there's more than one match from the previous round to pair up.
+    while (matchesInPreviousRound.length > 1) {
+    // The break condition `if(matchesInPreviousRound.length <=1 && roundNumber > 1) break;`
+    // should no longer be necessary with a correct while condition.
+    // However, the safety break for excessive rounds is still good.
 
         roundNumber++;
         const nextRoundMatches = [];

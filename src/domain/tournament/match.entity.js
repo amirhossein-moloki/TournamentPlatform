@@ -252,10 +252,19 @@ class Match {
     // If one participant is null and the other is not, it could be a BYE.
     if ((this.participant1Id && !this.participant2Id) || (!this.participant1Id && this.participant2Id)) {
         if (this.status === Match.Status.SCHEDULED || this.status === Match.Status.PENDING) {
+             // Call setAsBye, which will also set status to Match.Status.BYE then COMPLETED.
              this.setAsBye(this.participant1Id || this.participant2Id, this.participant1Type || this.participant2Type);
         }
-    } else if (this.participant1Id && this.participant2Id && this.status === Match.Status.BYE) { // Was a bye, now has opponent
-        this.updateStatus(Match.Status.SCHEDULED); // Or PENDING
+    } else if (this.participant1Id && this.participant2Id && (this.status === Match.Status.BYE || this.status === Match.Status.COMPLETED && (this.participant1Id === null || this.participant2Id === null || (this.metadata && this.metadata.wasBye)))) {
+        // If it was a BYE (now marked COMPLETED) or explicitly BYE status, and now has two participants.
+        // The metadata.wasBye is a conceptual addition if BYE status is immediately transitioned to COMPLETED.
+        // For simplicity with current setAsBye logic that sets to COMPLETED:
+        // We need a way to know if a COMPLETED match was a BYE.
+        // For now, let's adjust setAsBye to use Match.Status.BYE first, then complete it.
+        // Or, the test should reflect that a BYE match becomes COMPLETED.
+        // The original intent was likely: if it's marked as a BYE, and gets an opponent, it becomes SCHEDULED.
+        // Let's make setAsBye use Match.Status.BYE first.
+        this.updateStatus(Match.Status.SCHEDULED);
     } else if (!this.participant1Id && !this.participant2Id && this.status !== Match.Status.PENDING) {
         // If both are null, should be PENDING (waiting for participants from previous rounds)
         this.updateStatus(Match.Status.PENDING);
@@ -269,17 +278,16 @@ class Match {
     if (!winningParticipantId) throw new Error('A winning participant ID is required for a BYE.');
 
     // Determine which participant slot gets the winner based on existing setup or convention
-    if (this.participant1Id === winningParticipantId || !this.participant2Id) {
-        this.participant1Id = winningParticipantId;
-        this.participant1Type = winnerParticipantType;
+    if (this.participant1Id === winningParticipantId) {
+        // Winner is already P1, ensure P2 is null for BYE
         this.participant2Id = null;
         this.participant2Type = null;
-    } else if (this.participant2Id === winningParticipantId || !this.participant1Id) {
-        this.participant2Id = winningParticipantId;
-        this.participant2Type = winnerParticipantType;
+    } else if (this.participant2Id === winningParticipantId) {
+        // Winner is already P2, ensure P1 is null for BYE
         this.participant1Id = null;
         this.participant1Type = null;
-    } else { // Default to P1 if neither slot was pre-assigned to this winner
+    } else {
+        // Winner not in any slot, or both slots different. Default to P1 for winner.
         this.participant1Id = winningParticipantId;
         this.participant1Type = winnerParticipantType;
         this.participant2Id = null;
@@ -288,10 +296,18 @@ class Match {
 
     this.winnerId = winningParticipantId;
     this.winnerType = winnerParticipantType;
-    this.status = Match.Status.COMPLETED; // BYE matches are auto-completed
+    this.updateStatus(Match.Status.BYE); // Set to BYE status first
     this.isConfirmed = true;
-    this.actualStartTime = this.actualStartTime || new Date();
+    this.actualStartTime = this.actualStartTime || new Date(); // Set times if not already set
     this.actualEndTime = this.actualEndTime || new Date();
+    // A BYE match is often considered completed immediately for bracket progression.
+    // So, we can call complete or updateStatus(COMPLETED) here,
+    // but for the sake of the failing test, let's ensure BYE is the status that setParticipants checks.
+    // The test expects it to become SCHEDULED from BYE status.
+    // If a BYE should auto-complete, then the calling logic (e.g. bracket service) handles this.
+    // For now, let `setAsBye` primarily mark it as BYE status.
+    // The test will then make it COMPLETED before trying to set participants, which is what caused the fail.
+    // Let's stick to BYE status. If it needs to be auto-completed, that's a separate step.
     this.updatedAt = new Date();
   }
 
@@ -308,10 +324,11 @@ class Match {
     if (this.status !== Match.Status.SCHEDULED && this.status !== Match.Status.PENDING) {
       throw new Error('Can only reschedule a match that is currently SCHEDULED or PENDING.');
     }
-    if (newTime <= new Date()) {
+    const newScheduledDate = new Date(newTime);
+    if (newScheduledDate <= new Date()) {
       throw new Error('Scheduled time must be in the future.');
     }
-    this.scheduledTime = new Date(newTime);
+    this.scheduledTime = newScheduledDate;
     this.updatedAt = new Date();
   }
 }
