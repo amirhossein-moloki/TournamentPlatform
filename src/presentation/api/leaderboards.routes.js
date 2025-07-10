@@ -20,11 +20,44 @@ const getLeaderboardSchema = Joi.object({
 
 // --- Route Handlers ---
 
-/**
- * GET /api/v1/leaderboards
- * Get leaderboards, typically filtered by game, metric, and period.
- */
 router.get('/', async (req, res, next) => {
+  /*
+    #swagger.tags = ['Leaderboards']
+    #swagger.summary = 'Get a specific leaderboard.'
+    #swagger.description = 'Retrieves leaderboard entries based on game, metric, period, and pagination. Publicly accessible.'
+    #swagger.parameters['gameName'] = {
+        in: 'query', required: true, description: 'Name of the game for the leaderboard.',
+        schema: { type: 'string', minLength: 2, maxLength: 50, example: 'Epic Quest RPG' }
+    }
+    #swagger.parameters['metric'] = {
+        in: 'query', description: 'Metric to rank by.',
+        schema: { type: 'string', enum: ['wins', 'score', 'rating', 'earnings'], default: 'rating' }
+    }
+    #swagger.parameters['period'] = {
+        in: 'query', description: 'Time period for the leaderboard.',
+        schema: { type: 'string', enum: ['daily', 'weekly', 'monthly', 'all_time'], default: 'all_time' }
+    }
+    #swagger.parameters['page'] = {
+        in: 'query', description: 'Page number for pagination.',
+        schema: { type: 'integer', minimum: 1, default: 1 }
+    }
+    #swagger.parameters['limit'] = {
+        in: 'query', description: 'Number of entries per page.',
+        schema: { type: 'integer', minimum: 1, maximum: 100, default: 20 }
+    }
+    #swagger.responses[200] = {
+        description: 'Leaderboard retrieved successfully.',
+        content: { "application/json": { schema: { $ref: "#/components/schemas/LeaderboardResponse" } } }
+    }
+    #swagger.responses[400] = {
+        description: 'Validation error (e.g., missing gameName or invalid parameters).',
+        content: { "application/json": { schema: { $ref: "#/components/schemas/ErrorResponse" } } }
+    }
+    #swagger.responses[500] = {
+        description: 'Internal server error.',
+        content: { "application/json": { schema: { $ref: "#/components/schemas/ErrorResponse" } } }
+    }
+  */
   try {
     const { error, value: queryParams } = getLeaderboardSchema.validate(req.query);
     if (error) {
@@ -35,32 +68,31 @@ router.get('/', async (req, res, next) => {
     // const { leaderboard, totalItems } = await getLeaderboard.execute(queryParams);
 
     // --- Placeholder Logic ---
-    // This would involve querying a read-optimized store like Redis (using sorted sets)
-    // or a specific table/view in PostgreSQL designed for fast leaderboard queries.
-    // The data might be aggregated from match results, tournament winnings, user stats, etc.
     const placeholderLeaderboard = [];
     const numEntries = queryParams.limit > 50 ? 50 : queryParams.limit; // Max 50 for placeholder
     for (let i = 0; i < numEntries; i++) {
+      const entryValue = Math.floor(Math.random() * (queryParams.metric === 'earnings' ? 5000 : 3000)) + (queryParams.metric === 'earnings' ? 100 : 50);
       placeholderLeaderboard.push({
         rank: ((queryParams.page - 1) * queryParams.limit) + i + 1,
-        userId: `user-id-${1000 + i}`, // Placeholder user ID
-        username: `Player${1000 + i}`, // Placeholder username
-        [queryParams.metric]: Math.floor(Math.random() * (queryParams.metric === 'earnings' ? 5000 : 3000)) + (queryParams.metric === 'earnings' ? 100 : 50), // Placeholder score
-        gamesPlayed: Math.floor(Math.random() * 100) + 10, // Example additional stat
+        userId: `user-id-${1000 + i}`,
+        username: `Player${1000 + i}`,
+        value: entryValue, // Using the generic 'value' field
+        // [queryParams.metric]: entryValue, // Original placeholder logic, but 'value' is better for fixed schema
+        gamesPlayed: Math.floor(Math.random() * 100) + 10,
       });
     }
-    const totalItems = 1000; // Mock total items for this leaderboard
-    const leaderboard = placeholderLeaderboard;
+    const totalItems = 1000; // Mock total items
+    const leaderboardData = placeholderLeaderboard;
     // --- End Placeholder Logic ---
 
     return new ApiResponse(res, httpStatusCodes.OK, `Leaderboard for ${queryParams.gameName} (${queryParams.metric} - ${queryParams.period}) retrieved.`, {
-      leaderboard,
+      leaderboard: leaderboardData, // Renamed to match schema
       gameName: queryParams.gameName,
       metric: queryParams.metric,
       period: queryParams.period,
       totalItems,
       currentPage: queryParams.page,
-      pageSize: queryParams.limit,
+      pageSize: queryParams.limit, // Renamed to match schema (was limit)
       totalPages: Math.ceil(totalItems / queryParams.limit),
     }).send();
   } catch (error) {
@@ -68,40 +100,75 @@ router.get('/', async (req, res, next) => {
   }
 });
 
-/**
- * GET /api/v1/leaderboards/user/:userId
- * Get a specific user's rank and surrounding entries on leaderboards.
- * (This is a common feature, though not explicitly in the blueprint's API table)
- */
 router.get('/user/:userId', async (req, res, next) => {
+  /*
+    #swagger.tags = ['Leaderboards']
+    #swagger.summary = "Get a user's rank on a leaderboard."
+    #swagger.description = "Retrieves a specific user's rank and surrounding entries on a leaderboard, based on game, metric, and period. Publicly accessible."
+    #swagger.parameters['userId'] = {
+        in: 'path', required: true, description: "ID of the user whose rank is to be retrieved.",
+        schema: { type: 'string', example: 'user-id-123' } // Can be more specific e.g. format: 'uuid' if applicable
+    }
+    #swagger.parameters['gameName'] = {
+        in: 'query', required: true, description: 'Name of the game for the leaderboard context.',
+        schema: { type: 'string', minLength: 2, maxLength: 50, example: 'Epic Quest RPG' }
+    }
+    #swagger.parameters['metric'] = {
+        in: 'query', description: 'Metric to rank by.',
+        schema: { type: 'string', enum: ['wins', 'score', 'rating', 'earnings'], default: 'rating' }
+    }
+    #swagger.parameters['period'] = {
+        in: 'query', description: 'Time period for the leaderboard.',
+        schema: { type: 'string', enum: ['daily', 'weekly', 'monthly', 'all_time'], default: 'all_time' }
+    }
+    // Note: page/limit for the surrounding entries are not query params here, typically fixed (e.g. +/-2)
+    #swagger.responses[200] = {
+        description: "User's rank details retrieved successfully.",
+        content: { "application/json": { schema: { $ref: "#/components/schemas/UserRankDetail" } } }
+    }
+    #swagger.responses[400] = {
+        description: 'Validation error (e.g., invalid User ID or missing gameName).',
+        content: { "application/json": { schema: { $ref: "#/components/schemas/ErrorResponse" } } }
+    }
+    #swagger.responses[404] = {
+        description: 'User not found on the specified leaderboard.', // Or User ID itself not found
+        content: { "application/json": { schema: { $ref: "#/components/schemas/ErrorResponse" } } }
+    }
+    #swagger.responses[500] = {
+        description: 'Internal server error.',
+        content: { "application/json": { schema: { $ref: "#/components/schemas/ErrorResponse" } } }
+    }
+  */
     try {
         const { userId } = req.params;
-        // Validate userId format if necessary (e.g., Joi.string().uuid())
-        if (Joi.string().uuid().validate(userId).error && Joi.string().alphanum().min(1).validate(userId).error) {
+        // Validate userId format if necessary
+        if (Joi.string().uuid().validate(userId).error && Joi.string().alphanum().min(1).validate(userId).error) { // Basic check
              throw new ApiError(httpStatusCodes.BAD_REQUEST, 'Invalid user ID format.');
         }
 
-
-        // Query parameters might include gameName, metric, period similar to the main leaderboard
-        const { error, value: queryParams } = getLeaderboardSchema.validate(req.query);
+        const { error, value: queryParams } = getLeaderboardSchema.validate(req.query); // Re-use schema, but page/limit are not for user rank query
          if (error) {
-            throw new ApiError(httpStatusCodes.BAD_REQUEST, 'Validation Error', error.details.map(d => d.message));
+            throw new ApiError(httpStatusCodes.BAD_REQUEST, 'Validation Error (query params)', error.details.map(d => d.message));
         }
 
         // const getUserRank = new GetUserRankUseCase(leaderboardRepository);
         // const userRankDetails = await getUserRank.execute(userId, queryParams);
 
         // --- Placeholder Logic ---
-        const userRank = Math.floor(Math.random() * 100) + 1; // Random rank for placeholder
-        const userScore = Math.floor(Math.random() * 3000) + 50;
+        const userRank = Math.floor(Math.random() * 100) + 1;
+        const userScore = Math.floor(Math.random() * (queryParams.metric === 'earnings' ? 5000 : 3000)) + (queryParams.metric === 'earnings' ? 100 : 50);
         const surroundingEntries = [];
         for (let i = -2; i <= 2; i++) {
-            if (userRank + i > 0) {
+            if (userRank + i > 0 && userRank + i <= 100) { // Assuming max 100 for placeholder
+                const currentUserId = (i === 0) ? userId : `user-id-${2000 + userRank + i}`;
+                const currentUsername = (i === 0) ? `User_${userId.substring(0,5)}` : `OtherPlayer${2000 + userRank + i}`;
+                const currentValue = userScore + (i * (queryParams.metric === 'earnings' ? 10 : 5));
                 surroundingEntries.push({
                     rank: userRank + i,
-                    userId: (userRank + i === userRank) ? userId : `user-id-${2000 + i}`,
-                    username: (userRank + i === userRank) ? `User_${userId.substring(0,5)}` : `OtherPlayer${2000 + i}`,
-                    [queryParams.metric]: userScore + (i * (queryParams.metric === 'earnings' ? 10 : 5)), // Adjust score slightly
+                    userId: currentUserId,
+                    username: currentUsername,
+                    value: currentValue, // Use generic 'value'
+                    // [queryParams.metric]: currentValue, // Original placeholder
                 });
             }
         }
@@ -111,7 +178,8 @@ router.get('/user/:userId', async (req, res, next) => {
             metric: queryParams.metric,
             period: queryParams.period,
             rank: userRank,
-            [queryParams.metric]: userScore,
+            value: userScore, // Add user's own value here for consistency with UserRankDetail schema
+            // [queryParams.metric]: userScore, // Original placeholder
             surrounding: surroundingEntries,
         };
         // --- End Placeholder Logic ---

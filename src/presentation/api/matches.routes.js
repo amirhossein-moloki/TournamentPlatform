@@ -41,31 +41,63 @@ module.exports = (
 ) => {
     const router = express.Router(); // Router created inside the factory
 
-    /**
-     * GET /api/v1/matches/:id
-     * Get details of a specific match.
-     */
     router.get('/:id', authenticateToken, async (req, res, next) => {
+        /*
+            #swagger.tags = ['Matches']
+            #swagger.summary = 'Get details of a specific match.'
+            #swagger.description = 'Retrieves detailed information about a specific match, including participants. Requires authentication as users should generally only access matches they are part of or that are public within a tournament they can see.'
+            #swagger.security = [{ "bearerAuth": [] }]
+            #swagger.parameters['id'] = {
+                in: 'path', description: 'ID of the match to retrieve.', required: true,
+                schema: { type: 'string', format: 'uuid' }
+            }
+            #swagger.responses[200] = {
+                description: 'Match details retrieved successfully.',
+                content: { "application/json": { schema: { $ref: "#/components/schemas/MatchDetailsResponse" } } }
+            }
+            #swagger.responses[400] = { description: 'Invalid Match ID format.', content: { "application/json": { schema: { $ref: "#/components/schemas/ErrorResponse" } } } }
+            #swagger.responses[401] = { description: 'Unauthorized.', content: { "application/json": { schema: { $ref: "#/components/schemas/ErrorResponse" } } } }
+            #swagger.responses[403] = { description: 'Forbidden (user is not a participant or does not have rights to view).', content: { "application/json": { schema: { $ref: "#/components/schemas/ErrorResponse" } } } }
+            #swagger.responses[404] = { description: 'Match not found.', content: { "application/json": { schema: { $ref: "#/components/schemas/ErrorResponse" } } } }
+            #swagger.responses[500] = { description: 'Internal server error.', content: { "application/json": { schema: { $ref: "#/components/schemas/ErrorResponse" } } } }
+        */
         try {
             const { id: matchId } = req.params;
             const { error: idError } = Joi.string().uuid().required().validate(matchId);
             if (idError) {
                 throw new ApiError(httpStatusCodes.BAD_REQUEST, 'Invalid Match ID format.', idError.details.map(d => d.message));
             }
-            // Pass requesting user ID for potential authorization checks within use case
             const matchDetails = await getMatchUseCase.execute(matchId, req.user.sub);
-            // GetMatchUseCase now returns enhanced details including inGameNames
             return new ApiResponse(res, httpStatusCodes.OK, 'Match details retrieved.', matchDetails).send();
         } catch (error) {
             next(error);
         }
     });
 
-    /**
-     * POST /api/v1/matches/:id/results/upload-url
-     * Get a secure URL to upload a result screenshot.
-     */
     router.post('/:id/results/upload-url', authenticateToken, async (req, res, next) => {
+        /*
+            #swagger.tags = ['Matches']
+            #swagger.summary = 'Get a pre-signed URL for uploading a match result screenshot.'
+            #swagger.description = 'Generates a pre-signed S3 URL that can be used to upload a match result screenshot. The user must be a participant in the match. The `fileKey` returned should be used when submitting the result.'
+            #swagger.security = [{ "bearerAuth": [] }]
+            #swagger.parameters['id'] = {
+                in: 'path', description: 'ID of the match for which to upload a screenshot.', required: true,
+                schema: { type: 'string', format: 'uuid' }
+            }
+            #swagger.requestBody = {
+                required: true,
+                content: { "application/json": { schema: { $ref: "#/components/schemas/UploadUrlRequest" } } }
+            }
+            #swagger.responses[200] = {
+                description: 'Pre-signed upload URL generated successfully.',
+                content: { "application/json": { schema: { $ref: "#/components/schemas/UploadUrlResponse" } } }
+            }
+            #swagger.responses[400] = { description: 'Invalid Match ID or validation error for filename/contentType.', content: { "application/json": { schema: { $ref: "#/components/schemas/ErrorResponse" } } } }
+            #swagger.responses[401] = { description: 'Unauthorized.', content: { "application/json": { schema: { $ref: "#/components/schemas/ErrorResponse" } } } }
+            #swagger.responses[403] = { description: 'Forbidden (user is not a participant of the match or not allowed to submit results).', content: { "application/json": { schema: { $ref: "#/components/schemas/ErrorResponse" } } } }
+            #swagger.responses[404] = { description: 'Match not found.', content: { "application/json": { schema: { $ref: "#/components/schemas/ErrorResponse" } } } }
+            #swagger.responses[500] = { description: 'Failed to generate upload URL.', content: { "application/json": { schema: { $ref: "#/components/schemas/ErrorResponse" } } } }
+        */
         try {
             const { id: matchId } = req.params;
             const userId = req.user.sub;
@@ -79,28 +111,39 @@ module.exports = (
             if (error) {
                 throw new ApiError(httpStatusCodes.BAD_REQUEST, 'Validation Error', error.details.map(d => d.message));
             }
-
-            // The use case handles auth checks and S3 URL generation.
-            // It might need tournamentId from match, which it can fetch internally or be passed.
             const result = await getMatchUploadUrlUseCase.execute(userId, matchId, fileInfo);
-            // Example placeholder for S3 URL if not using real S3 service in use case:
-            // const fileKey = `results/${result.tournamentId}/${matchId}/${userId}/${Date.now()}_${fileInfo.filename.replace(/\s+/g, '_')}`;
-            // const placeholderUploadUrl = `https://s3-placeholder-url.com/${appConfig.aws.s3.bucketName}/${fileKey}`;
-            // const responsePayload = { uploadUrl: result.uploadUrl || placeholderUploadUrl, fileKey: result.fileKey || fileKey };
-
             return new ApiResponse(res, httpStatusCodes.OK, 'Upload URL generated successfully.', result).send();
         } catch (error) {
-            // Handle specific errors from use case, e.g., match not found, user not participant
             if (error instanceof ApiError) return next(error);
             next(new ApiError(httpStatusCodes.INTERNAL_SERVER_ERROR, error.message || 'Failed to generate upload URL.'));
         }
     });
 
-    /**
-     * POST /api/v1/matches/:id/results
-     * Submit the final result after file upload.
-     */
     router.post('/:id/results', authenticateToken, async (req, res, next) => {
+        /*
+            #swagger.tags = ['Matches']
+            #swagger.summary = 'Submit the result for a match.'
+            #swagger.description = 'Submits the scores and winning participant for a match. Requires the `fileKey` obtained from the `/upload-url` endpoint for the result screenshot. User must be a participant authorized to submit results.'
+            #swagger.security = [{ "bearerAuth": [] }]
+            #swagger.parameters['id'] = {
+                in: 'path', description: 'ID of the match to submit results for.', required: true,
+                schema: { type: 'string', format: 'uuid' }
+            }
+            #swagger.requestBody = {
+                required: true,
+                content: { "application/json": { schema: { $ref: "#/components/schemas/SubmitResultRequest" } } }
+            }
+            #swagger.responses[200] = {
+                description: 'Match result submitted successfully.',
+                content: { "application/json": { schema: { $ref: "#/components/schemas/MatchResultResponse" } } }
+            }
+            #swagger.responses[400] = { description: 'Invalid Match ID or validation error for result payload.', content: { "application/json": { schema: { $ref: "#/components/schemas/ErrorResponse" } } } }
+            #swagger.responses[401] = { description: 'Unauthorized.', content: { "application/json": { schema: { $ref: "#/components/schemas/ErrorResponse" } } } }
+            #swagger.responses[403] = { description: 'Forbidden (e.g., user not participant, result already submitted, match not in correct state).', content: { "application/json": { schema: { $ref: "#/components/schemas/ErrorResponse" } } } }
+            #swagger.responses[404] = { description: 'Match not found or winning participant not found.', content: { "application/json": { schema: { $ref: "#/components/schemas/ErrorResponse" } } } }
+            #swagger.responses[409] = { description: 'Conflict (e.g., result already submitted and confirmed, or conflicting result submitted).', content: { "application/json": { schema: { $ref: "#/components/schemas/ErrorResponse" } } } }
+            #swagger.responses[500] = { description: 'Failed to submit match result.', content: { "application/json": { schema: { $ref: "#/components/schemas/ErrorResponse" } } } }
+        */
         try {
             const { id: matchId } = req.params;
             const userId = req.user.sub;
@@ -114,15 +157,11 @@ module.exports = (
             if (error) {
                 throw new ApiError(httpStatusCodes.BAD_REQUEST, 'Validation Error', error.details.map(d => d.message));
             }
-
-            // The use case handles fetching match, auth checks, result recording, and persistence.
             const result = await submitMatchResultUseCase.execute(userId, matchId, resultPayload);
-            // result expected: { match: UpdatedMatchDomainEntity, message: string }
-            // Align with OpenAPI spec: MatchResultResponse (message, matchId, status)
             const responsePayload = {
               message: result.message,
               matchId: result.match.id,
-              status: result.match.status, // Assuming match object has id and status
+              status: result.match.status,
             };
             return new ApiResponse(res, httpStatusCodes.OK, responsePayload.message, responsePayload).send();
         } catch (error) {

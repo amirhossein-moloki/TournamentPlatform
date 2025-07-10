@@ -17,7 +17,7 @@ const ApiResponse = require('../../utils/ApiResponse');
 const router = express.Router();
 // const teamRepository = new PostgresTeamRepository(); // Instantiate when repository exists
 
-// --- Schemas for Validation ---
+// --- Schemas for Validation (Joi Schemas are for runtime, Swagger schemas are in swagger.js) ---
 const teamSchema = Joi.object({
   name: Joi.string().min(3).max(50).required(),
   tag: Joi.string().min(2).max(10).alphanum().uppercase().optional().allow(null, ''), // e.g., [TEAM]
@@ -37,11 +37,28 @@ let nextTeamId = 1;
 
 // --- Route Handlers ---
 
-/**
- * POST /api/v1/teams
- * Create a new team. Authenticated user becomes the owner.
- */
 router.post('/', authenticateToken, async (req, res, next) => {
+  /*
+    #swagger.tags = ['Teams']
+    #swagger.summary = 'Create a new team.'
+    #swagger.description = 'Creates a new team. The authenticated user becomes the owner.'
+    #swagger.security = [{ "bearerAuth": [] }]
+    #swagger.requestBody = {
+      required: true,
+      content: {
+        "application/json": {
+          schema: { $ref: "#/components/schemas/TeamRequest" }
+        }
+      }
+    }
+    #swagger.responses[201] = {
+      description: 'Team created successfully.',
+      content: { "application/json": { schema: { $ref: "#/components/schemas/TeamResponse" } } }
+    }
+    #swagger.responses[400] = { description: 'Validation error.', content: { "application/json": { schema: { $ref: "#/components/schemas/ErrorResponse" } } } }
+    #swagger.responses[401] = { description: 'Unauthorized.', content: { "application/json": { schema: { $ref: "#/components/schemas/ErrorResponse" } } } }
+    #swagger.responses[500] = { description: 'Internal server error.', content: { "application/json": { schema: { $ref: "#/components/schemas/ErrorResponse" } } } }
+  */
   try {
     const { error, value: teamData } = teamSchema.validate(req.body);
     if (error) {
@@ -55,7 +72,7 @@ router.post('/', authenticateToken, async (req, res, next) => {
     const newTeam = {
       id: `team-${nextTeamId++}`,
       ownerId: req.user.sub, // User ID from JWT
-      members: [{ userId: req.user.sub, role: 'owner' }], // Owner is the first member
+      members: [{ userId: req.user.sub, role: 'owner', joinedAt: new Date().toISOString() }], // Owner is the first member
       ...teamData,
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
@@ -69,42 +86,61 @@ router.post('/', authenticateToken, async (req, res, next) => {
   }
 });
 
-/**
- * GET /api/v1/teams
- * List all teams (publicly accessible, or with filters for user's teams).
- */
 router.get('/', async (req, res, next) => {
+  /*
+    #swagger.tags = ['Teams']
+    #swagger.summary = 'List all teams.'
+    #swagger.description = 'Lists all teams with pagination. Publicly accessible, or can be filtered (e.g., by game, by user involvement - filter logic TBD).'
+    #swagger.parameters['page'] = { in: 'query', description: 'Page number for pagination.', schema: { type: 'integer', default: 1, minimum: 1 } }
+    #swagger.parameters['limit'] = { in: 'query', description: 'Number of items per page.', schema: { type: 'integer', default: 10, minimum: 1, maximum: 100 } }
+    #swagger.parameters['gameName'] = { in: 'query', description: 'Filter teams by game name (example filter).', schema: { type: 'string' } }
+    #swagger.responses[200] = {
+      description: 'A paginated list of teams.',
+      content: { "application/json": { schema: { $ref: "#/components/schemas/PaginatedTeamsResponse" } } }
+    }
+    #swagger.responses[500] = { description: 'Internal server error.', content: { "application/json": { schema: { $ref: "#/components/schemas/ErrorResponse" } } } }
+  */
   try {
     // const listTeams = new ListTeamsUseCase(teamRepository);
     // const { teams, total } = await listTeams.execute(req.query); // Pass query for pagination/filtering
 
     // Placeholder logic:
-    const { page = 1, limit = 10, gameName } = req.query; // Example filter
+    const page = parseInt(req.query.page, 10) || 1;
+    const limit = parseInt(req.query.limit, 10) || 10;
+    const { gameName } = req.query; // Example filter
     let filteredTeams = [...TEAMS_PLACEHOLDER_DB];
     if (gameName) {
         // Assuming teams might be associated with games, not directly in this simple placeholder
-        // filteredTeams = filteredTeams.filter(team => team.gameName === gameName);
+        // filteredTeams = filteredTeams.filter(team => team.gameName === gameName); // Requires team model to have gameName
     }
-    const paginatedTeams = filteredTeams.slice((page - 1) * limit, page * limit);
+    const paginatedItems = filteredTeams.slice((page - 1) * limit, page * limit);
     // End placeholder logic
 
     return new ApiResponse(res, httpStatusCodes.OK, 'Teams listed successfully.', {
-      teams: paginatedTeams,
-      totalItems: filteredTeams.length,
-      currentPage: parseInt(page, 10),
-      pageSize: parseInt(limit, 10),
+      page: page,
+      limit: limit,
       totalPages: Math.ceil(filteredTeams.length / limit),
+      totalItems: filteredTeams.length,
+      items: paginatedItems, // Ensure this matches PaginatedTeamsResponse structure
     }).send();
   } catch (error) {
     next(error);
   }
 });
 
-/**
- * GET /api/v1/teams/:id
- * Get details of a specific team.
- */
 router.get('/:id', async (req, res, next) => {
+  /*
+    #swagger.tags = ['Teams']
+    #swagger.summary = 'Get team details.'
+    #swagger.description = 'Retrieves details of a specific team by its ID.'
+    #swagger.parameters['id'] = { in: 'path', description: 'Team ID (UUID format expected if using real DB)', required: true, schema: { type: 'string' } } // Placeholder type: string
+    #swagger.responses[200] = {
+      description: 'Team details retrieved successfully.',
+      content: { "application/json": { schema: { $ref: "#/components/schemas/TeamResponse" } } }
+    }
+    #swagger.responses[404] = { description: 'Team not found.', content: { "application/json": { schema: { $ref: "#/components/schemas/ErrorResponse" } } } }
+    #swagger.responses[500] = { description: 'Internal server error.', content: { "application/json": { schema: { $ref: "#/components/schemas/ErrorResponse" } } } }
+  */
   try {
     const { id } = req.params;
     // const getTeam = new GetTeamUseCase(teamRepository);
@@ -123,11 +159,31 @@ router.get('/:id', async (req, res, next) => {
   }
 });
 
-/**
- * PUT /api/v1/teams/:id
- * Update a team's details. Only owner or admin.
- */
 router.put('/:id', authenticateToken, async (req, res, next) => {
+  /*
+    #swagger.tags = ['Teams']
+    #swagger.summary = 'Update a team.'
+    #swagger.description = 'Updates a team\'s details. Only the team owner or an admin can perform this action.'
+    #swagger.security = [{ "bearerAuth": [] }]
+    #swagger.parameters['id'] = { in: 'path', description: 'Team ID', required: true, schema: { type: 'string' } }
+    #swagger.requestBody = {
+      required: true,
+      content: {
+        "application/json": {
+          schema: { $ref: "#/components/schemas/TeamRequest" }
+        }
+      }
+    }
+    #swagger.responses[200] = {
+      description: 'Team updated successfully.',
+      content: { "application/json": { schema: { $ref: "#/components/schemas/TeamResponse" } } }
+    }
+    #swagger.responses[400] = { description: 'Validation error.', content: { "application/json": { schema: { $ref: "#/components/schemas/ErrorResponse" } } } }
+    #swagger.responses[401] = { description: 'Unauthorized.', content: { "application/json": { schema: { $ref: "#/components/schemas/ErrorResponse" } } } }
+    #swagger.responses[403] = { description: 'Forbidden. User is not the owner or admin.', content: { "application/json": { schema: { $ref: "#/components/schemas/ErrorResponse" } } } }
+    #swagger.responses[404] = { description: 'Team not found.', content: { "application/json": { schema: { $ref: "#/components/schemas/ErrorResponse" } } } }
+    #swagger.responses[500] = { description: 'Internal server error.', content: { "application/json": { schema: { $ref: "#/components/schemas/ErrorResponse" } } } }
+  */
   try {
     const { id } = req.params;
     const { error, value: updateData } = teamSchema.validate(req.body); // Can reuse teamSchema or make specific update schema
@@ -157,11 +213,23 @@ router.put('/:id', authenticateToken, async (req, res, next) => {
   }
 });
 
-/**
- * DELETE /api/v1/teams/:id
- * Delete a team. Only owner or admin.
- */
 router.delete('/:id', authenticateToken, async (req, res, next) => {
+  /*
+    #swagger.tags = ['Teams']
+    #swagger.summary = 'Delete a team.'
+    #swagger.description = 'Deletes a team. Only the team owner or an admin can perform this action.'
+    #swagger.security = [{ "bearerAuth": [] }]
+    #swagger.parameters['id'] = { in: 'path', description: 'Team ID', required: true, schema: { type: 'string' } }
+    #swagger.responses[200] = {
+      description: 'Team deleted successfully.',
+      content: { "application/json": { schema: { $ref: "#/components/schemas/SuccessResponse" } } } // Or 204 No Content
+    }
+    // #swagger.responses[204] = { description: 'Team deleted successfully (No Content).' }
+    #swagger.responses[401] = { description: 'Unauthorized.', content: { "application/json": { schema: { $ref: "#/components/schemas/ErrorResponse" } } } }
+    #swagger.responses[403] = { description: 'Forbidden. User is not the owner or admin.', content: { "application/json": { schema: { $ref: "#/components/schemas/ErrorResponse" } } } }
+    #swagger.responses[404] = { description: 'Team not found.', content: { "application/json": { schema: { $ref: "#/components/schemas/ErrorResponse" } } } }
+    #swagger.responses[500] = { description: 'Internal server error.', content: { "application/json": { schema: { $ref: "#/components/schemas/ErrorResponse" } } } }
+  */
   try {
     const { id } = req.params;
     // const deleteTeam = new DeleteTeamUseCase(teamRepository);
@@ -189,11 +257,32 @@ router.delete('/:id', authenticateToken, async (req, res, next) => {
 
 // --- Team Membership Routes ---
 
-/**
- * POST /api/v1/teams/:id/members
- * Add a member to a team. Only team owner/captain or admin.
- */
 router.post('/:id/members', authenticateToken, async (req, res, next) => {
+  /*
+    #swagger.tags = ['Teams']
+    #swagger.summary = 'Add a member to a team.'
+    #swagger.description = 'Adds a user as a member to a specific team. Only team owner/captain or admin can perform this action.'
+    #swagger.security = [{ "bearerAuth": [] }]
+    #swagger.parameters['id'] = { in: 'path', description: 'Team ID to add member to', required: true, schema: { type: 'string' } }
+    #swagger.requestBody = {
+      required: true,
+      content: {
+        "application/json": {
+          schema: { $ref: "#/components/schemas/AddTeamMemberRequest" }
+        }
+      }
+    }
+    #swagger.responses[200] = {
+      description: 'Member added successfully. Returns the updated team object.',
+      content: { "application/json": { schema: { $ref: "#/components/schemas/TeamResponse" } } }
+    }
+    #swagger.responses[400] = { description: 'Validation error (e.g., invalid user ID).', content: { "application/json": { schema: { $ref: "#/components/schemas/ErrorResponse" } } } }
+    #swagger.responses[401] = { description: 'Unauthorized.', content: { "application/json": { schema: { $ref: "#/components/schemas/ErrorResponse" } } } }
+    #swagger.responses[403] = { description: 'Forbidden. User is not authorized to add members.', content: { "application/json": { schema: { $ref: "#/components/schemas/ErrorResponse" } } } }
+    #swagger.responses[404] = { description: 'Team not found or User to be added not found.', content: { "application/json": { schema: { $ref: "#/components/schemas/ErrorResponse" } } } }
+    #swagger.responses[409] = { description: 'User is already a member of this team.', content: { "application/json": { schema: { $ref: "#/components/schemas/ErrorResponse" } } } }
+    #swagger.responses[500] = { description: 'Internal server error.', content: { "application/json": { schema: { $ref: "#/components/schemas/ErrorResponse" } } } }
+  */
   try {
     const { id: teamId } = req.params;
     const { error, value: memberData } = addMemberSchema.validate(req.body);
@@ -227,11 +316,24 @@ router.post('/:id/members', authenticateToken, async (req, res, next) => {
   }
 });
 
-/**
- * DELETE /api/v1/teams/:id/members/:userId
- * Remove a member from a team. Team owner/captain, the member themselves, or admin.
- */
 router.delete('/:id/members/:userId', authenticateToken, async (req, res, next) => {
+  /*
+    #swagger.tags = ['Teams']
+    #swagger.summary = 'Remove a member from a team.'
+    #swagger.description = 'Removes a member from a team. Can be done by team owner/captain, the member themselves, or an admin.'
+    #swagger.security = [{ "bearerAuth": [] }]
+    #swagger.parameters['id'] = { in: 'path', description: 'Team ID', required: true, schema: { type: 'string' } }
+    #swagger.parameters['userId'] = { in: 'path', description: 'User ID of the member to remove', required: true, schema: { type: 'string' } }
+    #swagger.responses[200] = {
+      description: 'Member removed successfully. Returns the updated team object.',
+      content: { "application/json": { schema: { $ref: "#/components/schemas/TeamResponse" } } }
+    }
+    #swagger.responses[400] = { description: 'Cannot remove the sole owner.', content: { "application/json": { schema: { $ref: "#/components/schemas/ErrorResponse" } } } }
+    #swagger.responses[401] = { description: 'Unauthorized.', content: { "application/json": { schema: { $ref: "#/components/schemas/ErrorResponse" } } } }
+    #swagger.responses[403] = { description: 'Forbidden. User is not authorized to remove this member.', content: { "application/json": { schema: { $ref: "#/components/schemas/ErrorResponse" } } } }
+    #swagger.responses[404] = { description: 'Team not found or member not found in team.', content: { "application/json": { schema: { $ref: "#/components/schemas/ErrorResponse" } } } }
+    #swagger.responses[500] = { description: 'Internal server error.', content: { "application/json": { schema: { $ref: "#/components/schemas/ErrorResponse" } } } }
+  */
   try {
     const { id: teamId, userId: memberToRemoveId } = req.params;
 

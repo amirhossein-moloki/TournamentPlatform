@@ -92,11 +92,27 @@ const rejectWithdrawalSchema = Joi.object({
 
 // --- Dispute Management Routes (DisputeModerator & Admin) ---
 
-/**
- * GET /api/v1/admin/disputes
- * Get a list of disputes.
- */
 router.get('/disputes', authenticateToken, authorizeRole(['DisputeModerator', 'Admin']), async (req, res, next) => {
+  /*
+    #swagger.tags = ['Admin - Disputes']
+    #swagger.summary = 'List and filter dispute tickets.'
+    #swagger.description = 'Retrieves a paginated list of dispute tickets. Can be filtered by status, tournament ID, match ID, or moderator ID. Requires DisputeModerator or Admin role.'
+    #swagger.security = [{ "bearerAuth": [] }]
+    #swagger.parameters['page'] = { in: 'query', description: 'Page number.', schema: { type: 'integer', default: 1 } }
+    #swagger.parameters['limit'] = { in: 'query', description: 'Items per page.', schema: { type: 'integer', default: 10 } }
+    #swagger.parameters['status'] = { in: 'query', description: 'Filter by dispute status.', schema: { type: 'string', enum: ['OPEN', 'UNDER_REVIEW', 'RESOLVED_PARTICIPANT1_WIN', 'RESOLVED_PARTICIPANT2_WIN', 'RESOLVED_REPLAY', 'CLOSED', 'CLOSED_INVALID'] } }
+    #swagger.parameters['tournamentId'] = { in: 'query', description: 'Filter by Tournament ID (UUID).', schema: { type: 'string', format: 'uuid' } }
+    #swagger.parameters['matchId'] = { in: 'query', description: 'Filter by Match ID (UUID).', schema: { type: 'string', format: 'uuid' } }
+    #swagger.parameters['moderatorId'] = { in: 'query', description: 'Filter by Moderator ID (UUID) who handled it.', schema: { type: 'string', format: 'uuid' } }
+    #swagger.responses[200] = {
+      description: 'A paginated list of disputes.',
+      content: { "application/json": { schema: { $ref: "#/components/schemas/PaginatedDisputesResponse" } } }
+    }
+    #swagger.responses[400] = { description: 'Validation error for query parameters.', content: { "application/json": { schema: { $ref: "#/components/schemas/ErrorResponse" } } } }
+    #swagger.responses[401] = { description: 'Unauthorized.', content: { "application/json": { schema: { $ref: "#/components/schemas/ErrorResponse" } } } }
+    #swagger.responses[403] = { description: 'Forbidden.', content: { "application/json": { schema: { $ref: "#/components/schemas/ErrorResponse" } } } }
+    #swagger.responses[500] = { description: 'Internal server error.', content: { "application/json": { schema: { $ref: "#/components/schemas/ErrorResponse" } } } }
+  */
   try {
     const { error, value: queryParams } = disputeFilterSchema.validate(req.query);
     if (error) {
@@ -104,14 +120,12 @@ router.get('/disputes', authenticateToken, authorizeRole(['DisputeModerator', 'A
     }
 
     const result = await listDisputesUseCase.execute(queryParams);
-    // Result: {disputes, totalItems, totalPages, currentPage, pageSize}
-    // Map to PaginatedDisputes schema: { page, limit, totalPages, totalItems, items: [Dispute] }
     const responseData = {
       page: result.currentPage,
       limit: result.pageSize,
       totalPages: result.totalPages,
       totalItems: result.totalItems,
-      items: result.disputes.map(d => d.toPlainObject ? d.toPlainObject() : d) // Assuming toPlainObject() matches Dispute schema
+      items: result.disputes.map(d => d.toPlainObject ? d.toPlainObject() : d)
     };
     return new ApiResponse(res, httpStatusCodes.OK, 'Disputes retrieved successfully.', responseData).send();
   } catch (error) {
@@ -119,11 +133,27 @@ router.get('/disputes', authenticateToken, authorizeRole(['DisputeModerator', 'A
   }
 });
 
-/**
- * POST /api/v1/admin/disputes/:id/resolve
- * Resolve a dispute.
- */
 router.post('/disputes/:id/resolve', authenticateToken, authorizeRole(['DisputeModerator', 'Admin']), async (req, res, next) => {
+  /*
+    #swagger.tags = ['Admin - Disputes']
+    #swagger.summary = 'Resolve a dispute ticket.'
+    #swagger.description = 'Allows a DisputeModerator or Admin to resolve a dispute by setting its status and providing resolution details. This may also trigger updates to the related match.'
+    #swagger.security = [{ "bearerAuth": [] }]
+    #swagger.parameters['id'] = { in: 'path', description: 'ID of the dispute to resolve.', required: true, schema: { type: 'string', format: 'uuid' } }
+    #swagger.requestBody = {
+      required: true,
+      content: { "application/json": { schema: { $ref: "#/components/schemas/ResolveDisputeRequest" } } }
+    }
+    #swagger.responses[200] = {
+      description: 'Dispute resolved successfully. Returns the updated dispute ticket.',
+      content: { "application/json": { schema: { $ref: "#/components/schemas/DisputeTicketResponse" } } }
+    }
+    #swagger.responses[400] = { description: 'Invalid Dispute ID or validation error for resolution data.', content: { "application/json": { schema: { $ref: "#/components/schemas/ErrorResponse" } } } }
+    #swagger.responses[401] = { description: 'Unauthorized.', content: { "application/json": { schema: { $ref: "#/components/schemas/ErrorResponse" } } } }
+    #swagger.responses[403] = { description: 'Forbidden (e.g., dispute already resolved, user not authorized).', content: { "application/json": { schema: { $ref: "#/components/schemas/ErrorResponse" } } } }
+    #swagger.responses[404] = { description: 'Dispute not found.', content: { "application/json": { schema: { $ref: "#/components/schemas/ErrorResponse" } } } }
+    #swagger.responses[500] = { description: 'Internal server error.', content: { "application/json": { schema: { $ref: "#/components/schemas/ErrorResponse" } } } }
+  */
   try {
     const { id: disputeIdParam } = req.params;
     const { error: idError } = Joi.string().uuid().required().validate(disputeIdParam);
@@ -137,8 +167,6 @@ router.post('/disputes/:id/resolve', authenticateToken, authorizeRole(['DisputeM
     }
 
     const result = await resolveDisputeUseCase.execute(disputeIdParam, req.user.sub, resolutionData);
-    // result: { dispute: UpdatedDisputeTicket, match: UpdatedMatch }
-    // Return only the dispute object as per OpenAPI spec
     const disputeResponse = result.dispute.toPlainObject ? result.dispute.toPlainObject() : result.dispute;
     return new ApiResponse(res, httpStatusCodes.OK, 'Dispute resolved successfully.', disputeResponse).send();
   } catch (error) {
@@ -149,11 +177,25 @@ router.post('/disputes/:id/resolve', authenticateToken, authorizeRole(['DisputeM
 
 // --- Withdrawal Management Routes (FinanceManager & Admin) ---
 
-/**
- * GET /api/v1/admin/withdrawals
- * Get a list of withdrawal requests.
- */
 router.get('/withdrawals', authenticateToken, authorizeRole(['FinanceManager', 'Admin']), async (req, res, next) => {
+  /*
+    #swagger.tags = ['Admin - Withdrawals']
+    #swagger.summary = 'List and filter withdrawal requests.'
+    #swagger.description = 'Retrieves a paginated list of withdrawal requests. Can be filtered by status or user ID. Requires FinanceManager or Admin role.'
+    #swagger.security = [{ "bearerAuth": [] }]
+    #swagger.parameters['page'] = { in: 'query', description: 'Page number.', schema: { type: 'integer', default: 1 } }
+    #swagger.parameters['limit'] = { in: 'query', description: 'Items per page.', schema: { type: 'integer', default: 10 } }
+    #swagger.parameters['status'] = { in: 'query', description: 'Filter by withdrawal status.', schema: { type: 'string', enum: ['PENDING_APPROVAL', 'APPROVED', 'REJECTED', 'PROCESSING', 'COMPLETED', 'FAILED'] } }
+    #swagger.parameters['userId'] = { in: 'query', description: 'Filter by User ID (UUID).', schema: { type: 'string', format: 'uuid' } }
+    #swagger.responses[200] = {
+      description: 'A paginated list of withdrawal requests.',
+      content: { "application/json": { schema: { $ref: "#/components/schemas/PaginatedWithdrawalsAdminResponse" } } }
+    }
+    #swagger.responses[400] = { description: 'Validation error for query parameters.', content: { "application/json": { schema: { $ref: "#/components/schemas/ErrorResponse" } } } }
+    #swagger.responses[401] = { description: 'Unauthorized.', content: { "application/json": { schema: { $ref: "#/components/schemas/ErrorResponse" } } } }
+    #swagger.responses[403] = { description: 'Forbidden.', content: { "application/json": { schema: { $ref: "#/components/schemas/ErrorResponse" } } } }
+    #swagger.responses[500] = { description: 'Internal server error.', content: { "application/json": { schema: { $ref: "#/components/schemas/ErrorResponse" } } } }
+  */
   try {
     const { error, value: queryParams } = withdrawalFilterSchema.validate(req.query);
     if (error) {
@@ -161,14 +203,12 @@ router.get('/withdrawals', authenticateToken, authorizeRole(['FinanceManager', '
     }
 
     const result = await listWithdrawalsUseCase.execute(queryParams);
-    // result: {withdrawals, totalItems, totalPages, currentPage, pageSize}
-    // Map to PaginatedWithdrawalsAdmin schema: { page, limit, totalPages, totalItems, items: [WithdrawalForAdmin] }
     const responseData = {
       page: result.currentPage,
       limit: result.pageSize,
       totalPages: result.totalPages,
       totalItems: result.totalItems,
-      items: result.withdrawals.map(w => w.toPlainObject ? w.toPlainObject() : w) // Assuming toPlainObject() matches WithdrawalForAdmin
+      items: result.withdrawals.map(w => w.toPlainObject ? w.toPlainObject() : w)
     };
     return new ApiResponse(res, httpStatusCodes.OK, 'Withdrawal requests retrieved successfully.', responseData).send();
   } catch (error) {
@@ -176,11 +216,27 @@ router.get('/withdrawals', authenticateToken, authorizeRole(['FinanceManager', '
   }
 });
 
-/**
- * POST /api/v1/admin/withdrawals/:id/approve
- * Approve a withdrawal request.
- */
 router.post('/withdrawals/:id/approve', authenticateToken, authorizeRole(['FinanceManager', 'Admin']), async (req, res, next) => {
+  /*
+    #swagger.tags = ['Admin - Withdrawals']
+    #swagger.summary = 'Approve a withdrawal request.'
+    #swagger.description = 'Allows a FinanceManager or Admin to approve a pending withdrawal request. This may trigger payment processing.'
+    #swagger.security = [{ "bearerAuth": [] }]
+    #swagger.parameters['id'] = { in: 'path', description: 'ID of the withdrawal request to approve.', required: true, schema: { type: 'string', format: 'uuid' } }
+    #swagger.requestBody = {
+      required: false, // Notes are optional
+      content: { "application/json": { schema: { $ref: "#/components/schemas/ApproveWithdrawalRequest" } } }
+    }
+    #swagger.responses[200] = {
+      description: 'Withdrawal request approved successfully. Returns the updated withdrawal transaction.',
+      content: { "application/json": { schema: { $ref: "#/components/schemas/WithdrawalRequestAdminView" } } } // Or a simpler success response
+    }
+    #swagger.responses[400] = { description: 'Invalid Withdrawal ID or validation error for notes.', content: { "application/json": { schema: { $ref: "#/components/schemas/ErrorResponse" } } } }
+    #swagger.responses[401] = { description: 'Unauthorized.', content: { "application/json": { schema: { $ref: "#/components/schemas/ErrorResponse" } } } }
+    #swagger.responses[403] = { description: 'Forbidden (e.g., request not in approvable state).', content: { "application/json": { schema: { $ref: "#/components/schemas/ErrorResponse" } } } }
+    #swagger.responses[404] = { description: 'Withdrawal request not found.', content: { "application/json": { schema: { $ref: "#/components/schemas/ErrorResponse" } } } }
+    #swagger.responses[500] = { description: 'Internal server error or payment processing error.', content: { "application/json": { schema: { $ref: "#/components/schemas/ErrorResponse" } } } }
+  */
   try {
     const { id: withdrawalIdParam } = req.params;
     const { error: idError } = Joi.string().uuid().required().validate(withdrawalIdParam);
@@ -199,17 +255,33 @@ router.post('/withdrawals/:id/approve', authenticateToken, authorizeRole(['Finan
       approvalData.notes
     );
 
-    return new ApiResponse(res, httpStatusCodes.OK, 'Withdrawal request approved.', updatedWithdrawal).send();
+    return new ApiResponse(res, httpStatusCodes.OK, 'Withdrawal request approved.', updatedWithdrawal.toPlainObject ? updatedWithdrawal.toPlainObject() : updatedWithdrawal).send();
   } catch (error) {
     next(error);
   }
 });
 
-/**
- * POST /api/v1/admin/withdrawals/:id/reject
- * Reject a withdrawal request.
- */
 router.post('/withdrawals/:id/reject', authenticateToken, authorizeRole(['FinanceManager', 'Admin']), async (req, res, next) => {
+  /*
+    #swagger.tags = ['Admin - Withdrawals']
+    #swagger.summary = 'Reject a withdrawal request.'
+    #swagger.description = 'Allows a FinanceManager or Admin to reject a pending withdrawal request, providing a reason.'
+    #swagger.security = [{ "bearerAuth": [] }]
+    #swagger.parameters['id'] = { in: 'path', description: 'ID of the withdrawal request to reject.', required: true, schema: { type: 'string', format: 'uuid' } }
+    #swagger.requestBody = {
+      required: true,
+      content: { "application/json": { schema: { $ref: "#/components/schemas/RejectWithdrawalRequest" } } }
+    }
+    #swagger.responses[200] = {
+      description: 'Withdrawal request rejected successfully. Returns the updated withdrawal transaction.',
+      content: { "application/json": { schema: { $ref: "#/components/schemas/WithdrawalRequestAdminView" } } } // Or a simpler success response
+    }
+    #swagger.responses[400] = { description: 'Invalid Withdrawal ID or missing/invalid reason.', content: { "application/json": { schema: { $ref: "#/components/schemas/ErrorResponse" } } } }
+    #swagger.responses[401] = { description: 'Unauthorized.', content: { "application/json": { schema: { $ref: "#/components/schemas/ErrorResponse" } } } }
+    #swagger.responses[403] = { description: 'Forbidden (e.g., request not in rejectable state).', content: { "application/json": { schema: { $ref: "#/components/schemas/ErrorResponse" } } } }
+    #swagger.responses[404] = { description: 'Withdrawal request not found.', content: { "application/json": { schema: { $ref: "#/components/schemas/ErrorResponse" } } } }
+    #swagger.responses[500] = { description: 'Internal server error.', content: { "application/json": { schema: { $ref: "#/components/schemas/ErrorResponse" } } } }
+  */
   try {
     const { id: withdrawalIdParam } = req.params;
     const { error: idError } = Joi.string().uuid().required().validate(withdrawalIdParam);
@@ -228,7 +300,7 @@ router.post('/withdrawals/:id/reject', authenticateToken, authorizeRole(['Financ
       rejectionData.reason
     );
 
-    return new ApiResponse(res, httpStatusCodes.OK, 'Withdrawal request rejected.', updatedWithdrawal).send();
+    return new ApiResponse(res, httpStatusCodes.OK, 'Withdrawal request rejected.', updatedWithdrawal.toPlainObject ? updatedWithdrawal.toPlainObject() : updatedWithdrawal).send();
   } catch (error) {
     next(error);
   }
