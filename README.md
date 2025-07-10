@@ -189,7 +189,13 @@ Once the database service is running (either via Docker or locally and configure
 
 ## API Endpoints
 
-Refer to `docs/openapi.yml` for a detailed API specification. Key endpoint categories include:
+The API is documented using the OpenAPI 3.x.x specification. The definition file is located at `docs/swagger-generated.json`.
+
+When the application is running, an interactive Swagger UI is available at the `/api-docs` endpoint (e.g., `http://localhost:3000/api-docs`). This UI allows you to explore the API, view endpoint details, and test them directly in your browser.
+
+The `server.js` file is configured to load `docs/swagger-generated.json` and serve it using `swagger-ui-express`.
+
+Key endpoint categories include:
 
 - **Authentication**: `/api/v1/auth/register`, `/api/v1/auth/login`, etc.
 - **Wallet**: `/api/v1/wallet/deposit/initialize`, `/api/webhooks/payment-gateway`, etc.
