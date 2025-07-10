@@ -14,7 +14,7 @@ const initializeSocketIO = require('./src/presentation/sockets');
 const PORT = process.env.PORT || 3000;
 
 // Swagger setup
-const swaggerDocument = YAML.load(path.join(__dirname, 'swagger.yaml'));
+const swaggerDocument = YAML.load(path.join(__dirname, 'docs/swagger-generated.json'));
 app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerDocument));
 
 const server = http.createServer(app);
