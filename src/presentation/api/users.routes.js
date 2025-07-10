@@ -22,81 +22,8 @@ const adminUpdateUserSchema = Joi.object({
 }).min(1); // Ensure at least one field is provided for update
 
 
-// --- JSDoc Schemas for swagger-autogen ---
-// These should align with your components.schemas in openapi.yml
-
-/**
- * @typedef {object} UserPublicProfile
- * @property {string} id - User's unique identifier (UUID)
- * @property {string} username - User's username
- * @property {string} role - User's role (e.g., User, Admin)
- */
-
-/**
- * @typedef {object} UpdateUserProfileRequest
- * @property {string} [username] - New username for the user (must be unique if changed) - min: 3
- * @example { "username": "new_username" }
- */
-
-/**
- * @typedef {object} AdminUpdateUserRequest
- * @property {string} [username] - New username for the user - min: 3
- * @property {string} [email] - New email for the user - format: email
- * @property {string} [role] - New role for the user - enum:User,Admin,DisputeModerator,FinanceManager
- * @property {boolean} [isVerified] - Set email verification status
- * @example { "role": "Admin", "isVerified": true }
- */
-
-/**
- * @typedef {object} PaginatedUsersResponse
- * @property {number} page - Current page number
- * @property {number} limit - Items per page
- * @property {number} totalPages - Total number of pages
- * @property {number} totalItems - Total number of users
- * @property {Array<UserPublicProfile>} items - List of user profiles
- */
-
-/**
- * @typedef {object} UserGameProfileBase
- * @property {string} gameId.required - ID of the game (UUID).
- * @property {string} inGameName.required - User's in-game name for this game.
- * @property {object} [additionalInfo] - Any other game-specific details (e.g., region, platform).
- */
-
-/**
- * @typedef {object} UserGameProfileRequest
- * @allOf
- *  - $ref: '#/components/schemas/UserGameProfileBase'
- */
-
-/**
- * @typedef {object} UserGameProfileResponse
- * @allOf
- *  - $ref: '#/components/schemas/UserGameProfileBase'
- *  - type: object
- *    properties:
- *      id:
- *        type: string
- *        format: uuid
- *        description: ID of the user game profile record.
- *      userId:
- *        type: string
- *        format: uuid
- *        description: ID of the user.
- *      createdAt:
- *        type: string
- *        format: date-time
- *      updatedAt:
- *        type: string
- *        format: date-time
- */
-
-/**
- * @typedef {object} ListOfUserGameProfiles
- * @property {Array<UserGameProfileResponse>} profiles - List of user's game profiles.
- * @property {number} count - Number of profiles.
- */
-
+// Note: JSDoc @typedef schemas previously here have been moved to swagger.js components.schemas
+// for central management. Routes now use $ref to these central schemas.
 
 module.exports = (
     { getUserProfileUseCase, updateUserProfileUseCase, listUsersUseCase, adminUpdateUserUseCase, adminDeleteUserUseCase }, // User use cases

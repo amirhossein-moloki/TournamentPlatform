@@ -50,20 +50,32 @@ module.exports = (
 ) => {
     const router = express.Router();
 
-    /**
-     * POST /api/v1/tournaments
-     * Create a new tournament. (Requires 'Admin' role)
-     */
     router.post('/', authenticateToken, authorizeRole(['Admin']), async (req, res, next) => {
+        /*
+            #swagger.tags = ['Admin - Tournaments']
+            #swagger.summary = 'Create a new tournament (Admin only).'
+            #swagger.description = 'Allows an Admin to create a new tournament with specified details.'
+            #swagger.security = [{ "bearerAuth": [] }]
+            #swagger.requestBody = {
+                required: true,
+                content: { "application/json": { schema: { $ref: "#/components/schemas/TournamentCreationRequest" } } }
+            }
+            #swagger.responses[201] = {
+                description: 'Tournament created successfully.',
+                content: { "application/json": { schema: { $ref: "#/components/schemas/TournamentResponseFull" } } }
+            }
+            #swagger.responses[400] = { description: 'Validation error (e.g., invalid date format, missing required fields).', content: { "application/json": { schema: { $ref: "#/components/schemas/ErrorResponse" } } } }
+            #swagger.responses[401] = { description: 'Unauthorized.', content: { "application/json": { schema: { $ref: "#/components/schemas/ErrorResponse" } } } }
+            #swagger.responses[403] = { description: 'Forbidden (User is not an Admin).', content: { "application/json": { schema: { $ref: "#/components/schemas/ErrorResponse" } } } }
+            #swagger.responses[404] = { description: 'Game ID not found.', content: { "application/json": { schema: { $ref: "#/components/schemas/ErrorResponse" } } } } // If gameId validation is strict
+            #swagger.responses[500] = { description: 'Internal server error.', content: { "application/json": { schema: { $ref: "#/components/schemas/ErrorResponse" } } } }
+        */
         try {
             const { error, value: tournamentData } = createTournamentSchema.validate(req.body);
             if (error) {
                 throw new ApiError(httpStatusCodes.BAD_REQUEST, 'Validation Error', error.details.map(d => d.message));
             }
-            // organizerId might be req.user.sub if admin is also an organizer or passed in body
             const dataToCreate = { ...tournamentData, organizerId: tournamentData.organizerId || req.user.sub };
-
-
             const tournament = await createTournamentUseCase.execute(dataToCreate);
             return new ApiResponse(res, httpStatusCodes.CREATED, 'Tournament created successfully.', tournament.toPlainObject ? tournament.toPlainObject() : tournament).send();
         } catch (error) {
@@ -71,24 +83,32 @@ module.exports = (
         }
     });
 
-    /**
-     * GET /api/v1/tournaments
-     * List tournaments (publicly accessible).
-     */
     router.get('/', async (req, res, next) => {
+        /*
+            #swagger.tags = ['Tournaments']
+            #swagger.summary = 'List all tournaments.'
+            #swagger.description = 'Retrieves a paginated list of tournaments. Can be filtered by status, game, and sorted. Publicly accessible.'
+            #swagger.parameters['page'] = { in: 'query', description: 'Page number.', schema: { type: 'integer', default: 1, minimum: 1 } }
+            #swagger.parameters['limit'] = { in: 'query', description: 'Items per page.', schema: { type: 'integer', default: 10, minimum: 1, maximum: 100 } }
+            #swagger.parameters['status'] = { in: 'query', description: 'Filter by tournament status.', schema: { type: 'string', enum: ['PENDING', 'UPCOMING', 'REGISTRATION_OPEN', 'REGISTRATION_CLOSED', 'ONGOING', 'COMPLETED', 'CANCELED'] } }
+            #swagger.parameters['gameId'] = { in: 'query', description: 'Filter by Game ID (UUID).', schema: { type: 'string', format: 'uuid' } }
+            #swagger.parameters['sortBy'] = { in: 'query', description: 'Field to sort by.', schema: { type: 'string', enum: ['startDate', 'name', 'entryFee', 'prizePool'], default: 'startDate' } }
+            #swagger.parameters['sortOrder'] = { in: 'query', description: 'Sort order.', schema: { type: 'string', enum: ['ASC', 'DESC'], default: 'ASC' } }
+            #swagger.parameters['includeGameDetails'] = { in: 'query', description: 'Whether to include game details in the response.', schema: { type: 'boolean', default: true } }
+            #swagger.responses[200] = {
+                description: 'A paginated list of tournaments.',
+                content: { "application/json": { schema: { $ref: "#/components/schemas/PaginatedTournamentsResponse" } } }
+            }
+            #swagger.responses[400] = { description: 'Validation error for query parameters.', content: { "application/json": { schema: { $ref: "#/components/schemas/ErrorResponse" } } } }
+            #swagger.responses[500] = { description: 'Internal server error.', content: { "application/json": { schema: { $ref: "#/components/schemas/ErrorResponse" } } } }
+        */
         try {
             const { error, value: queryParams } = listTournamentsSchema.validate(req.query);
             if (error) {
                 throw new ApiError(httpStatusCodes.BAD_REQUEST, 'Validation Error', error.details.map(d => d.message));
             }
-
-            // Destructure includeGameDetails from queryParams and pass it to use case
             const { includeGameDetails, ...filtersAndPagination } = queryParams;
-
             const result = await listTournamentsUseCase.execute({ ...filtersAndPagination, includeGameDetails });
-
-            // Assuming result.tournaments are domain entities
-            // Map to PaginatedTournaments schema: { page, limit, totalPages, totalItems, items: [TournamentSummary] }
             const responseData = {
                 page: result.currentPage,
                 limit: result.pageSize,
@@ -96,16 +116,15 @@ module.exports = (
                 totalItems: result.totalItems,
                 items: result.tournaments.map(t => {
                     const plainTournament = t.toPlainObject ? t.toPlainObject() : t;
-                    // Ensure it matches TournamentSummary fields from OpenAPI
-                    return {
+                    return { // Mapping to TournamentSummaryResponse
                         id: plainTournament.id,
                         name: plainTournament.name,
-                        gameName: plainTournament.game && plainTournament.game.name ? plainTournament.game.name : 'N/A',
+                        gameName: plainTournament.game && plainTournament.game.name ? plainTournament.game.name : (plainTournament.gameName || 'N/A'), // Handle both cases
                         status: plainTournament.status,
                         entryFee: plainTournament.entryFee,
                         prizePool: plainTournament.prizePool,
                         maxParticipants: plainTournament.maxParticipants,
-                        currentParticipants: plainTournament.currentParticipantsCount === undefined ? plainTournament.participantsCount : plainTournament.currentParticipantsCount, // Adapt based on actual field name
+                        currentParticipants: plainTournament.currentParticipantsCount === undefined ? plainTournament.participantsCount : plainTournament.currentParticipantsCount,
                         startDate: plainTournament.startDate,
                     };
                 })
@@ -116,26 +135,32 @@ module.exports = (
         }
     });
 
-    /**
-     * GET /api/v1/tournaments/:id
-     * Get details of a specific tournament (publicly accessible).
-     */
     router.get('/:id', async (req, res, next) => {
+        /*
+            #swagger.tags = ['Tournaments']
+            #swagger.summary = 'Get details of a specific tournament.'
+            #swagger.description = 'Retrieves full details for a specific tournament by its ID. Publicly accessible. Optional query param `include` can be used to request related data like `participants` or `matches` (support depends on use case implementation).'
+            #swagger.parameters['id'] = { in: 'path', description: 'Tournament ID (UUID).', required: true, schema: { type: 'string', format: 'uuid' } }
+            #swagger.parameters['include'] = { in: 'query', description: 'Comma-separated list of related entities to include (e.g., "participants,matches"). Support depends on backend.', schema: { type: 'string' }, style: 'form', explode: false }
+            #swagger.responses[200] = {
+                description: 'Tournament details retrieved successfully.',
+                content: { "application/json": { schema: { $ref: "#/components/schemas/TournamentResponseFull" } } }
+            }
+            #swagger.responses[400] = { description: 'Invalid Tournament ID format.', content: { "application/json": { schema: { $ref: "#/components/schemas/ErrorResponse" } } } }
+            #swagger.responses[404] = { description: 'Tournament not found.', content: { "application/json": { schema: { $ref: "#/components/schemas/ErrorResponse" } } } }
+            #swagger.responses[500] = { description: 'Internal server error.', content: { "application/json": { schema: { $ref: "#/components/schemas/ErrorResponse" } } } }
+        */
         try {
             const { error: idError, value: idParams } = tournamentIdParamSchema.validate(req.params);
             if (idError) {
                 throw new ApiError(httpStatusCodes.BAD_REQUEST, 'Invalid Tournament ID.', idError.details.map(d => d.message));
             }
-
-            const includeOptions = { includeGame: true }; // Default to include game for single fetch
-            if (req.query.include) { // Allow overriding or adding other includes via query param
+            const includeOptions = { includeGame: true };
+            if (req.query.include) {
                 const includes = req.query.include.split(',');
                 if (includes.includes('participants')) includeOptions.includeParticipants = true;
                 if (includes.includes('matches')) includeOptions.includeMatches = true;
-                // if client explicitly says ?include=game, it's fine, already true.
-                // if client says ?include=nogame, we might want to set includeGame: false
             }
-
             const tournament = await getTournamentUseCase.execute(idParams.id, includeOptions);
             return new ApiResponse(res, httpStatusCodes.OK, 'Tournament details retrieved.', tournament.toPlainObject ? tournament.toPlainObject() : tournament).send();
         } catch (error) {
@@ -143,11 +168,26 @@ module.exports = (
         }
     });
 
-    /**
-     * POST /api/v1/tournaments/:id/register
-     * Register the authenticated user for a tournament.
-     */
     router.post('/:id/register', authenticateToken, async (req, res, next) => {
+        /*
+            #swagger.tags = ['Tournaments']
+            #swagger.summary = 'Register for a tournament.'
+            #swagger.description = 'Allows an authenticated user to register for a specific tournament. May involve entry fee payment if applicable (handled by use case).'
+            #swagger.security = [{ "bearerAuth": [] }]
+            #swagger.parameters['id'] = { in: 'path', description: 'Tournament ID (UUID) to register for.', required: true, schema: { type: 'string', format: 'uuid' } }
+            // No request body is defined in the current route logic, assuming registration is parameter-less for the user.
+            // If team registration or other details are needed, a requestBody would be added here.
+            #swagger.responses[200] = {
+                description: 'Successfully registered for the tournament.',
+                content: { "application/json": { schema: { $ref: "#/components/schemas/TournamentRegistrationResponse" } } }
+            }
+            #swagger.responses[400] = { description: 'Invalid Tournament ID or other validation error (e.g., missing game profile for user).', content: { "application/json": { schema: { $ref: "#/components/schemas/ErrorResponse" } } } }
+            #swagger.responses[401] = { description: 'Unauthorized.', content: { "application/json": { schema: { $ref: "#/components/schemas/ErrorResponse" } } } }
+            #swagger.responses[403] = { description: 'Forbidden (e.g., registration closed, tournament full, user banned).', content: { "application/json": { schema: { $ref: "#/components/schemas/ErrorResponse" } } } }
+            #swagger.responses[404] = { description: 'Tournament not found.', content: { "application/json": { schema: { $ref: "#/components/schemas/ErrorResponse" } } } }
+            #swagger.responses[409] = { description: 'Conflict (e.g., user already registered).', content: { "application/json": { schema: { $ref: "#/components/schemas/ErrorResponse" } } } }
+            #swagger.responses[500] = { description: 'Internal server error or failed to register.', content: { "application/json": { schema: { $ref: "#/components/schemas/ErrorResponse" } } } }
+        */
         try {
             const { error: idError, value: idParams } = tournamentIdParamSchema.validate(req.params);
             if (idError) {
@@ -155,13 +195,19 @@ module.exports = (
             }
             const tournamentId = idParams.id;
             const userId = req.user.sub;
-
             const registrationResult = await registerForTournamentUseCase.execute(userId, tournamentId);
-            // Assuming registerForTournamentUseCase returns an object like { message: '...', details: ... } or just the participant object
-            return new ApiResponse(res, httpStatusCodes.OK, 'Successfully registered for tournament.', registrationResult.toPlainObject ? registrationResult.toPlainObject() : registrationResult).send();
+            // Assuming registrationResult from use case aligns with TournamentRegistrationResponse or can be mapped.
+            // Example mapping if use case returns participant object:
+            const responseData = {
+                message: 'Successfully registered for tournament.', // Or from registrationResult.message
+                participantId: registrationResult.id, // Assuming result has an id for the participant entry
+                tournamentId: tournamentId, // or registrationResult.tournamentId
+                userId: userId, // or registrationResult.userId
+                status: registrationResult.status || 'CONFIRMED' // or registrationResult.status
+            };
+            return new ApiResponse(res, httpStatusCodes.OK, responseData.message, responseData).send();
         } catch (error) {
-            // Specific error handling for registration failures (e.g., tournament full, already registered, no inGameName)
-            if (error instanceof ApiError) { // If use case throws ApiError
+            if (error instanceof ApiError) {
                  next(error);
             } else {
                  next(new ApiError(httpStatusCodes.INTERNAL_SERVER_ERROR, error.message || 'Failed to register for tournament.'));

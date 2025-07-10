@@ -70,11 +70,20 @@ const transactionHistorySchema = Joi.object({
 
 // --- Route Handlers ---
 
-/**
- * GET /api/v1/wallet
- * Get the wallet details for the authenticated user.
- */
 router.get('/', authenticateToken, async (req, res, next) => {
+  /*
+    #swagger.tags = ['Wallet']
+    #swagger.summary = "Get the authenticated user's wallet details."
+    #swagger.description = "Retrieves the current balance, currency, and other relevant details for the authenticated user's wallet."
+    #swagger.security = [{ "bearerAuth": [] }]
+    #swagger.responses[200] = {
+      description: 'Wallet details retrieved successfully.',
+      content: { "application/json": { schema: { $ref: "#/components/schemas/WalletDetailsResponse" } } }
+    }
+    #swagger.responses[401] = { description: 'Unauthorized.', content: { "application/json": { schema: { $ref: "#/components/schemas/ErrorResponse" } } } }
+    #swagger.responses[404] = { description: 'User wallet not found.', content: { "application/json": { schema: { $ref: "#/components/schemas/ErrorResponse" } } } }
+    #swagger.responses[500] = { description: 'Internal server error.', content: { "application/json": { schema: { $ref: "#/components/schemas/ErrorResponse" } } } }
+  */
   try {
     const userId = req.user.sub;
     const walletDetails = await getWalletDetailsUseCase.execute(userId);
@@ -84,13 +93,31 @@ router.get('/', authenticateToken, async (req, res, next) => {
   }
 });
 
-/**
- * POST /api/v1/wallet/deposit/initialize
- * Initialize the wallet top-up process.
- */
 router.post('/deposit/initialize', authenticateToken, async (req, res, next) => {
+  /*
+    #swagger.tags = ['Wallet']
+    #swagger.summary = 'Initialize a deposit to the wallet.'
+    #swagger.description = 'Starts the process for depositing funds into the user’s wallet. Returns a payment gateway URL for the user to complete the transaction. Requires an X-Idempotency-Key header (UUID) to prevent duplicate requests.'
+    #swagger.security = [{ "bearerAuth": [] }]
+    #swagger.parameters['X-Idempotency-Key'] = {
+        in: 'header', required: true, description: 'A UUID to ensure idempotency of the request.',
+        schema: { type: 'string', format: 'uuid' }
+    }
+    #swagger.requestBody = {
+      required: true,
+      content: { "application/json": { schema: { $ref: "#/components/schemas/InitializeDepositRequest" } } }
+    }
+    #swagger.responses[200] = {
+      description: 'Deposit initialization successful or idempotent replay successful.',
+      content: { "application/json": { schema: { $ref: "#/components/schemas/InitializeDepositResponse" } } }
+    }
+    #swagger.responses[400] = { description: 'Validation error (e.g., invalid amount, missing idempotency key).', content: { "application/json": { schema: { $ref: "#/components/schemas/ErrorResponse" } } } }
+    #swagger.responses[401] = { description: 'Unauthorized.', content: { "application/json": { schema: { $ref: "#/components/schemas/ErrorResponse" } } } }
+    #swagger.responses[409] = { description: 'Conflict due to idempotency key (e.g., key used with different payload).', content: { "application/json": { schema: { $ref: "#/components/schemas/ErrorResponse" } } } }
+    #swagger.responses[500] = { description: 'Internal server error or payment gateway error.', content: { "application/json": { schema: { $ref: "#/components/schemas/ErrorResponse" } } } }
+  */
   try {
-    const idempotencyKey = req.header(appConfig.idempotencyKeyHeader); // 'X-Idempotency-Key'
+    const idempotencyKey = req.header(appConfig.idempotencyKeyHeader);
     const { error: idempotencyError } = Joi.string().uuid().required().validate(idempotencyKey, {
         messages: {
             'any.required': `Header ${appConfig.idempotencyKeyHeader} is required.`,
@@ -107,35 +134,39 @@ router.post('/deposit/initialize', authenticateToken, async (req, res, next) => 
     }
 
     const userId = req.user.sub;
-
-    const result = await initializeDepositUseCase.execute(
-      userId,
-      depositData.amount,
-      depositData.currency,
-      idempotencyKey
-    );
+    const result = await initializeDepositUseCase.execute(userId, depositData.amount, depositData.currency, idempotencyKey);
 
     return new ApiResponse(res, httpStatusCodes.OK, result.message, {
       paymentGatewayUrl: result.paymentGatewayUrl,
       transactionId: result.transactionId,
-      // Include status if the use case returns it, especially for idempotent responses
       ...(result.status && { status: result.status }),
     }).send();
   } catch (error) {
-    if (error instanceof ApiError && error.statusCode === httpStatusCodes.CONFLICT) {
-      // Specific handling for idempotency conflicts if needed, or let global handler manage
-      // For example, could return a 200 OK with the existing transaction details if that's the policy
-      // The InitializeDepositUseCase already attempts to return existing transaction info for safe replays.
-    }
     next(error);
   }
 });
 
-/**
- * GET /api/v1/wallet/history
- * Get transaction history for the logged-in user.
- */
 router.get('/history', authenticateToken, async (req, res, next) => {
+  /*
+    #swagger.tags = ['Wallet']
+    #swagger.summary = "Get the authenticated user's transaction history."
+    #swagger.description = "Retrieves a paginated list of transactions for the authenticated user's wallet. Can be filtered by type, status and sorted."
+    #swagger.security = [{ "bearerAuth": [] }]
+    #swagger.parameters['page'] = { in: 'query', description: 'Page number.', schema: { type: 'integer', default: 1 } }
+    #swagger.parameters['limit'] = { in: 'query', description: 'Items per page.', schema: { type: 'integer', default: 10 } }
+    #swagger.parameters['type'] = { in: 'query', description: 'Filter by transaction type.', schema: { type: 'string', enum: ['DEPOSIT', 'WITHDRAWAL', 'TOURNAMENT_FEE', 'PRIZE_PAYOUT', 'REFUND', 'ADJUSTMENT_CREDIT', 'ADJUSTMENT_DEBIT'] } }
+    #swagger.parameters['status'] = { in: 'query', description: 'Filter by transaction status.', schema: { type: 'string', enum: ['PENDING', 'COMPLETED', 'FAILED', 'CANCELED', 'REQUIRES_APPROVAL', 'PROCESSING', 'REFUNDED'] } }
+    #swagger.parameters['sortBy'] = { in: 'query', description: 'Field to sort by.', schema: { type: 'string', enum: ['transactionDate', 'amount'], default: 'transactionDate' } }
+    #swagger.parameters['sortOrder'] = { in: 'query', description: 'Sort order.', schema: { type: 'string', enum: ['ASC', 'DESC'], default: 'DESC' } }
+    #swagger.responses[200] = {
+      description: 'Transaction history retrieved successfully.',
+      content: { "application/json": { schema: { $ref: "#/components/schemas/PaginatedTransactionHistoryResponse" } } }
+    }
+    #swagger.responses[400] = { description: 'Validation error for query parameters.', content: { "application/json": { schema: { $ref: "#/components/schemas/ErrorResponse" } } } }
+    #swagger.responses[401] = { description: 'Unauthorized.', content: { "application/json": { schema: { $ref: "#/components/schemas/ErrorResponse" } } } }
+    #swagger.responses[404] = { description: 'User wallet not found.', content: { "application/json": { schema: { $ref: "#/components/schemas/ErrorResponse" } } } }
+    #swagger.responses[500] = { description: 'Internal server error.', content: { "application/json": { schema: { $ref: "#/components/schemas/ErrorResponse" } } } }
+  */
   try {
     const { error, value: queryParams } = transactionHistorySchema.validate(req.query);
     if (error) {
@@ -143,22 +174,18 @@ router.get('/history', authenticateToken, async (req, res, next) => {
     }
 
     const userId = req.user.sub;
-    const wallet = await walletRepository.findByUserId(userId);
+    const wallet = await walletRepository.findByUserId(userId); // This check might be redundant if use case handles it
     if (!wallet) {
       throw new ApiError(httpStatusCodes.NOT_FOUND, 'User wallet not found.');
     }
 
     const result = await getTransactionHistoryUseCase.execute(userId, queryParams);
-
-    // The use case already formats the pagination data:
-    // {transactions, totalItems, totalPages, currentPage, pageSize}
-    // Map to PaginatedTransactionHistory schema: { page, limit, totalPages, totalItems, items: [TransactionHistoryItem] }
     const responseData = {
       page: result.currentPage,
       limit: result.pageSize,
       totalPages: result.totalPages,
       totalItems: result.totalItems,
-      items: result.transactions.map(t => t.toPlainObject ? t.toPlainObject() : t) // Assuming toPlainObject() matches TransactionHistoryItem
+      items: result.transactions.map(t => t.toPlainObject ? t.toPlainObject() : t)
     };
     return new ApiResponse(res, httpStatusCodes.OK, 'Transaction history retrieved.', responseData).send();
   } catch (error) {
@@ -166,11 +193,33 @@ router.get('/history', authenticateToken, async (req, res, next) => {
   }
 });
 
-/**
- * POST /api/v1/wallet/withdrawals
- * Submit a withdrawal request for finance manager approval.
- */
 router.post('/withdrawals', authenticateToken, async (req, res, next) => {
+  /*
+    #swagger.tags = ['Wallet']
+    #swagger.summary = 'Request a withdrawal from the wallet.'
+    #swagger.description = 'Submits a withdrawal request. This typically goes into a PENDING or REQUIRES_APPROVAL state and is processed by a finance manager. Requires an X-Idempotency-Key header (UUID).'
+    #swagger.security = [{ "bearerAuth": [] }]
+    #swagger.parameters['X-Idempotency-Key'] = {
+        in: 'header', required: true, description: 'A UUID to ensure idempotency of the request.',
+        schema: { type: 'string', format: 'uuid' }
+    }
+    #swagger.requestBody = {
+      required: true,
+      content: { "application/json": { schema: { $ref: "#/components/schemas/RequestWithdrawalRequest" } } }
+    }
+    #swagger.responses[200] = {
+      description: 'Withdrawal request already processed (idempotent replay of a completed/approved request).',
+      content: { "application/json": { schema: { $ref: "#/components/schemas/RequestWithdrawalResponse" } } }
+    }
+    #swagger.responses[202] = {
+      description: 'Withdrawal request accepted for processing.',
+      content: { "application/json": { schema: { $ref: "#/components/schemas/RequestWithdrawalResponse" } } }
+    }
+    #swagger.responses[400] = { description: 'Validation error (e.g., insufficient funds, invalid amount, missing idempotency key).', content: { "application/json": { schema: { $ref: "#/components/schemas/ErrorResponse" } } } }
+    #swagger.responses[401] = { description: 'Unauthorized.', content: { "application/json": { schema: { $ref: "#/components/schemas/ErrorResponse" } } } }
+    #swagger.responses[409] = { description: 'Conflict due to idempotency key (e.g., key used with different payload).', content: { "application/json": { schema: { $ref: "#/components/schemas/ErrorResponse" } } } }
+    #swagger.responses[500] = { description: 'Internal server error.', content: { "application/json": { schema: { $ref: "#/components/schemas/ErrorResponse" } } } }
+  */
   try {
     const idempotencyKey = req.header(appConfig.idempotencyKeyHeader);
     const { error: idempotencyError } = Joi.string().uuid().required().validate(idempotencyKey, {
@@ -189,39 +238,20 @@ router.post('/withdrawals', authenticateToken, async (req, res, next) => {
     }
 
     const userId = req.user.sub;
+    const result = await requestWithdrawalUseCase.execute(userId, withdrawalData, idempotencyKey);
 
-    const result = await requestWithdrawalUseCase.execute(
-      userId,
-      withdrawalData, // This is { amount, currency, withdrawalMethodDetails }
-      idempotencyKey   // Pass the idempotency key (can be null/undefined if not provided)
-    );
-    // RequestWithdrawalUseCase returns { transaction: Transaction, message: string }
-
-    // If the use case handles an idempotent replay by returning the existing transaction,
-    // the status code might need to be adjusted based on the message or a specific flag.
-    // For now, assuming a successful new request or a successful idempotent replay that the use case
-    // formats appropriately within its message and transaction object.
-    // A 202 is generally for new requests that are accepted for processing.
-    // If idempotency returns an already completed/processed transaction, 200 OK might be better.
-    // The use case returns "Withdrawal request already submitted or being processed (Idempotency)"
-    // and the existing transaction. In this case, 200 OK is more appropriate.
-
-    let statusCode = httpStatusCodes.ACCEPTED; // Default for new requests
+    let statusCode = httpStatusCodes.ACCEPTED; // Default for new requests (202)
     if (result.message && result.message.includes("already submitted or being processed (Idempotency)")) {
-        statusCode = httpStatusCodes.OK;
+        statusCode = httpStatusCodes.OK; // 200 for idempotent replay of an existing request
     }
 
     return new ApiResponse(
         res,
         statusCode,
         result.message,
-        { transactionId: result.transaction.id, status: result.transaction.status } // Return key details
+        { transactionId: result.transaction.id, status: result.transaction.status, message: result.message }
     ).send();
   } catch (error) {
-    // Handle specific errors from the use case, e.g., CONFLICT for non-matching idempotent requests
-    if (error instanceof ApiError && error.statusCode === httpStatusCodes.CONFLICT) {
-        // Let the global error handler manage this, or customize response if needed
-    }
     next(error);
   }
 });
@@ -269,68 +299,77 @@ const zarinpalCallbackSchema = Joi.object({
  * Zarinpal payment callback URL.
  */
 router.get('/deposit/callback', async (req, res, next) => {
+  /*
+    #swagger.tags = ['Wallet']
+    #swagger.summary = 'Payment gateway callback for deposits (e.g., Zarinpal).'
+    #swagger.description = 'This endpoint is called by the payment gateway (e.g., Zarinpal) after a payment attempt. It should not be called directly by clients. It handles payment verification and updates the transaction status. It redirects the user back to the frontend.'
+    #swagger.parameters['Authority'] = {
+        in: 'query', required: true, description: 'Authority code from Zarinpal.',
+        schema: { type: 'string' }
+    }
+    #swagger.parameters['Status'] = {
+        in: 'query', required: true, description: 'Payment status from Zarinpal ("OK" or "NOK").',
+        schema: { type: 'string', enum: ['OK', 'NOK'] }
+    }
+    #swagger.responses[302] = {
+        description: 'Redirects the user to a frontend success or failure page. Location header will contain the redirect URL.'
+        // No content body for 302, but Location header is key.
+    }
+    // Other responses are less likely as this endpoint typically only redirects.
+    // Errors here should be logged and a generic error redirect should occur.
+  */
   try {
     const { error, value: callbackQuery } = zarinpalCallbackSchema.validate(req.query);
     if (error) {
-      // Zarinpal might not show a nice error page if this fails, log and redirect to a generic error page
       console.error('Invalid Zarinpal callback query:', error.details);
-      // Redirect to a generic frontend error page
       return res.redirect(`${appConfig.frontendUrl}/payment/failed?error=invalid_callback_params`);
     }
 
     const { Authority, Status } = callbackQuery;
-    const clientIp = req.ip; // For Zarinpal verification if their API uses it
+    // const clientIp = req.ip; // Zarinpal might not need IP for verification, check their docs.
 
-    // In a real scenario, this use case would interact with Zarinpal's verification API
-    // For now, this is a placeholder for the logic.
-    // const result = await verifyZarinpalDepositUseCase.execute(Authority, Status, clientIp);
-
-    // --- Placeholder Logic ---
+    // --- Placeholder Logic for verifyZarinpalDepositUseCase.execute(Authority, Status) ---
     let redirectUrl = `${appConfig.frontendUrl}/payment/failed?authority=${Authority}`;
     if (Status === 'OK') {
-      // Simulate finding transaction and verifying
-      const mockTransaction = await transactionRepository.findByGatewayAuthority(Authority); // Assumes this method exists
-      if (mockTransaction && mockTransaction.status === 'PENDING') { // PENDING or INITIATED
-        // Simulate Zarinpal verification success
-        const zarinpalVerificationSuccess = true; // Placeholder
-        if (zarinpalVerificationSuccess) {
-          // Simulate crediting wallet
-          // await walletRepository.credit(mockTransaction.userId, mockTransaction.amount, 'USD', mockTransaction.id);
-          // await transactionRepository.updateStatus(mockTransaction.id, 'COMPLETED');
-          console.log(`Simulated Zarinpal payment success for Authority: ${Authority}. Transaction ID: ${mockTransaction.id}`);
-          redirectUrl = `${appConfig.frontendUrl}/payment/success?transactionId=${mockTransaction.id}&authority=${Authority}`;
-        } else {
-          // await transactionRepository.updateStatus(mockTransaction.id, 'FAILED', { failureReason: 'Zarinpal verification failed' });
-           console.log(`Simulated Zarinpal payment verification failed for Authority: ${Authority}. Transaction ID: ${mockTransaction.id}`);
-          redirectUrl = `${appConfig.frontendUrl}/payment/failed?transactionId=${mockTransaction.id}&reason=verification_failed`;
-        }
+      const mockTransaction = await transactionRepository.findByGatewayAuthority(Authority);
+      if (mockTransaction && mockTransaction.status === 'PENDING') {
+        // const zarinpalVerificationSuccess = true; // Simulate external verification
+        // if (zarinpalVerificationSuccess) {
+        //   await walletRepository.credit(mockTransaction.walletId, mockTransaction.amount, mockTransaction.currency);
+        //   await transactionRepository.updateStatus(mockTransaction.id, 'COMPLETED');
+        //   console.log(`Simulated Zarinpal payment success for Authority: ${Authority}. Transaction ID: ${mockTransaction.id}`);
+        //   redirectUrl = `${appConfig.frontendUrl}/payment/success?transactionId=${mockTransaction.id}&authority=${Authority}`;
+        // } else {
+        //   await transactionRepository.updateStatus(mockTransaction.id, 'FAILED', { failureReason: 'Zarinpal verification failed' });
+        //   console.log(`Simulated Zarinpal payment verification failed for Authority: ${Authority}. Transaction ID: ${mockTransaction.id}`);
+        //   redirectUrl = `${appConfig.frontendUrl}/payment/failed?transactionId=${mockTransaction.id}&reason=verification_failed`;
+        // }
+        // Simplified placeholder for success path
+         console.log(`Simulated Zarinpal payment OK for Authority: ${Authority}. Would verify and complete transaction ${mockTransaction.id}`);
+         redirectUrl = `${appConfig.frontendUrl}/payment/success?transactionId=${mockTransaction.id}&authority=${Authority}`;
       } else if (mockTransaction && mockTransaction.status === 'COMPLETED') {
         console.log(`Simulated Zarinpal payment already completed for Authority: ${Authority}. Transaction ID: ${mockTransaction.id}`);
         redirectUrl = `${appConfig.frontendUrl}/payment/success?transactionId=${mockTransaction.id}&authority=${Authority}&status=already_completed`;
       } else {
-         console.log(`Simulated Zarinpal callback - Transaction not found or not in PENDING state for Authority: ${Authority}`);
-        redirectUrl = `${appConfig.frontendUrl}/payment/failed?authority=${Authority}&reason=transaction_not_found_or_invalid_state`;
+         console.log(`Simulated Zarinpal callback (OK) - Transaction not found or not PENDING for Authority: ${Authority}`);
+        redirectUrl = `${appConfig.frontendUrl}/payment/failed?authority=${Authority}&reason=tx_not_found_or_invalid_state_ok`;
       }
-    } else { // Status === 'NOK' (User cancelled or Zarinpal error before verification page)
-        const mockTransaction = await transactionRepository.findByGatewayAuthority(Authority); // Assumes this method exists
-        if (mockTransaction) {
+    } else { // Status === 'NOK'
+        const mockTransaction = await transactionRepository.findByGatewayAuthority(Authority);
+        if (mockTransaction && mockTransaction.status === 'PENDING') {
             // await transactionRepository.updateStatus(mockTransaction.id, 'CANCELED', { failureReason: 'Payment canceled by user or Zarinpal (NOK)' });
             console.log(`Simulated Zarinpal payment NOK (canceled/failed) for Authority: ${Authority}. Transaction ID: ${mockTransaction.id}`);
             redirectUrl = `${appConfig.frontendUrl}/payment/failed?transactionId=${mockTransaction.id}&reason=payment_nok`;
         } else {
-            console.log(`Simulated Zarinpal payment NOK (canceled/failed) for Authority: ${Authority}. Transaction not found.`);
-            redirectUrl = `${appConfig.frontendUrl}/payment/failed?authority=${Authority}&reason=payment_nok_tx_not_found`;
+            console.log(`Simulated Zarinpal payment NOK for Authority: ${Authority}. Transaction not found or not PENDING.`);
+            redirectUrl = `${appConfig.frontendUrl}/payment/failed?authority=${Authority}&reason=payment_nok_tx_not_found_or_invalid_state`;
         }
     }
     // --- End Placeholder Logic ---
-
-    // Redirect based on the outcome
-    // res.redirect(result.redirectPath || `${appConfig.frontendUrl}/payment/failed`); // Use result from actual use case
     res.redirect(redirectUrl);
 
   } catch (error) {
     console.error('Error in Zarinpal callback:', error);
-    // Generic error redirect, as we can't send JSON response to Zarinpal redirect
     res.redirect(`${appConfig.frontendUrl}/payment/error?code=internal_error`);
   }
 });

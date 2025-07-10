@@ -57,71 +57,8 @@ const verifyEmailSchema = Joi.object({
 
 // --- Route Handlers ---
 
-// --- JSDoc Schemas for swagger-autogen ---
-// These are referenced in the JSDoc blocks for routes.
-// Make sure these names match what's in your existing openapi.yml or define them as needed.
-
-/**
- * @typedef {object} UserRegistrationRequest
- * @property {string} username.required - User's desired username - min: 3
- * @property {string} email.required - User's email address - format: email
- * @property {string} password.required - User's password - min: 8
- */
-
-/**
- * @typedef {object} UserLoginRequest
- * @property {string} email.required - User's email address - format: email
- * @property {string} password.required - User's password
- */
-
-/**
- * @typedef {object} UserPublicProfile
- * @property {string} id - User's unique identifier - format: uuid
- * @property {string} username - User's username
- * @property {string} role - User's role (e.g., User, Admin)
- */
-
-/**
- * @typedef {object} AuthResponse
- * @property {string} message - Success message
- * @property {string} accessToken - JWT Access Token
- * @property {UserPublicProfile} user - Public profile of the authenticated user
- */
-
-/**
- * @typedef {object} RefreshTokenResponse
- * @property {string} accessToken - New JWT Access Token
- */
-
-/**
- * @typedef {object} LogoutResponse
- * @property {string} message - Success message (e.g., "Logout successful")
- */
-
-/**
- * @typedef {object} RequestVerificationEmailResponse
- * @property {string} message - Confirmation message
- */
-
-/**
- * @typedef {object} VerifyEmailRequest
- * @property {string} token.required - The verification token received by email.
- */
-
-/**
- * @typedef {object} VerifyEmailResponse
- * @property {string} message - Success message
- * @property {string} userId - User ID of the verified user - format: uuid
- */
-
-/**
- * @typedef {object} ErrorResponse
- * @property {number} statusCode - HTTP status code
- * @property {string} message - Error message
- * @property {array<string>} [errors] - Optional array of specific error messages
- * @property {string} [stack] - Optional stack trace in development
- */
-
+// Note: JSDoc @typedef schemas previously here have been moved to swagger.js components.schemas
+// for central management. Routes now use $ref to these central schemas.
 
 router.post('/register', async (req, res, next) => {
   /*
