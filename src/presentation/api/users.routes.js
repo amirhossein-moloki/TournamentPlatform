@@ -11,15 +11,91 @@ const ApiResponse = require('../../utils/ApiResponse');
 // Schemas defined once, used by the factory-returned router
 const updateUserSchema = Joi.object({
   username: Joi.string().min(3).max(30).optional(),
-  // email: Joi.string().email().optional(),
-}).min(1);
+  // email: Joi.string().email().optional(), // Email updates should likely have a separate verification flow
+}).min(1); // Ensure at least one field is provided for update
 
 const adminUpdateUserSchema = Joi.object({
     username: Joi.string().min(3).max(30).optional(),
     email: Joi.string().email().optional(),
     role: Joi.string().valid('User', 'Admin', 'DisputeModerator', 'FinanceManager').optional(),
-    isVerified: Joi.boolean().optional(),
-}).min(1);
+    isVerified: Joi.boolean().optional(), // Allow admin to verify/unverify user
+}).min(1); // Ensure at least one field is provided for update
+
+
+// --- JSDoc Schemas for swagger-autogen ---
+// These should align with your components.schemas in openapi.yml
+
+/**
+ * @typedef {object} UserPublicProfile
+ * @property {string} id - User's unique identifier (UUID)
+ * @property {string} username - User's username
+ * @property {string} role - User's role (e.g., User, Admin)
+ */
+
+/**
+ * @typedef {object} UpdateUserProfileRequest
+ * @property {string} [username] - New username for the user (must be unique if changed) - min: 3
+ * @example { "username": "new_username" }
+ */
+
+/**
+ * @typedef {object} AdminUpdateUserRequest
+ * @property {string} [username] - New username for the user - min: 3
+ * @property {string} [email] - New email for the user - format: email
+ * @property {string} [role] - New role for the user - enum:User,Admin,DisputeModerator,FinanceManager
+ * @property {boolean} [isVerified] - Set email verification status
+ * @example { "role": "Admin", "isVerified": true }
+ */
+
+/**
+ * @typedef {object} PaginatedUsersResponse
+ * @property {number} page - Current page number
+ * @property {number} limit - Items per page
+ * @property {number} totalPages - Total number of pages
+ * @property {number} totalItems - Total number of users
+ * @property {Array<UserPublicProfile>} items - List of user profiles
+ */
+
+/**
+ * @typedef {object} UserGameProfileBase
+ * @property {string} gameId.required - ID of the game (UUID).
+ * @property {string} inGameName.required - User's in-game name for this game.
+ * @property {object} [additionalInfo] - Any other game-specific details (e.g., region, platform).
+ */
+
+/**
+ * @typedef {object} UserGameProfileRequest
+ * @allOf
+ *  - $ref: '#/components/schemas/UserGameProfileBase'
+ */
+
+/**
+ * @typedef {object} UserGameProfileResponse
+ * @allOf
+ *  - $ref: '#/components/schemas/UserGameProfileBase'
+ *  - type: object
+ *    properties:
+ *      id:
+ *        type: string
+ *        format: uuid
+ *        description: ID of the user game profile record.
+ *      userId:
+ *        type: string
+ *        format: uuid
+ *        description: ID of the user.
+ *      createdAt:
+ *        type: string
+ *        format: date-time
+ *      updatedAt:
+ *        type: string
+ *        format: date-time
+ */
+
+/**
+ * @typedef {object} ListOfUserGameProfiles
+ * @property {Array<UserGameProfileResponse>} profiles - List of user's game profiles.
+ * @property {number} count - Number of profiles.
+ */
 
 
 module.exports = (
@@ -32,6 +108,19 @@ module.exports = (
 
     // --- User Profile Routes (/me) ---
     router.get('/me', authenticateToken, async (req, res, next) => {
+        /*
+            #swagger.tags = ['Users']
+            #swagger.summary = 'Get current user\'s profile'
+            #swagger.description = 'Retrieves the profile of the currently authenticated user.'
+            #swagger.security = [{ "bearerAuth": [] }]
+            #swagger.responses[200] = {
+                description: 'User profile retrieved successfully.',
+                content: { "application/json": { schema: { $ref: "#/components/schemas/UserPublicProfile" } } }
+            }
+            #swagger.responses[401] = { description: 'Unauthorized.', content: { "application/json": { schema: { $ref: "#/components/schemas/ErrorResponse" } } } }
+            #swagger.responses[404] = { description: 'User not found.', content: { "application/json": { schema: { $ref: "#/components/schemas/ErrorResponse" } } } }
+            #swagger.responses[500] = { description: 'Internal server error.', content: { "application/json": { schema: { $ref: "#/components/schemas/ErrorResponse" } } } }
+        */
         try {
             const userId = req.user.sub;
             if (!userId) { // Should be caught by authenticateToken, but as a safeguard
@@ -45,6 +134,23 @@ module.exports = (
     });
 
     router.put('/me', authenticateToken, async (req, res, next) => {
+        /*
+            #swagger.tags = ['Users']
+            #swagger.summary = 'Update current user\'s profile'
+            #swagger.description = 'Allows the authenticated user to update their own profile information (e.g., username). Email/password changes should be handled via separate, more secure flows.'
+            #swagger.security = [{ "bearerAuth": [] }]
+            #swagger.requestBody = {
+                required: true,
+                content: { "application/json": { schema: { $ref: "#/components/schemas/UpdateUserProfileRequest" } } }
+            }
+            #swagger.responses[200] = {
+                description: 'User profile updated successfully.',
+                content: { "application/json": { schema: { $ref: "#/components/schemas/UserPublicProfile" } } }
+            }
+            #swagger.responses[400] = { description: 'Validation error or no data provided.', content: { "application/json": { schema: { $ref: "#/components/schemas/ErrorResponse" } } } }
+            #swagger.responses[401] = { description: 'Unauthorized.', content: { "application/json": { schema: { $ref: "#/components/schemas/ErrorResponse" } } } }
+            #swagger.responses[500] = { description: 'Internal server error.', content: { "application/json": { schema: { $ref: "#/components/schemas/ErrorResponse" } } } }
+        */
         try {
             const userId = req.user.sub;
             const { error, value: updateData } = updateUserSchema.validate(req.body);
@@ -63,6 +169,23 @@ module.exports = (
 
     // --- Admin User Management Routes ---
     router.get('/', authenticateToken, authorizeRole(['Admin']), async (req, res, next) => {
+        /*
+            #swagger.tags = ['Admin - Users']
+            #swagger.summary = 'List all users (Admin only)'
+            #swagger.description = 'Retrieves a paginated list of all users. Requires Admin role.'
+            #swagger.security = [{ "bearerAuth": [] }]
+            #swagger.parameters['page'] = { in: 'query', description: 'Page number for pagination.', schema: { type: 'integer', default: 1, minimum: 1 } }
+            #swagger.parameters['limit'] = { in: 'query', description: 'Number of items per page.', schema: { type: 'integer', default: 10, minimum: 1, maximum: 100 } }
+            #swagger.parameters['role'] = { in: 'query', description: 'Filter by user role.', schema: { type: 'string', enum: ['User', 'Admin', 'DisputeModerator', 'FinanceManager'] } }
+            #swagger.parameters['isVerified'] = { in: 'query', description: 'Filter by email verification status.', schema: { type: 'boolean' } }
+            #swagger.responses[200] = {
+                description: 'A paginated list of users.',
+                content: { "application/json": { schema: { $ref: "#/components/schemas/PaginatedUsersResponse" } } }
+            }
+            #swagger.responses[401] = { description: 'Unauthorized.', content: { "application/json": { schema: { $ref: "#/components/schemas/ErrorResponse" } } } }
+            #swagger.responses[403] = { description: 'Forbidden (User is not an Admin).', content: { "application/json": { schema: { $ref: "#/components/schemas/ErrorResponse" } } } }
+            #swagger.responses[500] = { description: 'Internal server error.', content: { "application/json": { schema: { $ref: "#/components/schemas/ErrorResponse" } } } }
+        */
         try {
             const page = parseInt(req.query.page, 10) || 1;
             const limit = parseInt(req.query.limit, 10) || 10;
@@ -85,6 +208,22 @@ module.exports = (
     });
 
     router.get('/:id', authenticateToken, authorizeRole(['Admin']), async (req, res, next) => {
+        /*
+            #swagger.tags = ['Admin - Users']
+            #swagger.summary = 'Get a specific user by ID (Admin only)'
+            #swagger.description = 'Retrieves the profile of a specific user by their ID. Requires Admin role.'
+            #swagger.security = [{ "bearerAuth": [] }]
+            #swagger.parameters['id'] = { in: 'path', description: 'User ID (UUID)', required: true, schema: { type: 'string', format: 'uuid' } }
+            #swagger.responses[200] = {
+                description: 'User profile retrieved successfully.',
+                content: { "application/json": { schema: { $ref: "#/components/schemas/UserPublicProfile" } } }
+            }
+            #swagger.responses[400] = { description: 'Invalid User ID format.', content: { "application/json": { schema: { $ref: "#/components/schemas/ErrorResponse" } } } }
+            #swagger.responses[401] = { description: 'Unauthorized.', content: { "application/json": { schema: { $ref: "#/components/schemas/ErrorResponse" } } } }
+            #swagger.responses[403] = { description: 'Forbidden (User is not an Admin).', content: { "application/json": { schema: { $ref: "#/components/schemas/ErrorResponse" } } } }
+            #swagger.responses[404] = { description: 'User not found.', content: { "application/json": { schema: { $ref: "#/components/schemas/ErrorResponse" } } } }
+            #swagger.responses[500] = { description: 'Internal server error.', content: { "application/json": { schema: { $ref: "#/components/schemas/ErrorResponse" } } } }
+        */
         try {
             const { id } = req.params;
             const { error: idError } = Joi.string().uuid().required().validate(id);
@@ -99,6 +238,26 @@ module.exports = (
     });
 
     router.put('/:id', authenticateToken, authorizeRole(['Admin']), async (req, res, next) => {
+        /*
+            #swagger.tags = ['Admin - Users']
+            #swagger.summary = 'Update a user by ID (Admin only)'
+            #swagger.description = 'Allows an Admin to update a user\'s profile information (username, email, role, verification status). Requires Admin role.'
+            #swagger.security = [{ "bearerAuth": [] }]
+            #swagger.parameters['id'] = { in: 'path', description: 'User ID (UUID)', required: true, schema: { type: 'string', format: 'uuid' } }
+            #swagger.requestBody = {
+                required: true,
+                content: { "application/json": { schema: { $ref: "#/components/schemas/AdminUpdateUserRequest" } } }
+            }
+            #swagger.responses[200] = {
+                description: 'User updated successfully by admin.',
+                content: { "application/json": { schema: { $ref: "#/components/schemas/UserPublicProfile" } } }
+            }
+            #swagger.responses[400] = { description: 'Validation error, Invalid User ID, or no data provided.', content: { "application/json": { schema: { $ref: "#/components/schemas/ErrorResponse" } } } }
+            #swagger.responses[401] = { description: 'Unauthorized.', content: { "application/json": { schema: { $ref: "#/components/schemas/ErrorResponse" } } } }
+            #swagger.responses[403] = { description: 'Forbidden (User is not an Admin).', content: { "application/json": { schema: { $ref: "#/components/schemas/ErrorResponse" } } } }
+            #swagger.responses[404] = { description: 'User not found.', content: { "application/json": { schema: { $ref: "#/components/schemas/ErrorResponse" } } } }
+            #swagger.responses[500] = { description: 'Internal server error.', content: { "application/json": { schema: { $ref: "#/components/schemas/ErrorResponse" } } } }
+        */
         try {
             const { id } = req.params;
             const { error: idValError } = Joi.string().uuid().required().validate(id);
@@ -120,6 +279,22 @@ module.exports = (
     });
 
     router.delete('/:id', authenticateToken, authorizeRole(['Admin']), async (req, res, next) => {
+        /*
+            #swagger.tags = ['Admin - Users']
+            #swagger.summary = 'Delete a user by ID (Admin only)'
+            #swagger.description = 'Allows an Admin to delete a user. Admin cannot delete their own account via this endpoint. Requires Admin role.'
+            #swagger.security = [{ "bearerAuth": [] }]
+            #swagger.parameters['id'] = { in: 'path', description: 'User ID (UUID)', required: true, schema: { type: 'string', format: 'uuid' } }
+            #swagger.responses[200] = {
+                description: 'User deleted successfully.',
+                content: { "application/json": { schema: { type: 'object', properties: { message: { type: 'string', example: 'User deleted successfully.'} } } } }
+            }
+            #swagger.responses[400] = { description: 'Invalid User ID format.', content: { "application/json": { schema: { $ref: "#/components/schemas/ErrorResponse" } } } }
+            #swagger.responses[401] = { description: 'Unauthorized.', content: { "application/json": { schema: { $ref: "#/components/schemas/ErrorResponse" } } } }
+            #swagger.responses[403] = { description: 'Forbidden (User is not an Admin or Admin trying to delete self).', content: { "application/json": { schema: { $ref: "#/components/schemas/ErrorResponse" } } } }
+            #swagger.responses[404] = { description: 'User not found.', content: { "application/json": { schema: { $ref: "#/components/schemas/ErrorResponse" } } } }
+            #swagger.responses[500] = { description: 'Internal server error.', content: { "application/json": { schema: { $ref: "#/components/schemas/ErrorResponse" } } } }
+        */
         try {
             const { id } = req.params;
             const { error: idError } = Joi.string().uuid().required().validate(id);
@@ -139,16 +314,71 @@ module.exports = (
     // --- User Game Profiles Routes (/me/game-profiles) ---
     // UserGameProfileController methods are expected to be Express middleware (req, res, next)
     if (userGameProfileController) { // Check if controller is injected
-        const gameProfileRouter = express.Router({ mergeParams: true });
-        // Assuming userGameProfileController methods are designed to be route handlers
+        const gameProfileRouter = express.Router({ mergeParams: true }); // Use mergeParams to access parent router params if needed
+
         if (userGameProfileController.upsertProfile) {
-            gameProfileRouter.post('/', userGameProfileController.upsertProfile);
+            gameProfileRouter.post('/', (req, res, next) => {
+                /*
+                    #swagger.tags = ['User Game Profiles']
+                    #swagger.summary = 'Create or update a game profile for the current user.'
+                    #swagger.description = 'If a profile for the given gameId already exists for the user, it will be updated. Otherwise, a new one is created. User must be authenticated.'
+                    #swagger.security = [{ "bearerAuth": [] }]
+                    #swagger.requestBody = {
+                        required: true,
+                        content: { "application/json": { schema: { $ref: "#/components/schemas/UserGameProfileRequest" } } }
+                    }
+                    #swagger.responses[200] = { description: 'Game profile updated successfully.', content: { "application/json": { schema: { $ref: "#/components/schemas/UserGameProfileResponse" } } } }
+                    #swagger.responses[201] = { description: 'Game profile created successfully.', content: { "application/json": { schema: { $ref: "#/components/schemas/UserGameProfileResponse" } } } }
+                    #swagger.responses[400] = { description: 'Validation error.', content: { "application/json": { schema: { $ref: "#/components/schemas/ErrorResponse" } } } }
+                    #swagger.responses[401] = { description: 'Unauthorized.', content: { "application/json": { schema: { $ref: "#/components/schemas/ErrorResponse" } } } }
+                    #swagger.responses[404] = { description: 'Game ID not found (if validation performed).', content: { "application/json": { schema: { $ref: "#/components/schemas/ErrorResponse" } } } }
+                    #swagger.responses[500] = { description: 'Internal server error.', content: { "application/json": { schema: { $ref: "#/components/schemas/ErrorResponse" } } } }
+                */
+                userGameProfileController.upsertProfile(req, res, next);
+            });
         }
+
         if (userGameProfileController.getProfiles) {
-            gameProfileRouter.get('/', userGameProfileController.getProfiles);
+            gameProfileRouter.get('/', (req, res, next) => {
+                /*
+                    #swagger.tags = ['User Game Profiles']
+                    #swagger.summary = 'Get all game profiles for the current user.'
+                    #swagger.description = 'Retrieves a list of all game-specific profiles for the authenticated user.'
+                    #swagger.security = [{ "bearerAuth": [] }]
+                    #swagger.responses[200] = {
+                        description: 'A list of the user\'s game profiles.',
+                        content: { "application/json": { schema: { $ref: "#/components/schemas/ListOfUserGameProfiles" } } }
+                    }
+                    #swagger.responses[401] = { description: 'Unauthorized.', content: { "application/json": { schema: { $ref: "#/components/schemas/ErrorResponse" } } } }
+                    #swagger.responses[500] = { description: 'Internal server error.', content: { "application/json": { schema: { $ref: "#/components/schemas/ErrorResponse" } } } }
+                */
+                userGameProfileController.getProfiles(req, res, next);
+            });
         }
+
         if (userGameProfileController.getProfileForGame) {
-            gameProfileRouter.get('/:gameId', userGameProfileController.getProfileForGame);
+            gameProfileRouter.get('/:gameId', (req, res, next) => {
+                /*
+                    #swagger.tags = ['User Game Profiles']
+                    #swagger.summary = 'Get a specific game profile for the current user by game ID.'
+                    #swagger.description = 'Retrieves a specific game profile for the authenticated user, identified by the game ID.'
+                    #swagger.security = [{ "bearerAuth": [] }]
+                    #swagger.parameters['gameId'] = {
+                        in: 'path',
+                        description: 'ID of the game for which to retrieve the profile (UUID).',
+                        required: true,
+                        schema: { type: 'string', format: 'uuid' }
+                    }
+                    #swagger.responses[200] = {
+                        description: 'The user\'s game profile for the specified game.',
+                        content: { "application/json": { schema: { $ref: "#/components/schemas/UserGameProfileResponse" } } }
+                    }
+                    #swagger.responses[401] = { description: 'Unauthorized.', content: { "application/json": { schema: { $ref: "#/components/schemas/ErrorResponse" } } } }
+                    #swagger.responses[404] = { description: 'Game profile not found for this user and game, or Game ID is invalid.', content: { "application/json": { schema: { $ref: "#/components/schemas/ErrorResponse" } } } }
+                    #swagger.responses[500] = { description: 'Internal server error.', content: { "application/json": { schema: { $ref: "#/components/schemas/ErrorResponse" } } } }
+                */
+                userGameProfileController.getProfileForGame(req, res, next);
+            });
         }
         // Mount sub-router under /me/game-profiles, ensuring authenticateToken is applied
         router.use('/me/game-profiles', authenticateToken, gameProfileRouter);

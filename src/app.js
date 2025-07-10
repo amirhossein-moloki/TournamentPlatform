@@ -39,13 +39,25 @@ const {
 
 
 const swaggerUi = require('swagger-ui-express');
-const YAML = require('yamljs');
+// const YAML = require('yamljs'); // No longer needed for YAML loading here
 const path = require('path');
+const fs = require('fs'); // For reading the JSON file
 
 const app = express();
 
 // Load OpenAPI specification
-const swaggerDocument = YAML.load(path.join(__dirname, '../docs/openapi.yml'));
+// const ursprünglichesSwaggerDocument = YAML.load(path.join(__dirname, '../docs/openapi.yml'));
+let swaggerDocument;
+try {
+    const swaggerJsonPath = path.join(__dirname, '../docs/swagger-generated.json');
+    const swaggerJsonContent = fs.readFileSync(swaggerJsonPath, 'utf8');
+    swaggerDocument = JSON.parse(swaggerJsonContent);
+} catch (error) {
+    console.error("Failed to load or parse swagger-generated.json:", error);
+    // Fallback or default empty spec if loading fails
+    swaggerDocument = { openapi: '3.0.0', info: { title: 'API Docs Not Available', version: '0.0.0' }, paths: {} };
+}
+
 
 // Middlewares
 app.use(cors({
