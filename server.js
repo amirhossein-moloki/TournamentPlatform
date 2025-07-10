@@ -4,7 +4,7 @@ const http = require('http');
 const app = require('./src/app');
 const logger = require('./src/utils/logger');
 const swaggerUi = require('swagger-ui-express');
-const YAML = require('yamljs');
+const fs = require('fs'); // Import fs module
 const path = require('path');
 const { sequelize } = require('./src/infrastructure/database/postgres.connector');
 const rabbitMQAdapter = require('./src/infrastructure/messaging/rabbitmq.adapter');
@@ -14,7 +14,9 @@ const initializeSocketIO = require('./src/presentation/sockets');
 const PORT = process.env.PORT || 3000;
 
 // Swagger setup
-const swaggerDocument = YAML.load(path.join(__dirname, 'swagger.yaml'));
+const swaggerFilePath = path.join(__dirname, 'docs/swagger-generated.json');
+const swaggerFile = fs.readFileSync(swaggerFilePath, 'utf8');
+const swaggerDocument = JSON.parse(swaggerFile);
 app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerDocument));
 
 const server = http.createServer(app);
