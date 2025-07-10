@@ -57,11 +57,115 @@ const verifyEmailSchema = Joi.object({
 
 // --- Route Handlers ---
 
+// --- JSDoc Schemas for swagger-autogen ---
+// These are referenced in the JSDoc blocks for routes.
+// Make sure these names match what's in your existing openapi.yml or define them as needed.
+
 /**
- * POST /api/v1/auth/register
- * Register a new user.
+ * @typedef {object} UserRegistrationRequest
+ * @property {string} username.required - User's desired username - min: 3
+ * @property {string} email.required - User's email address - format: email
+ * @property {string} password.required - User's password - min: 8
  */
+
+/**
+ * @typedef {object} UserLoginRequest
+ * @property {string} email.required - User's email address - format: email
+ * @property {string} password.required - User's password
+ */
+
+/**
+ * @typedef {object} UserPublicProfile
+ * @property {string} id - User's unique identifier - format: uuid
+ * @property {string} username - User's username
+ * @property {string} role - User's role (e.g., User, Admin)
+ */
+
+/**
+ * @typedef {object} AuthResponse
+ * @property {string} message - Success message
+ * @property {string} accessToken - JWT Access Token
+ * @property {UserPublicProfile} user - Public profile of the authenticated user
+ */
+
+/**
+ * @typedef {object} RefreshTokenResponse
+ * @property {string} accessToken - New JWT Access Token
+ */
+
+/**
+ * @typedef {object} LogoutResponse
+ * @property {string} message - Success message (e.g., "Logout successful")
+ */
+
+/**
+ * @typedef {object} RequestVerificationEmailResponse
+ * @property {string} message - Confirmation message
+ */
+
+/**
+ * @typedef {object} VerifyEmailRequest
+ * @property {string} token.required - The verification token received by email.
+ */
+
+/**
+ * @typedef {object} VerifyEmailResponse
+ * @property {string} message - Success message
+ * @property {string} userId - User ID of the verified user - format: uuid
+ */
+
+/**
+ * @typedef {object} ErrorResponse
+ * @property {number} statusCode - HTTP status code
+ * @property {string} message - Error message
+ * @property {array<string>} [errors] - Optional array of specific error messages
+ * @property {string} [stack] - Optional stack trace in development
+ */
+
+
 router.post('/register', async (req, res, next) => {
+  /*
+    #swagger.tags = ['Authentication']
+    #swagger.summary = 'Register a new user.'
+    #swagger.description = 'Registers a new user, logs them in, provides an access token in the response body, and sets a refresh token in an HttpOnly cookie.'
+    #swagger.requestBody = {
+      required: true,
+      content: {
+        "application/json": {
+          schema: { $ref: "#/components/schemas/UserRegistrationRequest" }
+        }
+      }
+    }
+    #swagger.responses[201] = {
+      description: 'User registered successfully. Access token provided, refresh token set in cookie.',
+      content: {
+        "application/json": {
+          schema: { $ref: "#/components/schemas/AuthResponse" }
+        }
+      },
+      headers: {
+        "Set-Cookie": {
+          schema: { type: "string", example: "jid=yourRefreshToken; Path=/api/v1/auth; HttpOnly; Secure; SameSite=Strict" }
+        }
+      }
+    }
+    #swagger.responses[400] = {
+      description: 'Validation error or user already exists.',
+      content: {
+        "application/json": {
+          schema: { $ref: "#/components/schemas/ErrorResponse" }
+        }
+      }
+    }
+    #swagger.responses[500] = {
+      description: 'Internal server error.',
+      content: {
+        "application/json": {
+          schema: { $ref: "#/components/schemas/ErrorResponse" }
+        }
+      }
+    }
+  */
   try {
     // 1. Validate input
     const { error, value } = registerSchema.validate(req.body);
@@ -102,11 +206,57 @@ router.post('/register', async (req, res, next) => {
 });
 
 
-/**
- * POST /api/v1/auth/login
- * Log in and receive Access and Refresh Tokens.
- */
 router.post('/login', async (req, res, next) => {
+  /*
+    #swagger.tags = ['Authentication']
+    #swagger.summary = 'Log in and receive Access and Refresh Tokens.'
+    #swagger.description = 'Logs in an existing user, provides an access token in the response body, and sets a refresh token in an HttpOnly cookie.'
+    #swagger.requestBody = {
+      required: true,
+      content: {
+        "application/json": {
+          schema: { $ref: "#/components/schemas/UserLoginRequest" }
+        }
+      }
+    }
+    #swagger.responses[200] = {
+      description: 'Login successful. Access token provided, refresh token set in cookie.',
+      content: {
+        "application/json": {
+          schema: { $ref: "#/components/schemas/AuthResponse" }
+        }
+      },
+      headers: {
+        "Set-Cookie": {
+          schema: { type: "string", example: "jid=yourRefreshToken; Path=/api/v1/auth; HttpOnly; Secure; SameSite=Strict" }
+        }
+      }
+    }
+    #swagger.responses[400] = {
+      description: 'Validation error.',
+      content: {
+        "application/json": {
+          schema: { $ref: "#/components/schemas/ErrorResponse" }
+        }
+      }
+    }
+    #swagger.responses[401] = {
+      description: 'Invalid credentials.',
+      content: {
+        "application/json": {
+          schema: { $ref: "#/components/schemas/ErrorResponse" }
+        }
+      }
+    }
+    #swagger.responses[500] = {
+      description: 'Internal server error.',
+      content: {
+        "application/json": {
+          schema: { $ref: "#/components/schemas/ErrorResponse" }
+        }
+      }
+    }
+  */
   try {
     // 1. Validate input
     const { error, value } = loginSchema.validate(req.body);
@@ -146,11 +296,42 @@ router.post('/login', async (req, res, next) => {
 });
 
 
-/**
- * POST /api/v1/auth/refresh
- * Get a new Access Token using a Refresh Token (sent via HttpOnly cookie).
- */
 router.post('/refresh', async (req, res, next) => {
+  /*
+    #swagger.tags = ['Authentication']
+    #swagger.summary = 'Get a new Access Token using a Refresh Token.'
+    #swagger.description = 'Requires a valid Refresh Token sent via an HttpOnly cookie (`jid` by default, depends on `appConfig.jwt.refreshCookieName`). If rotation is enabled and a new refresh token is issued, it will also be set in an HttpOnly cookie.'
+    #swagger.security = [{ "refreshTokenCookie": [] }]
+    #swagger.responses[200] = {
+      description: 'New access token generated successfully.',
+      content: {
+        "application/json": {
+          schema: { $ref: "#/components/schemas/RefreshTokenResponse" }
+        }
+      },
+      headers: {
+        "Set-Cookie": {
+          schema: { type: "string", example: "jid=yourNewRefreshToken; Path=/api/v1/auth; HttpOnly; Secure; SameSite=Strict (if token is rotated)" }
+        }
+      }
+    }
+    #swagger.responses[401] = {
+      description: 'Invalid, expired, or missing refresh token. The refresh token cookie might be cleared.',
+      content: {
+        "application/json": {
+          schema: { $ref: "#/components/schemas/ErrorResponse" }
+        }
+      }
+    }
+    #swagger.responses[500] = {
+      description: 'Internal server error.',
+      content: {
+        "application/json": {
+          schema: { $ref: "#/components/schemas/ErrorResponse" }
+        }
+      }
+    }
+  */
   try {
     const refreshTokenFromCookie = req.cookies ? req.cookies[appConfig.jwt.refreshCookieName] : null;
 
@@ -197,12 +378,42 @@ router.post('/refresh', async (req, res, next) => {
 });
 
 
-/**
- * POST /api/v1/auth/logout
- * Invalidate the Refresh Token for a secure logout.
- * Requires Bearer token authentication to identify the user.
- */
 router.post('/logout', authMiddleware, async (req, res, next) => {
+  /*
+    #swagger.tags = ['Authentication']
+    #swagger.summary = 'Invalidate the Refresh Token for a secure logout.'
+    #swagger.description = 'Requires authentication with an Access Token (Bearer). Clears the refresh token cookie and invalidates the token on the server-side.'
+    #swagger.security = [{ "bearerAuth": [] }]
+    #swagger.responses[200] = {
+      description: 'Logout successful. Refresh token cookie cleared.',
+      content: {
+        "application/json": {
+          schema: { $ref: "#/components/schemas/LogoutResponse" }
+        }
+      },
+      headers: {
+        "Set-Cookie": {
+          schema: { type: "string", example: "jid=; Path=/api/v1/auth; HttpOnly; Expires=Thu, 01 Jan 1970 00:00:00 GMT" }
+        }
+      }
+    }
+    #swagger.responses[401] = {
+      description: 'Unauthorized. Invalid or missing access token.',
+      content: {
+        "application/json": {
+          schema: { $ref: "#/components/schemas/ErrorResponse" }
+        }
+      }
+    }
+    #swagger.responses[500] = {
+      description: 'Internal server error.',
+      content: {
+        "application/json": {
+          schema: { $ref: "#/components/schemas/ErrorResponse" }
+        }
+      }
+    }
+  */
   try {
     const userId = req.user.sub; // User ID from the authenticated access token (payload.sub)
 
@@ -225,12 +436,45 @@ router.post('/logout', authMiddleware, async (req, res, next) => {
   }
 });
 
-/**
- * POST /api/v1/auth/request-verification-email
- * Request a new email verification link.
- * User must be authenticated.
- */
 router.post('/request-verification-email', authMiddleware, async (req, res, next) => {
+  /*
+    #swagger.tags = ['Authentication']
+    #swagger.summary = 'Request a new email verification link.'
+    #swagger.description = 'User must be authenticated. The verification email is sent to the user\'s registered email address. No request body needed as user email is derived from the auth token.'
+    #swagger.security = [{ "bearerAuth": [] }]
+    #swagger.responses[200] = {
+      description: 'Verification email sent successfully.',
+      content: {
+        "application/json": {
+          schema: { $ref: "#/components/schemas/RequestVerificationEmailResponse" }
+        }
+      }
+    }
+    #swagger.responses[401] = {
+      description: 'Unauthorized. Invalid or missing access token.',
+      content: {
+        "application/json": {
+          schema: { $ref: "#/components/schemas/ErrorResponse" }
+        }
+      }
+    }
+     #swagger.responses[404] = {
+      description: 'User not found or email not associated with token.',
+      content: {
+        "application/json": {
+          schema: { $ref: "#/components/schemas/ErrorResponse" }
+        }
+      }
+    }
+    #swagger.responses[500] = {
+      description: 'Internal server error (e.g., email service failure).',
+      content: {
+        "application/json": {
+          schema: { $ref: "#/components/schemas/ErrorResponse" }
+        }
+      }
+    }
+  */
   try {
     // The user's email is taken from their authenticated session (req.user.email)
     // Or, if allowing them to specify, validate it:
@@ -251,11 +495,44 @@ router.post('/request-verification-email', authMiddleware, async (req, res, next
   }
 });
 
-/**
- * POST /api/v1/auth/verify-email
- * Verify user's email using a token.
- */
 router.post('/verify-email', async (req, res, next) => {
+  /*
+    #swagger.tags = ['Authentication']
+    #swagger.summary = 'Verify user\'s email using a token.'
+    #swagger.description = 'Submits the token received via email to verify the user\'s email address. This endpoint is public.'
+    #swagger.requestBody = {
+      required: true,
+      content: {
+        "application/json": {
+          schema: { $ref: "#/components/schemas/VerifyEmailRequest" }
+        }
+      }
+    }
+    #swagger.responses[200] = {
+      description: 'Email verified successfully.',
+      content: {
+        "application/json": {
+          schema: { $ref: "#/components/schemas/VerifyEmailResponse" }
+        }
+      }
+    }
+    #swagger.responses[400] = {
+      description: 'Validation error (e.g., missing token) or invalid/expired token.',
+      content: {
+        "application/json": {
+          schema: { $ref: "#/components/schemas/ErrorResponse" }
+        }
+      }
+    }
+    #swagger.responses[500] = {
+      description: 'Internal server error.',
+      content: {
+        "application/json": {
+          schema: { $ref: "#/components/schemas/ErrorResponse" }
+        }
+      }
+    }
+  */
   try {
     const { error, value } = verifyEmailSchema.validate(req.body);
     if (error) {
