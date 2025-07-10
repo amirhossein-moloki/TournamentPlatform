@@ -33,9 +33,52 @@ try {
         if (existingSwagger.components && existingSwagger.components.securitySchemes) {
             components.securitySchemes = existingSwagger.components.securitySchemes;
         }
+        // Ensure schemas object exists
+        if (!components.schemas) {
+            components.schemas = {};
+        }
+        // Add common schemas directly
+        components.schemas.ErrorResponse = {
+            type: "object",
+            properties: {
+                statusCode: { type: "integer", description: "HTTP status code" },
+                message: { type: "string", description: "Error message" },
+                errors: { type: "array", items: { type: "string" }, description: "Optional array of specific error messages" },
+                stack: { type: "string", description: "Optional stack trace in development (if enabled)" }
+            },
+            required: ["statusCode", "message"]
+        };
+        components.schemas.RefreshTokenResponse = {
+            type: "object",
+            properties: {
+                accessToken: { type: "string", description: "New JWT Access Token" }
+            },
+            required: ["accessToken"]
+        };
     }
 } catch (error) {
     console.warn("Could not load or parse existing docs/openapi.yml. Using defaults.", error);
+    // If openapi.yml fails, ensure components.schemas is initialized for programmatic additions
+    if (!components.schemas) {
+        components.schemas = {};
+    }
+    components.schemas.ErrorResponse = {
+        type: "object",
+        properties: {
+            statusCode: { type: "integer", description: "HTTP status code" },
+            message: { type: "string", description: "Error message" },
+            errors: { type: "array", items: { type: "string" }, description: "Optional array of specific error messages" },
+            stack: { type: "string", description: "Optional stack trace in development (if enabled)" }
+        },
+        required: ["statusCode", "message"]
+    };
+    components.schemas.RefreshTokenResponse = {
+        type: "object",
+        properties: {
+            accessToken: { type: "string", description: "New JWT Access Token" }
+        },
+        required: ["accessToken"]
+    };
 }
 
 // Fallback for version if not found
@@ -102,7 +145,7 @@ const outputFile = './docs/swagger-generated.json';
 // Adjust the glob pattern to match your route file structure.
 // This pattern assumes all your route files end with .routes.js and are in src/presentation/api/
 const endpointsFiles = [
-    './src/app.js', // Include app.js if it has some simple routes or for general app context
+    // './src/app.js', // Removed as per plan to avoid duplicate/root paths for nested routes
     './src/presentation/api/admin.routes.js',
     './src/presentation/api/auth.routes.js',
     './src/presentation/api/games.routes.js',
