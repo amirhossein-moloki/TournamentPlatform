@@ -1,24 +1,29 @@
 // tests/integration/admin.tournaments.routes.test.js
 const request = require('supertest');
-const app = require('../../../src/app'); // Assuming your app entry point
-const db = require('../../../src/infrastructure/database/models'); // Sequelize models
-const { generateToken } = require('../../../src/application/services/auth.service'); // Assuming you have a token generator
-const { UserRole } = require('../../../src/domain/user/user.entity'); // User roles
+const { app, server } = require('../../src/app'); // Corrected path and include server for close
+const db = require('../../src/infrastructure/database/models'); // Sequelize models
+const { generateToken } = require('../../src/utils/jwt'); // Corrected path for generateToken
+const { UserRole } = require('../../src/domain/user/user.entity'); // User roles
+const { TournamentStatus } = require('../../src/domain/tournament/tournament.entity'); // Tournament statuses
+
 
 // Helper to create users and tokens
 let adminUser, regularUser, adminToken, regularUserToken, testGame, testTournament;
 
-const setupTestUser = async (role = UserRole.PLAYER, isVerified = true) => {
+// Adjusted setupTestUser to match the User model structure more closely for creation
+const setupTestUser = async (role = UserRole.USER, isVerified = true, usernameSuffix = '') => {
+  const uniqueSuffix = Date.now() + usernameSuffix;
   const userData = {
-    username: `test${role}${Date.now()}`,
-    email: `test${role}${Date.now()}@example.com`,
-    password: 'password123',
+    username: `test${role}${uniqueSuffix}`,
+    email: `test${role}${uniqueSuffix}@example.com`,
+    password: 'password123', // Plain password, will be hashed by User model hooks if set up
     role: role,
     isVerified: isVerified,
-    tokenVersion: 0,
+    // tokenVersion: 0, // Assuming User model sets this default or it's handled
   };
   const user = await db.UserModel.create(userData);
-  const token = generateToken({ sub: user.id, email: user.email, role: user.role, tokenVersion: user.tokenVersion });
+  // Pass sub, role for token generation as per typical JWT setup
+  const token = generateToken({ sub: user.id, role: user.role });
   return { user, token };
 };
 
@@ -28,16 +33,29 @@ describe('Admin Tournament Routes', () => {
     await db.sequelize.sync({ force: true }); // Clears and recreates tables
 
     // Create users
-    const adminData = await setupTestUser(UserRole.ADMIN);
+    const adminData = await setupTestUser(UserRole.ADMIN, true, 'admin');
     adminUser = adminData.user;
     adminToken = adminData.token;
 
-    const regularData = await setupTestUser(UserRole.PLAYER);
+    const regularData = await setupTestUser(UserRole.USER, true, 'regular'); // Changed to USER from PLAYER if PLAYER is not a direct role
     regularUser = regularData.user;
     regularUserToken = regularData.token;
 
     // Create a game
-    testGame = await db.GameModel.create({ name: 'Test Game for Admin Tournaments', shortName: 'TGAT', description: 'A game for testing admin tournament routes', platform: 'PC', genre: 'Strategy', releaseDate: new Date(), bannerImageUrl: 'http://example.com/banner.jpg', isActive: true });
+    testGame = await db.GameModel.create({
+        name: 'Test Game for Admin Tournaments',
+        // shortName: 'TGAT', // Assuming shortName is not a field or optional
+        description: 'A game for testing admin tournament routes',
+        platform: 'PC',
+        genre: 'Strategy',
+        releaseDate: new Date(),
+        developer: 'Test Dev', // Added missing required fields
+        publisher: 'Test Pub',
+        minPlayers: 1,
+        maxPlayers: 2,
+        // bannerImageUrl: 'http://example.com/banner.jpg', // Assuming optional
+        // isActive: true // Assuming optional or defaults to true
+    });
 
     // Create a base tournament for testing updates, status changes, etc.
     testTournament = await db.TournamentModel.create({
@@ -45,20 +63,23 @@ describe('Admin Tournament Routes', () => {
         gameId: testGame.id,
         description: 'A tournament to be managed by admin.',
         rules: 'Standard rules apply.',
-        status: 'PENDING', // TournamentStatus.PENDING
+        status: TournamentStatus.PENDING, // Using imported enum
         entryFee: 10,
         prizePool: 100,
         maxParticipants: 16,
-        currentParticipants: 0,
+        // currentParticipants: 0, // Usually handled by triggers or logic, not set directly
         startDate: new Date(Date.now() + 24 * 60 * 60 * 1000), // Tomorrow
-        organizerId: adminUser.id, // Or null if system organized
-        bannerImageUrl: 'http://example.com/tour_banner.jpg',
-        bracketType: 'SINGLE_ELIMINATION', // BracketType.SINGLE_ELIMINATION
-        settings: { someSetting: true }
+        endDate: new Date(Date.now() + 48 * 60 * 60 * 1000), // Day after tomorrow
+        organizerId: adminUser.id,
+        type: 'SINGLE_ELIMINATION', // Added missing type
+        // bannerImageUrl: 'http://example.com/tour_banner.jpg', // Assuming optional
+        // bracketType: 'SINGLE_ELIMINATION', // 'type' field is used for this
+        // settings: { someSetting: true } // Assuming optional
     });
   });
 
   afterAll(async () => {
+    await server.close(); // Close server
     await db.sequelize.close();
   });
 

@@ -17,7 +17,28 @@ describe('ChangeTournamentStatusUseCase', () => {
   });
 
   const createMockTournament = (id, status, startDate = new Date(Date.now() + 86400000)) => {
-    const tournament = new Tournament(id, 'Test Tournament', 'game-uuid', 'Desc', 'Rules', status, 0, 0, 8, 0, startDate);
+    // Ensure all required parameters for the Tournament constructor are provided
+    const tournament = new Tournament(
+      id, // id
+      'Test Tournament', // name
+      'game-uuid', // gameId
+      'Test Description', // description
+      'Test Rules', // rules
+      status, // status
+      0, // entryFee
+      0, // prizePool
+      8, // maxParticipants
+      startDate, // startDate
+      null, // endDate
+      // currentParticipants was missing here in the previous version, now it's correctly placed
+      0, // currentParticipants
+      'organizer-uuid', // organizerId
+      null, // bannerImageUrl
+      'SINGLE_ELIMINATION', // type / bracketType
+      {}, // settings
+      new Date(), // createdAt
+      new Date() // updatedAt
+    );
     // Spy on entity methods
     jest.spyOn(tournament, 'openRegistration').mockImplementation(() => { tournament.status = TournamentStatus.REGISTRATION_OPEN; });
     jest.spyOn(tournament, 'closeRegistration').mockImplementation(() => { tournament.status = TournamentStatus.REGISTRATION_CLOSED; });
