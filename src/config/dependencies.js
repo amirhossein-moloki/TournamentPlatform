@@ -64,6 +64,8 @@ const matchRepository = new PostgresMatchRepository({
     TournamentModel: db.TournamentModel,
     GameModel: db.GameModel
 });
+const LeaderboardRedisRepository = require('../infrastructure/database/repositories/leaderboard.redis.repository');
+const leaderboardRepository = new LeaderboardRedisRepository(); // Assumes redis client is available via adapter
 
 
 // Instantiate Game Use Cases
@@ -95,6 +97,15 @@ const registerForTournamentUseCase = new RegisterForTournamentUseCase(tournament
 const getMatchUseCase = new GetMatchUseCase(tournamentRepository, userGameProfileRepository, matchRepository);
 const getMatchUploadUrlUseCase = new GetMatchUploadUrlUseCase(matchRepository /*, s3Service */); // s3Service to be added
 const submitMatchResultUseCase = new SubmitMatchResultUseCase(matchRepository /*, fileValidationService */); // fileValidationService to be added
+
+// Instantiate Leaderboard Use Cases
+const GetLeaderboardUseCase = require('../application/use-cases/leaderboard/get-leaderboard.usecase');
+const GetUserRankUseCase = require('../application/use-cases/leaderboard/get-user-rank.usecase');
+const UpdateScoreUseCase = require('../application/use-cases/leaderboard/update-score.usecase');
+
+const getLeaderboardUseCase = new GetLeaderboardUseCase(leaderboardRepository);
+const getUserRankUseCase = new GetUserRankUseCase(leaderboardRepository);
+const updateScoreUseCase = new UpdateScoreUseCase(leaderboardRepository, userRepository); // userRepository can be optional
 
 
 // Instantiate Controllers
@@ -129,6 +140,7 @@ module.exports = {
   tournamentRepository,
   matchRepository,
   tournamentParticipantRepository,
+  leaderboardRepository, // Added
   // Game Use Cases
   createGameUseCase,
   getGameByIdUseCase,
@@ -154,4 +166,14 @@ module.exports = {
   getMatchUseCase,
   getMatchUploadUrlUseCase, // Added
   submitMatchResultUseCase, // Added
+  // Leaderboard Use Cases
+  getLeaderboardUseCase,
+  getUserRankUseCase,
+  updateScoreUseCase,
+  // Grouped Leaderboard service for routes
+  leaderboardService: {
+    getLeaderboardUseCase,
+    getUserRankUseCase,
+    updateScoreUseCase,
+  }
 };

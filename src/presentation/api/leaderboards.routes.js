@@ -1,13 +1,14 @@
 const express = require('express');
 const Joi = require('joi');
-// const GetLeaderboardUseCase = require('../../application/use-cases/leaderboard/get-leaderboard.usecase');
-// const LeaderboardRepository = require('../../infrastructure/database/repositories/leaderboard.repository'); // e.g., RedisLeaderboardRepository or PostgresLeaderboardRepository
+const { leaderboardService } = require('../../config/dependencies'); // Direct import
 const ApiError = require('../../utils/ApiError');
 const httpStatusCodes = require('http-status-codes');
 const ApiResponse = require('../../utils/ApiResponse');
 
 const router = express.Router();
-// const leaderboardRepository = new LeaderboardRepository(); // Instantiate when repository exists
+
+// Destructure use cases for cleaner access
+const { getLeaderboardUseCase, getUserRankUseCase } = leaderboardService;
 
 // --- Schemas for Validation ---
 const getLeaderboardSchema = Joi.object({
@@ -64,36 +65,25 @@ router.get('/', async (req, res, next) => {
       throw new ApiError(httpStatusCodes.BAD_REQUEST, 'Validation Error', error.details.map(d => d.message));
     }
 
-    // const getLeaderboard = new GetLeaderboardUseCase(leaderboardRepository);
-    // const { leaderboard, totalItems } = await getLeaderboard.execute(queryParams);
+    const leaderboardData = await getLeaderboardUseCase.execute(queryParams);
 
-    // --- Placeholder Logic ---
-    const placeholderLeaderboard = [];
-    const numEntries = queryParams.limit > 50 ? 50 : queryParams.limit; // Max 50 for placeholder
-    for (let i = 0; i < numEntries; i++) {
-      const entryValue = Math.floor(Math.random() * (queryParams.metric === 'earnings' ? 5000 : 3000)) + (queryParams.metric === 'earnings' ? 100 : 50);
-      placeholderLeaderboard.push({
-        rank: ((queryParams.page - 1) * queryParams.limit) + i + 1,
-        userId: `user-id-${1000 + i}`,
-        username: `Player${1000 + i}`,
-        value: entryValue, // Using the generic 'value' field
-        // [queryParams.metric]: entryValue, // Original placeholder logic, but 'value' is better for fixed schema
-        gamesPlayed: Math.floor(Math.random() * 100) + 10,
-      });
-    }
-    const totalItems = 1000; // Mock total items
-    const leaderboardData = placeholderLeaderboard;
-    // --- End Placeholder Logic ---
+    // The GetLeaderboardUseCase returns a Leaderboard entity.
+    // We need to map its fields to the expected API response structure.
+    // The entity has 'entries', API expects 'leaderboard'.
+    // The entity entries have 'score', API expects 'value'.
+    // The use case already adapts 'score' to 'value' in its adaptedEntries.
+    // The use case returns an instance of Leaderboard entity which has:
+    // gameName, metric, period, entries (already adapted), totalItems, currentPage, pageSize, totalPages
 
-    return new ApiResponse(res, httpStatusCodes.OK, `Leaderboard for ${queryParams.gameName} (${queryParams.metric} - ${queryParams.period}) retrieved.`, {
-      leaderboard: leaderboardData, // Renamed to match schema
-      gameName: queryParams.gameName,
-      metric: queryParams.metric,
-      period: queryParams.period,
-      totalItems,
-      currentPage: queryParams.page,
-      pageSize: queryParams.limit, // Renamed to match schema (was limit)
-      totalPages: Math.ceil(totalItems / queryParams.limit),
+    return new ApiResponse(res, httpStatusCodes.OK, `Leaderboard for ${leaderboardData.gameName} (${leaderboardData.metric} - ${leaderboardData.period}) retrieved.`, {
+      leaderboard: leaderboardData.entries, // Use case returns adapted entries in 'entries' field
+      gameName: leaderboardData.gameName,
+      metric: leaderboardData.metric,
+      period: leaderboardData.period,
+      totalItems: leaderboardData.totalItems,
+      currentPage: leaderboardData.currentPage,
+      pageSize: leaderboardData.pageSize, // Use case uses 'pageSize' which matches API
+      totalPages: leaderboardData.totalPages,
     }).send();
   } catch (error) {
     next(error);
@@ -151,40 +141,27 @@ router.get('/user/:userId', async (req, res, next) => {
             throw new ApiError(httpStatusCodes.BAD_REQUEST, 'Validation Error (query params)', error.details.map(d => d.message));
         }
 
-        // const getUserRank = new GetUserRankUseCase(leaderboardRepository);
-        // const userRankDetails = await getUserRank.execute(userId, queryParams);
+        const userRankData = await getUserRankUseCase.execute(userId, queryParams);
 
-        // --- Placeholder Logic ---
-        const userRank = Math.floor(Math.random() * 100) + 1;
-        const userScore = Math.floor(Math.random() * (queryParams.metric === 'earnings' ? 5000 : 3000)) + (queryParams.metric === 'earnings' ? 100 : 50);
-        const surroundingEntries = [];
-        for (let i = -2; i <= 2; i++) {
-            if (userRank + i > 0 && userRank + i <= 100) { // Assuming max 100 for placeholder
-                const currentUserId = (i === 0) ? userId : `user-id-${2000 + userRank + i}`;
-                const currentUsername = (i === 0) ? `User_${userId.substring(0,5)}` : `OtherPlayer${2000 + userRank + i}`;
-                const currentValue = userScore + (i * (queryParams.metric === 'earnings' ? 10 : 5));
-                surroundingEntries.push({
-                    rank: userRank + i,
-                    userId: currentUserId,
-                    username: currentUsername,
-                    value: currentValue, // Use generic 'value'
-                    // [queryParams.metric]: currentValue, // Original placeholder
-                });
-            }
-        }
-        const userRankDetails = {
-            userId,
-            gameName: queryParams.gameName,
-            metric: queryParams.metric,
-            period: queryParams.period,
-            rank: userRank,
-            value: userScore, // Add user's own value here for consistency with UserRankDetail schema
-            // [queryParams.metric]: userScore, // Original placeholder
-            surrounding: surroundingEntries,
+        // GetUserRankUseCase returns a UserRankDetail entity.
+        // The entity has user's score as 'score', API expects 'value'.
+        // The entity's surrounding entries have scores as 'score', API expects 'value'.
+        // The use case already adapts these to 'value'.
+
+        // The UserRankDetail entity structure:
+        // userId, gameName, metric, period, rank, score (user's own), surrounding (list of adapted entries)
+        // We need to map this to the API response, ensuring the user's own score is also under 'value'.
+        const responsePayload = {
+            userId: userRankData.userId,
+            gameName: userRankData.gameName,
+            metric: userRankData.metric,
+            period: userRankData.period,
+            rank: userRankData.rank,
+            value: userRankData.score, // User's own score, use case provides it as 'score' field in UserRankDetail entity
+            surrounding: userRankData.surrounding, // Use case provides adapted surrounding entries
         };
-        // --- End Placeholder Logic ---
 
-        return new ApiResponse(res, httpStatusCodes.OK, `Rank details for user ${userId} retrieved.`, userRankDetails).send();
+        return new ApiResponse(res, httpStatusCodes.OK, `Rank details for user ${userId} retrieved.`, responsePayload).send();
 
     } catch (error) {
         next(error);
