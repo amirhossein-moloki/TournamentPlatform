@@ -18,7 +18,10 @@ describe('ListTournamentParticipantsUseCase', () => {
 
   it('should list participants successfully with manual pagination', async () => {
     const tournamentId = 'tour-uuid-1';
-    const mockTournament = new Tournament(tournamentId, 'Test Tour', 'game-id');
+    const mockTournament = new Tournament(
+      tournamentId, 'Test Tour', 'game-id', 'description', 'rules', 'REGISTRATION_OPEN',
+      0, 0, 8, new Date(Date.now() + 3600000), null, null, 'user-admin-id', 'http://example.com/banner.jpg', 'SINGLE_ELIMINATION', {}, 0
+    );
     const allParticipants = [
       { id: 'p1', userId: 'u1', registeredAt: new Date() }, { id: 'p2', userId: 'u2', registeredAt: new Date() },
       { id: 'p3', userId: 'u3', registeredAt: new Date() }, { id: 'p4', userId: 'u4', registeredAt: new Date() },
@@ -49,7 +52,10 @@ describe('ListTournamentParticipantsUseCase', () => {
 
   it('should return empty participants list if tournament has no participants', async () => {
     const tournamentId = 'tour-uuid-empty';
-    const mockTournament = new Tournament(tournamentId, 'Empty Tour', 'game-id');
+    const mockTournament = new Tournament(
+      tournamentId, 'Empty Tour', 'game-id', 'description', 'rules', 'REGISTRATION_OPEN',
+      0, 0, 8, new Date(Date.now() + 3600000), null, null, 'user-admin-id', 'http://example.com/banner.jpg', 'SINGLE_ELIMINATION', {}, 0
+    );
     mockTournamentRepository.findById.mockResolvedValue(mockTournament);
     mockTournamentRepository.findParticipantsByTournamentId.mockResolvedValue([]);
 
@@ -67,7 +73,10 @@ describe('ListTournamentParticipantsUseCase', () => {
 
   it('should handle default pagination if not provided', async () => {
     const tournamentId = 'tour-uuid-defaults';
-    const mockTournament = new Tournament(tournamentId, 'Test Tour', 'game-id');
+    const mockTournament = new Tournament(
+      tournamentId, 'Test Tour', 'game-id', 'description', 'rules', 'REGISTRATION_OPEN',
+      0, 0, 20, new Date(Date.now() + 3600000), null, null, 'user-admin-id', 'http://example.com/banner.jpg', 'SINGLE_ELIMINATION', {}, 0
+    ); // Max participants set to 20 to accommodate 15 test participants
     const participantsArray = Array.from({ length: 15 }, (_, i) => ({ id: `p${i}`, userId: `u${i}` }));
     mockTournamentRepository.findById.mockResolvedValue(mockTournament);
     mockTournamentRepository.findParticipantsByTournamentId.mockResolvedValue(participantsArray);

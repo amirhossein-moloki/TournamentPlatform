@@ -27,7 +27,10 @@ describe('RemoveTournamentParticipantUseCase', () => {
     const userIdToRemove = 'user-uuid-1';
     const participantEntryId = 'participant-entry-uuid-1';
 
-    const mockTournament = new Tournament(tournamentId, 'Test Tour', 'game-id', null, null, TournamentStatus.REGISTRATION_OPEN);
+    const mockTournament = new Tournament(
+      tournamentId, 'Test Tour', 'game-id', 'description', 'rules', TournamentStatus.REGISTRATION_OPEN,
+      0, 0, 8, new Date(Date.now() + 3600000), null, null, 'user-admin-id', 'http://example.com/banner.jpg', 'SINGLE_ELIMINATION', {}, 0
+    );
     const mockUser = { id: userIdToRemove, username: 'testuser' };
     const mockParticipantEntry = { id: participantEntryId, tournamentId, userId: userIdToRemove, participantType: 'user' };
 
@@ -53,7 +56,10 @@ describe('RemoveTournamentParticipantUseCase', () => {
   });
 
   it('should throw ApiError if user to remove not found', async () => {
-    const mockTournament = new Tournament('tour-uuid-1', 'Test Tour', 'game-id', null, null, TournamentStatus.REGISTRATION_OPEN);
+    const mockTournament = new Tournament(
+      'tour-uuid-1', 'Test Tour', 'game-id', 'description', 'rules', TournamentStatus.REGISTRATION_OPEN,
+      0, 0, 8, new Date(Date.now() + 3600000), null, null, 'user-admin-id', 'http://example.com/banner.jpg', 'SINGLE_ELIMINATION', {}, 0
+    );
     mockTournamentRepository.findById.mockResolvedValue(mockTournament);
     mockUserRepository.findById.mockResolvedValue(null);
 
@@ -62,7 +68,10 @@ describe('RemoveTournamentParticipantUseCase', () => {
   });
 
   it('should throw ApiError if participant entry not found', async () => {
-    const mockTournament = new Tournament('tour-uuid-1', 'Test Tour', 'game-id', null, null, TournamentStatus.REGISTRATION_OPEN);
+    const mockTournament = new Tournament(
+      'tour-uuid-1', 'Test Tour', 'game-id', 'description', 'rules', TournamentStatus.REGISTRATION_OPEN,
+      0, 0, 8, new Date(Date.now() + 3600000), null, null, 'user-admin-id', 'http://example.com/banner.jpg', 'SINGLE_ELIMINATION', {}, 0
+    );
     const mockUser = { id: 'user-uuid-1', username: 'testuser' };
     mockTournamentRepository.findById.mockResolvedValue(mockTournament);
     mockUserRepository.findById.mockResolvedValue(mockUser);
@@ -75,7 +84,10 @@ describe('RemoveTournamentParticipantUseCase', () => {
   it('should throw ApiError if trying to remove from ONGOING tournament', async () => {
     const tournamentId = 'tour-uuid-ongoing';
     const userIdToRemove = 'user-uuid-1';
-    const mockTournament = new Tournament(tournamentId, 'Ongoing Tour', 'game-id', null, null, TournamentStatus.ONGOING);
+    const mockTournament = new Tournament(
+      tournamentId, 'Ongoing Tour', 'game-id', 'description', 'rules', TournamentStatus.ONGOING,
+      0, 0, 8, new Date(Date.now() + 3600000), null, null, 'user-admin-id', 'http://example.com/banner.jpg', 'SINGLE_ELIMINATION', {}, 0
+    );
     const mockUser = { id: userIdToRemove, username: 'testuser' };
     const mockParticipantEntry = { id: 'entry-id', tournamentId, userId: userIdToRemove, participantType: 'user' };
 
@@ -92,7 +104,10 @@ describe('RemoveTournamentParticipantUseCase', () => {
     const userIdToRemove = 'user-uuid-1';
     const participantEntryId = 'participant-entry-uuid-1';
 
-    const mockTournament = new Tournament(tournamentId, 'Test Tour', 'game-id', null, null, TournamentStatus.REGISTRATION_OPEN);
+    const mockTournament = new Tournament(
+      tournamentId, 'Test Tour', 'game-id', 'description', 'rules', TournamentStatus.REGISTRATION_OPEN,
+      0, 0, 8, new Date(Date.now() + 3600000), null, null, 'user-admin-id', 'http://example.com/banner.jpg', 'SINGLE_ELIMINATION', {}, 0
+    );
     const mockUser = { id: userIdToRemove, username: 'testuser' };
     const mockParticipantEntry = { id: participantEntryId, tournamentId, userId: userIdToRemove, participantType: 'user' };
 
