@@ -166,4 +166,30 @@ module.exports = { User };
 // If it's just the User class, `module.exports = User;` is also common.
 // The blueprint shows `user.entity.js`, implying it defines the User entity.
 // Using a named export `{ User }` allows for potentially adding other related exports from this file later if needed.
+
+// Define static enums on the User class
+User.UserRoles = Object.freeze({
+  ADMIN: 'ADMIN',
+  PLAYER: 'PLAYER',
+  MODERATOR: 'MODERATOR', // Example of another role
+  // Add other roles as needed
+});
+
+User.UserStatus = Object.freeze({
+  PENDING: 'PENDING', // User registered, email not verified
+  ACTIVE: 'ACTIVE', // Email verified, user can login
+  SUSPENDED: 'SUSPENDED', // Temporarily disabled by admin
+  BANNED: 'BANNED', // Permanently disabled by admin
+  DELETED: 'DELETED', // User account marked for deletion or deleted
+  // Add other statuses as needed
+});
+
+User.prototype.updateProfile = function(profileData) {
+  if (!profileData) {
+    return; // Or throw an error if profileData is required
+  }
+  this.profile = { ...this.profile, ...profileData };
+  this.updatedAt = new Date();
+};
+
 // For now, it primarily exports the User class.Tool output for `create_file_with_block`:

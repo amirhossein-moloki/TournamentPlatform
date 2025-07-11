@@ -6,52 +6,71 @@ class ListUsersUseCase {
    * @param {object} userRepository - Repository for user data persistence.
    */
   constructor(userRepository) {
+    if (!userRepository || typeof userRepository.findAll !== 'function') {
+      throw new Error('ListUsersUseCase requires a valid userRepository with a findAll method.');
+    }
     this.userRepository = userRepository;
   }
 
   /**
    * Retrieves a list of users with pagination and filtering (for admin purposes).
+   * Returns public profiles of users.
    * @param {object} options - Options for listing.
    * @param {number} [options.page=1] - Page number.
    * @param {number} [options.limit=10] - Items per page.
    * @param {object} [options.filters] - Filters (e.g., { role, isVerified }).
-   * // Sorting options can be added if needed:
-   * // @param {string} [options.sortBy='createdAt']
-   * // @param {string} [options.sortOrder='DESC']
-   * @returns {Promise<{users: Array<import('../../../domain/user/user.entity').User>, total: number, page: number, limit: number}>}
-   *          Paginated list of User domain entities.
+   * @param {string} [options.sortBy='createdAt'] - Field to sort by.
+   * @param {string} [options.sortOrder='DESC'] - Sort order ('ASC' or 'DESC').
+   * @returns {Promise<{users: Array<object>, totalItems: number, totalPages: number, currentPage: number, pageSize: number}>}
+   *          Paginated list of user public profiles.
    * @throws {ApiError} If fetching fails.
    */
-  async execute({ page = 1, limit = 10, filters = {} /*, sortBy = 'createdAt', sortOrder = 'DESC'*/ }) {
-    // Validate and sanitize pagination parameters
+  async execute({ page = 1, limit = 10, filters = {}, sortBy = 'createdAt', sortOrder = 'DESC' }) {
     const sanePage = Math.max(1, parseInt(page, 10) || 1);
     let saneLimit = Math.max(1, parseInt(limit, 10) || 10);
-    if (saneLimit > 100) saneLimit = 100; // Max limit enforcement
+    if (saneLimit > 100) saneLimit = 100;
 
     try {
-      // The userRepository.findAll method is expected to handle these parameters.
-      // It should return an object like { users: User[], total: number, page: number, limit: number }
-      const result = await this.userRepository.findAll({
+      const repoResult = await this.userRepository.findAll({
         page: sanePage,
         limit: saneLimit,
         filters,
-        // sortBy, // Pass if repository supports it
-        // sortOrder, // Pass if repository supports it
+        sortBy, // Pass sortBy to repository
+        sortOrder, // Pass sortOrder to repository
       });
 
-      if (!result || typeof result.total !== 'number' || !Array.isArray(result.users) ||
-          typeof result.page !== 'number' || typeof result.limit !== 'number') {
-        console.error('Invalid response structure from userRepository.findAll:', result);
+      if (!repoResult || typeof repoResult.total !== 'number' || !Array.isArray(repoResult.users) ||
+          typeof repoResult.page !== 'number' || typeof repoResult.limit !== 'number') {
+        console.error('Invalid response structure from userRepository.findAll:', repoResult);
+        // Keep original error message from test for consistency for now
         throw new Error('Failed to retrieve users due to repository error.');
       }
 
-      // The repository already returns User domain entities and pagination info.
-      // No further mapping is typically needed here unless transforming into a specific DTO.
-      // The presentation layer (route handler) will map these domain entities to public profiles.
-      return result; // { users: User[], total: number, page: number, limit: number }
+      const publicProfiles = repoResult.users
+        .map(user => {
+          if (user && typeof user.toPublicProfile === 'function') {
+            return user.toPublicProfile();
+          }
+          // Log error for entities that cannot be converted
+          console.error(`User entity (ID: ${user ? user.id : 'unknown'}) is missing 'toPublicProfile' method or is not a valid User instance. Skipping.`);
+          return null;
+        })
+        .filter(profile => profile !== null); // Filter out nulls from entities that couldn't be processed
+
+      const totalItems = repoResult.total;
+      const totalPages = Math.ceil(totalItems / saneLimit);
+
+      return {
+        users: publicProfiles,
+        totalItems,
+        totalPages,
+        currentPage: repoResult.page,
+        pageSize: repoResult.limit,
+      };
 
     } catch (error) {
-      console.error('Error listing users in use case:', error);
+      // Aligning console error message with test expectation
+      console.error('Error listing users:', error);
       if (error instanceof ApiError) throw error;
       throw new ApiError(httpStatusCodes.INTERNAL_SERVER_ERROR, 'Failed to retrieve users.');
     }
@@ -59,14 +78,3 @@ class ListUsersUseCase {
 }
 
 module.exports = ListUsersUseCase;
-
-// Notes:
-// - This use case is primarily for admin functionality to list users.
-// - It relies on `userRepository.findAll()` which should support pagination and filtering.
-//   The current `PostgresUserRepository.findAll` supports `page`, `limit`, and basic `filters` for `role` and `isVerified`.
-//   It also returns `page` and `limit` in its response, which this use case now expects.
-// - Sorting options are commented out but can be added if the repository supports them.
-// - Returns full User domain entities. The API route handler will be responsible for mapping these
-//   to public DTOs (e.g., using `user.toPublicProfile()`) to avoid exposing sensitive data.
-// - Includes max limit enforcement.
-// - Added a check for the structure of `result` from the repository for robustness.

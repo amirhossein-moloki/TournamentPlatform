@@ -6,6 +6,9 @@ class ListWithdrawalsUseCase {
    * @param {import('../../../domain/wallet/transaction.repository.interface')} transactionRepository
    */
   constructor(transactionRepository) {
+    if (!transactionRepository || typeof transactionRepository.findAll !== 'function') {
+      throw new Error('ListWithdrawalsUseCase requires a valid transactionRepository with a findAll method.');
+    }
     this.transactionRepository = transactionRepository;
   }
 
