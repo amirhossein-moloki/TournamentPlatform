@@ -163,13 +163,18 @@ describe('Wallet Routes Integration Tests', () => {
         .send(withdrawalPayload);
 
       expect(response.status).toBe(httpStatusCodes.ACCEPTED);
-      expect(response.body.data).toEqual({ transactionId: mockTransaction.id, status: mockTransaction.status });
+      expect(response.body.data).toEqual({
+        transactionId: mockTransaction.id,
+        status: mockTransaction.status,
+        message: 'Withdrawal request submitted.'
+      });
       expect(mockRequestWithdrawalUseCaseExecute).toHaveBeenCalledWith('test-user-id', withdrawalPayload, idempotencyKey);
     });
 
     it('should return 200 OK for an idempotent replay of withdrawal', async () => {
       const mockTransaction = { id: 'tx-withdraw-existing', status: 'REQUIRES_APPROVAL' };
-      mockRequestWithdrawalUseCaseExecute.mockResolvedValue({ transaction: mockTransaction, message: 'Withdrawal request already submitted or being processed (Idempotency).' });
+      const expectedMessage = 'Withdrawal request already submitted or being processed (Idempotency).';
+      mockRequestWithdrawalUseCaseExecute.mockResolvedValue({ transaction: mockTransaction, message: expectedMessage });
 
       const response = await request(app)
         .post('/api/v1/wallet/withdrawals')
@@ -177,7 +182,11 @@ describe('Wallet Routes Integration Tests', () => {
         .send(withdrawalPayload);
 
       expect(response.status).toBe(httpStatusCodes.OK);
-      expect(response.body.data).toEqual({ transactionId: mockTransaction.id, status: mockTransaction.status });
+      expect(response.body.data).toEqual({
+        transactionId: mockTransaction.id,
+        status: mockTransaction.status,
+        message: expectedMessage
+      });
     });
 
     it('should return 400 Bad Request if X-Idempotency-Key header is missing', async () => {

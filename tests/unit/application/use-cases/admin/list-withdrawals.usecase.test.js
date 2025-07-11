@@ -44,7 +44,7 @@ describe('ListWithdrawalsUseCase', () => {
   let listWithdrawalsUseCase;
   const defaultPage = 1;
   const defaultLimit = 10;
-  const defaultSortBy = 'requestedAt';
+  const defaultSortBy = 'createdAt'; // Align with use case default
   const defaultSortOrder = 'DESC';
 
   beforeEach(() => {

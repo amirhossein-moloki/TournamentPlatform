@@ -4,9 +4,44 @@ const db = require('../../src/infrastructure/database/models'); // Sequelize mod
 
 // Helper function to clear all data from tables
 async function clearDatabase() {
-  const models = Object.values(db.sequelize.models);
-  for (const model of models) {
-    await model.destroy({ where: {}, truncate: true, cascade: true, restartIdentity: true });
+  const { sequelize } = db;
+  const tableNames = Object.values(sequelize.models).map(model => `"${model.tableName}"`).join(', ');
+
+  if (!tableNames) {
+    return; // No tables to clear
+  }
+
+  // For PostgreSQL, a common way to truncate all tables respecting FKs and restarting identities:
+  // Note: This requires the user connecting to the DB to have appropriate permissions.
+  // Using 'RESTART IDENTITY CASCADE' handles dependencies.
+  // It's generally safer to list tables explicitly if possible,
+  // but for a full test clear, this is common.
+  // We must be careful if there are tables not managed by Sequelize that we don't want to touch.
+  // Assuming all relevant tables are managed by Sequelize here.
+
+  // Alternative 1: Iterate and truncate individually (might still hit order issues if not careful)
+  // for (const model of Object.values(sequelize.models)) {
+  //   await sequelize.query(`TRUNCATE TABLE "${model.tableName}" RESTART IDENTITY CASCADE;`);
+  // }
+
+  // Alternative 2: Disable FK checks, truncate, re-enable (more robust for complex schemas)
+  // This is dialect-specific. For PostgreSQL:
+  try {
+    await sequelize.query("SET session_replication_role = 'replica';"); // Disable FK checks
+    // Iterate through models and truncate.
+    // Using model.destroy with truncate: true was problematic. Let's use direct TRUNCATE.
+    for (const model of Object.values(sequelize.models)) {
+        // We need to ensure tables are truncated in an order that respects FKs,
+        // or rely on CASCADE. If CASCADE is problematic, a sorted list of tables is better.
+        // For now, trying with individual TRUNCATE CASCADE.
+        await sequelize.query(`TRUNCATE TABLE "${model.tableName}" RESTART IDENTITY CASCADE;`);
+    }
+  } catch (error) {
+    console.error("Error during database truncation:", error);
+    // Rethrow or handle as appropriate for your test setup
+    throw error;
+  } finally {
+    await sequelize.query("SET session_replication_role = 'origin';"); // Re-enable FK checks
   }
 }
 
