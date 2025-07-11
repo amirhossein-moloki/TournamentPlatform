@@ -104,6 +104,23 @@ class TournamentRepositoryInterface {
     throw new Error('Method "findAllParticipants" not implemented.');
   }
 
+  /**
+   * Increments the current participant count for a tournament.
+   * @param {string} tournamentId - The ID of the tournament.
+   * @returns {Promise<number|null>} The new participant count, or null if update failed or tournament not found.
+   */
+  async incrementParticipantCount(tournamentId) {
+    throw new Error('Method "incrementParticipantCount" not implemented.');
+  }
+
+  /**
+   * Decrements the current participant count for a tournament.
+   * @param {string} tournamentId - The ID of the tournament.
+   * @returns {Promise<number|null>} The new participant count, or null if update failed or tournament not found.
+   */
+  async decrementParticipantCount(tournamentId) {
+    throw new Error('Method "decrementParticipantCount" not implemented.');
+  }
 
   // --- Match related methods within Tournament context ---
   // While matches might have their own repository, sometimes it's useful for the
