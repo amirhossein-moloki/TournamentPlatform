@@ -68,7 +68,8 @@ const ListTournamentParticipantsUseCase = require('../../application/use-cases/a
 const GameRepository = require('../../infrastructure/database/repositories/game.repository'); // Corrected import
 const gameRepository = new GameRepository(db.GameModel);
 const { PostgresUserRepository } = require('../../infrastructure/database/repositories/postgres.user.repository');
-const userRepository = new PostgresUserRepository(db.UserModel, db.UserGameProfileModel);
+// Correctly pass models as an object
+const userRepository = new PostgresUserRepository({ UserModel: db.UserModel });
 
 
 const updateTournamentDetailsUseCase = new UpdateTournamentDetailsUseCase(tournamentRepository, gameRepository);
