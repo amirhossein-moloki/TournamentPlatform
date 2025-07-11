@@ -25,7 +25,15 @@ describe('UpdateTournamentDetailsUseCase', () => {
     const updateData = { name: 'New Tournament Name', entryFee: 100 };
     const mockTournament = new Tournament(
       tournamentId, 'Old Name', 'game-uuid-1', 'Desc', 'Rules',
-      'PENDING', 50, 500, 32, 0, new Date(Date.now() + 86400000)
+      Tournament.Status.PENDING, // status
+      50, // entryFee
+      Tournament.EntryFeeType.PAID_CASH, // entryFeeType
+      500, // prizePool
+      Tournament.PrizeType.CASH, // prizeType
+      null, // prizeDetails
+      32, // maxParticipants
+      0, // currentParticipants
+      new Date(Date.now() + 86400000) // startDate
     );
     jest.spyOn(mockTournament, 'updateDetails').mockImplementation(() => {}); // Mock entity method
 
@@ -53,7 +61,18 @@ describe('UpdateTournamentDetailsUseCase', () => {
   it('should throw ApiError if gameId in updateData is not found', async () => {
     const tournamentId = 'tournament-uuid-1';
     const updateData = { gameId: 'non-existent-game-uuid' };
-    const mockTournament = new Tournament(tournamentId, 'Old Name', 'game-uuid-1', 'Desc', 'Rules', 'PENDING', 50, 500, 32, 0, new Date(Date.now() + 86400000));
+    const mockTournament = new Tournament(
+      tournamentId, 'Old Name', 'game-uuid-1', 'Desc', 'Rules',
+      Tournament.Status.PENDING, // status
+      50, // entryFee
+      Tournament.EntryFeeType.PAID_CASH, // entryFeeType
+      500, // prizePool
+      Tournament.PrizeType.CASH, // prizeType
+      null, // prizeDetails
+      32, // maxParticipants
+      0, // currentParticipants
+      new Date(Date.now() + 86400000) // startDate
+    );
 
     mockTournamentRepository.findById.mockResolvedValue(mockTournament);
     mockGameRepository.findById.mockResolvedValue(null); // Game not found
@@ -67,7 +86,15 @@ describe('UpdateTournamentDetailsUseCase', () => {
     const updateData = { maxParticipants: 1 }; // Invalid data that entity might reject
      const mockTournament = new Tournament(
       tournamentId, 'Old Name', 'game-uuid-1', 'Desc', 'Rules',
-      'PENDING', 50, 500, 32, 10, new Date(Date.now() + 86400000) // 10 current participants
+      Tournament.Status.PENDING, // status
+      50, // entryFee
+      Tournament.EntryFeeType.PAID_CASH, // entryFeeType
+      500, // prizePool
+      Tournament.PrizeType.CASH, // prizeType
+      null, // prizeDetails
+      32, // maxParticipants
+      10, // currentParticipants
+      new Date(Date.now() + 86400000) // startDate
     );
     jest.spyOn(mockTournament, 'updateDetails').mockImplementation(() => {
         throw new Error('New max participants cannot be less than current number of participants.');

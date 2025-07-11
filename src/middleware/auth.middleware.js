@@ -20,7 +20,17 @@ const authenticateToken = async (req, res, next) => {
 
   try {
     const decoded = jwt.verify(token, appConfig.jwt.secret);
-    req.user = decoded; // Contains payload like { sub, email, role, iat, exp }
+    // Assuming JWT payload will be updated to include `roles: string[]` instead of `role: string`
+    // For now, defensively check for both for backward compatibility or if tokens are mixed.
+    // Ideally, once all tokens are issued with `roles`, only `decoded.roles` would be primary.
+    req.user = {
+      id: decoded.sub,
+      email: decoded.email,
+      username: decoded.username, // Assuming username is also in token
+      roles: decoded.roles || (decoded.role ? [decoded.role] : []), // Handle old tokens with single role
+      tokenVersion: decoded.tokenVersion, // If present
+      // Add any other relevant, non-sensitive user data from token
+    };
 
     // Optional: Advanced check - query database to ensure user still exists or token version matches.
     // This adds DB overhead to every authenticated request but increases security.
@@ -54,15 +64,18 @@ const authenticateToken = async (req, res, next) => {
  */
 const authorizeRole = (allowedRoles) => {
   return (req, res, next) => {
-    if (!req.user || !req.user.role) {
-      // This should ideally not happen if authenticateToken runs first and populates req.user
-      return next(new ApiError(httpStatusCodes.FORBIDDEN, 'User role not available for authorization.'));
+    if (!req.user || !req.user.roles || req.user.roles.length === 0) {
+      // This should ideally not happen if authenticateToken runs first and populates req.user.roles
+      return next(new ApiError(httpStatusCodes.FORBIDDEN, 'User roles not available for authorization.'));
     }
 
-    if (!allowedRoles.includes(req.user.role)) {
+    // Check if user has at least one of the allowed roles
+    const hasRequiredRole = req.user.roles.some(userRole => allowedRoles.includes(userRole));
+
+    if (!hasRequiredRole) {
       return next(new ApiError(
         httpStatusCodes.FORBIDDEN,
-        `Access denied. User role '${req.user.role}' is not authorized for this resource.`
+        `Access denied. User roles do not include required permissions for this resource. User has: [${req.user.roles.join(', ')}], Required one of: [${allowedRoles.join(', ')}]`
       ));
     }
     next();
@@ -90,8 +103,9 @@ const authenticateSocketToken = async (socket, next) => {
     socket.user = { // Attach user info to the socket object
       id: decoded.sub,
       email: decoded.email, // Or username
-      role: decoded.role,
-      // tokenVersion: decoded.tokenVersion // if using token versioning
+      username: decoded.username,
+      roles: decoded.roles || (decoded.role ? [decoded.role] : []), // Handle old tokens
+      tokenVersion: decoded.tokenVersion // if using token versioning
     };
 
     // Optional: DB check for user existence or token version (similar to HTTP middleware)

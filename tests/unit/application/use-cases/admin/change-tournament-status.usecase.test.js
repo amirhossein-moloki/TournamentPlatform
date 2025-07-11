@@ -1,6 +1,6 @@
 // tests/unit/application/use-cases/admin/change-tournament-status.usecase.test.js
 const ChangeTournamentStatusUseCase = require('../../../../../src/application/use-cases/admin/change-tournament-status.usecase');
-const { Tournament, TournamentStatus } = require('../../../../../src/domain/tournament/tournament.entity');
+const { Tournament, TournamentStatus, EntryFeeType, PrizeType, BracketType } = require('../../../../../src/domain/tournament/tournament.entity'); // Added Enums
 const ApiError = require('../../../../../src/utils/ApiError');
 const httpStatusCodes = require('http-status-codes');
 
@@ -17,7 +17,6 @@ describe('ChangeTournamentStatusUseCase', () => {
   });
 
   const createMockTournament = (id, status, startDate = new Date(Date.now() + 86400000)) => {
-    // Ensure all required parameters for the Tournament constructor are provided
     const tournament = new Tournament(
       id, // id
       'Test Tournament', // name
@@ -26,25 +25,30 @@ describe('ChangeTournamentStatusUseCase', () => {
       'Test Rules', // rules
       status, // status
       0, // entryFee
+      EntryFeeType.FREE, // entryFeeType
       0, // prizePool
+      PrizeType.NONE, // prizeType
+      null, // prizeDetails
       8, // maxParticipants
+      0, // currentParticipants
       startDate, // startDate
       null, // endDate
-      // currentParticipants was missing here in the previous version, now it's correctly placed
-      0, // currentParticipants
       'organizer-uuid', // organizerId
-      null, // bannerImageUrl
-      'SINGLE_ELIMINATION', // type / bracketType
-      {}, // settings
+      [], // managed_by
+      [], // supported_by
+      {}, // entryConditions
       new Date(), // createdAt
-      new Date() // updatedAt
+      new Date(), // updatedAt
+      null, // bannerImageUrl
+      BracketType.SINGLE_ELIMINATION, // bracketType
+      {} // settings
     );
     // Spy on entity methods
     jest.spyOn(tournament, 'openRegistration').mockImplementation(() => { tournament.status = TournamentStatus.REGISTRATION_OPEN; });
     jest.spyOn(tournament, 'closeRegistration').mockImplementation(() => { tournament.status = TournamentStatus.REGISTRATION_CLOSED; });
     jest.spyOn(tournament, 'startTournament').mockImplementation(() => { tournament.status = TournamentStatus.ONGOING; });
     jest.spyOn(tournament, 'completeTournament').mockImplementation(() => { tournament.status = TournamentStatus.COMPLETED; });
-    jest.spyOn(tournament, 'cancelTournament').mockImplementation((reason) => { tournament.status = TournamentStatus.CANCELED; tournament.description = reason; });
+    jest.spyOn(tournament, 'cancelTournament').mockImplementation((reason) => { tournament.status = TournamentStatus.CANCELED; tournament.description = reason || tournament.description; });
     jest.spyOn(tournament, 'updateStatus').mockImplementation((newStatus) => { tournament.status = newStatus; });
     return tournament;
   };
@@ -68,7 +72,11 @@ describe('ChangeTournamentStatusUseCase', () => {
     const cancelReason = 'Cancelled due to admin decision.';
     const mockTournamentInstance = createMockTournament(tournamentId, TournamentStatus.REGISTRATION_OPEN);
     mockTournamentRepository.findById.mockResolvedValue(mockTournamentInstance);
-    mockTournamentRepository.update.mockResolvedValue({ ...mockTournamentInstance, status: TournamentStatus.CANCELED, description: cancelReason });
+    // Simulate the update in the mock to return the correct description
+    mockTournamentRepository.update.mockImplementation((id, data) => {
+        return Promise.resolve({ ...mockTournamentInstance, status: data.status, description: data.description });
+    });
+
 
     const result = await changeTournamentStatusUseCase.execute(tournamentId, TournamentStatus.CANCELED, cancelReason);
 
@@ -96,11 +104,8 @@ describe('ChangeTournamentStatusUseCase', () => {
 
   it('should throw ApiError if entity method throws error (e.g., invalid transition)', async () => {
     const tournamentId = 'tour-uuid-4';
-    // Attempting to open registration for an already ONGOING tournament
     const mockTournamentInstance = createMockTournament(tournamentId, TournamentStatus.ONGOING);
-    // Make the entity method throw an error for this specific scenario
     jest.spyOn(mockTournamentInstance, 'openRegistration').mockImplementation(() => { throw new Error('Cannot open registration for an ongoing tournament.'); });
-
     mockTournamentRepository.findById.mockResolvedValue(mockTournamentInstance);
 
     await expect(changeTournamentStatusUseCase.execute(tournamentId, TournamentStatus.REGISTRATION_OPEN))
@@ -115,7 +120,4 @@ describe('ChangeTournamentStatusUseCase', () => {
     await expect(changeTournamentStatusUseCase.execute(tournamentId, TournamentStatus.PENDING))
       .rejects.toThrow(new ApiError(httpStatusCodes.BAD_REQUEST, `Direct change to status '${TournamentStatus.PENDING}' from '${TournamentStatus.ONGOING}' is not supported via this action. Use specific actions or ensure valid transition.`));
   });
-
-
-  // Add more tests for each status transition and error cases.
 });

@@ -30,6 +30,12 @@ class ChangeTournamentStatusUseCase {
       throw new ApiError(httpStatusCodes.NOT_FOUND, `Tournament with ID ${tournamentId} not found.`);
     }
 
+    // Explicitly block unsupported direct status changes before complex logic
+    if (newStatus === TournamentStatus.PENDING && tournament.status === TournamentStatus.ONGOING) {
+      throw new ApiError(httpStatusCodes.BAD_REQUEST, `Direct change to status '${TournamentStatus.PENDING}' from '${tournament.status}' is not supported via this action. Use specific actions or ensure valid transition.`);
+    }
+    // Add other similar critical checks here if needed.
+
     try {
       switch (newStatus) {
         case TournamentStatus.REGISTRATION_OPEN:
