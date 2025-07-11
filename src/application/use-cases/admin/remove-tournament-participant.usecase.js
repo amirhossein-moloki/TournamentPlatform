@@ -1,5 +1,6 @@
 const ApiError = require('../../../utils/ApiError');
 const httpStatusCodes = require('http-status-codes');
+const { TournamentStatus } = require('../../../domain/tournament/tournament.entity'); // Import TournamentStatus
 
 class RemoveTournamentParticipantUseCase {
   /**
@@ -41,7 +42,7 @@ class RemoveTournamentParticipantUseCase {
     }
 
     // Restrictions on when a participant can be removed
-    if ([tournament.Status.ONGOING, tournament.Status.COMPLETED, tournament.Status.CANCELED].includes(tournament.status)) {
+    if ([TournamentStatus.ONGOING, TournamentStatus.COMPLETED, TournamentStatus.CANCELED].includes(tournament.status)) {
       throw new ApiError(httpStatusCodes.BAD_REQUEST, `Cannot remove participant from a tournament that is ${tournament.status}.`);
     }
 

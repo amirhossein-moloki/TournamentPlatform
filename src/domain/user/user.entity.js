@@ -9,7 +9,7 @@ class User {
    * @param {string} username - The user's chosen username.
    * @param {string} email - The user's email address.
    * @param {string} passwordHash - The hashed password for the user.
-   * @param {string} role - The role of the user (e.g., 'User', 'Admin').
+   * @param {string[]} roles - The roles of the user (e.g., ['PLAYER'], ['ADMIN', 'TOURNAMENT_MANAGER']).
    * @param {string|null} refreshToken - The current refresh token for the user.
    * @param {boolean} isVerified - Flag indicating if the user's email is verified.
    * @param {Date|null} lastLogin - Timestamp of the user's last login.
@@ -23,7 +23,7 @@ class User {
     username,
     email,
     passwordHash,
-    role = 'User',
+    roles = User.DEFAULT_ROLES, // Use default roles defined below
     refreshToken = null,
     isVerified = false,
     lastLogin = null,
@@ -36,13 +36,20 @@ class User {
     if (!username) throw new Error('Username is required.');
     if (!email) throw new Error('Email is required.');
     if (!passwordHash) throw new Error('Password hash is required.');
-    if (!role) throw new Error('User role is required.');
+    if (!roles || !Array.isArray(roles) || roles.length === 0) {
+      throw new Error('User roles are required and must be a non-empty array.');
+    }
+    // Validate roles against User.UserRoles enum
+    if (!roles.every(r => Object.values(User.UserRoles).includes(r))) {
+        const invalid = roles.filter(r => !Object.values(User.UserRoles).includes(r));
+        throw new Error(`Invalid role(s) provided: ${invalid.join(', ')}. Must be one of ${Object.values(User.UserRoles).join(', ')}.`);
+    }
 
     this.id = id;
     this.username = username;
     this.email = email;
     this.passwordHash = passwordHash;
-    this.role = role;
+    this.roles = [...new Set(roles)]; // Store unique roles
     this.refreshToken = refreshToken;
     this.isVerified = isVerified;
     this.lastLogin = lastLogin;
@@ -78,15 +85,22 @@ class User {
   }
 
   /**
-   * Updates the user's role.
-   * @param {string} newRole - The new role for the user.
-   * @param {string[]} allowedRoles - Array of valid roles.
+   * Updates the user's roles.
+   * @param {string[]} newRoles - The new roles for the user.
+   * @param {string[]} allowedRoles - Array of valid roles (defaults to all defined UserRoles).
    */
-  updateRole(newRole, allowedRoles = ['User', 'Admin', 'DisputeModerator', 'FinanceManager']) {
-    if (!newRole || !allowedRoles.includes(newRole)) {
-      throw new Error(`Invalid role: ${newRole}. Must be one of ${allowedRoles.join(', ')}.`);
+  updateRoles(newRoles, allowedRoles = Object.values(User.UserRoles)) {
+    if (!newRoles || !Array.isArray(newRoles) || newRoles.length === 0) {
+      throw new Error('New roles are required and must be a non-empty array.');
     }
-    this.role = newRole;
+    if (!newRoles.every(role => allowedRoles.includes(role))) {
+      const invalidRoles = newRoles.filter(role => !allowedRoles.includes(role));
+      throw new Error(`Invalid role(s): ${invalidRoles.join(', ')}. Must be one of ${allowedRoles.join(', ')}.`);
+    }
+    this.roles = [...new Set(newRoles)]; // Ensure unique roles and update
+    if (this.roles.length === 0) { // Ensure user always has at least PLAYER role
+        this.roles.push(User.UserRoles.PLAYER);
+    }
     this.updatedAt = new Date();
   }
 
@@ -137,20 +151,58 @@ class User {
    * @returns {boolean} True if the user has the role, false otherwise.
    */
   hasRole(roleName) {
-    return this.role === roleName;
+    return this.roles.includes(roleName);
   }
+
+  /**
+   * Adds a role to the user if it doesn't already exist.
+   * @param {string} roleName - The role to add.
+   */
+  addRole(roleName) {
+    if (!Object.values(User.UserRoles).includes(roleName)) {
+      throw new Error(`Invalid role: ${roleName}. Must be one of ${Object.values(User.UserRoles).join(', ')}.`);
+    }
+    if (!this.roles.includes(roleName)) {
+      this.roles.push(roleName);
+      this.updatedAt = new Date();
+    }
+  }
+
+  /**
+   * Removes a role from the user if it exists.
+   * Ensures the user always has at least the PLAYER role.
+   * @param {string} roleName - The role to remove.
+   */
+  removeRole(roleName) {
+    const index = this.roles.indexOf(roleName);
+    if (index > -1) {
+      if (this.roles.length === 1 && roleName === User.UserRoles.PLAYER) {
+          // Optionally throw an error or log a warning, but prevent removal of the last PLAYER role.
+          // console.warn(`Cannot remove the last role '${User.UserRoles.PLAYER}'. User must have at least one role.`);
+          throw new Error(`Cannot remove the last role '${User.UserRoles.PLAYER}'. User must have at least one role.`);
+      }
+      this.roles.splice(index, 1);
+      // If all roles were somehow removed (e.g. removing a non-PLAYER role when it was the only one),
+      // ensure PLAYER role is re-added. This case should ideally be prevented by the previous check.
+      if (this.roles.length === 0) {
+          this.roles.push(User.UserRoles.PLAYER);
+      }
+      this.updatedAt = new Date();
+    }
+  }
+
 
   /**
    * Returns a public representation of the user, excluding sensitive data.
    * This is a domain-level representation, presentation layer might format further.
-   * @returns {{id: string, username: string, email: string, role: string, isVerified: boolean, lastLogin: Date|null}}
+   * @returns {{id: string, username: string, email: string, roles: string[], isVerified: boolean, lastLogin: Date|null}}
    */
   toPublicProfile() {
     return {
       id: this.id,
       username: this.username,
       email: this.email, // Consider if email should always be public
-      role: this.role,
+      roles: [...this.roles], // Return a copy of the roles array
       isVerified: this.isVerified,
       lastLogin: this.lastLogin,
       // Do NOT include passwordHash, refreshToken, verificationToken, tokenVersion
@@ -160,20 +212,21 @@ class User {
 
 // Export the User class
 module.exports = { User };
-// Or if using ES6 modules: export default User;
-// For CommonJS, this is standard.
-// If User.entity.js is intended to be a module exporting multiple things, this is fine.
-// If it's just the User class, `module.exports = User;` is also common.
-// The blueprint shows `user.entity.js`, implying it defines the User entity.
-// Using a named export `{ User }` allows for potentially adding other related exports from this file later if needed.
 
 // Define static enums on the User class
 User.UserRoles = Object.freeze({
-  ADMIN: 'ADMIN',
-  PLAYER: 'PLAYER',
-  MODERATOR: 'MODERATOR', // Example of another role
-  // Add other roles as needed
+  ADMIN: 'ADMIN', // Overall system administrator
+  PLAYER: 'PLAYER', // Standard user, participates in tournaments
+  MODERATOR: 'MODERATOR', // General content moderator, dispute resolution (broader than tournament support)
+  TOURNAMENT_MANAGER: 'TOURNAMENT_MANAGER', // Manages specific tournaments (create, update, manage brackets)
+  TOURNAMENT_SUPPORT: 'TOURNAMENT_SUPPORT', // Provides support for specific tournaments they are assigned to
+  GENERAL_SUPPORT: 'GENERAL_SUPPORT', // Provides general platform support, not tied to specific tournaments
+  // Add other roles as needed (e.g., FINANCE_MANAGER, CONTENT_CREATOR)
 });
+
+// Default roles for new users - ensure PLAYER is the base role.
+User.DEFAULT_ROLES = [User.UserRoles.PLAYER];
+
 
 User.UserStatus = Object.freeze({
   PENDING: 'PENDING', // User registered, email not verified
@@ -188,8 +241,9 @@ User.prototype.updateProfile = function(profileData) {
   if (!profileData) {
     return; // Or throw an error if profileData is required
   }
-  this.profile = { ...this.profile, ...profileData };
+  // Assuming 'this.profile' is a property that might not have been initialized in the constructor
+  // It's better to initialize it if it's expected to be part of the User entity.
+  // For now, this follows the existing pattern.
+  this.profile = { ...(this.profile || {}), ...profileData };
   this.updatedAt = new Date();
 };
-
-// For now, it primarily exports the User class.Tool output for `create_file_with_block`:

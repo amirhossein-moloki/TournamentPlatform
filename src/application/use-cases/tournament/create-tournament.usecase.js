@@ -70,23 +70,45 @@ class CreateTournamentUseCase {
       // Future: Check if organizer has 'Admin' or 'TournamentOrganizer' role if such roles exist
     }
 
+    const {
+        name, gameId, description, rules, entryFee, prizePool, maxParticipants, startDate, endDate, organizerId,
+        entryFeeType, prizeType, prizeDetails, managed_by, supported_by, entryConditions,
+        bannerImageUrl, bracketType, settings // Keep existing optional fields
+    } = tournamentData;
+
+    if (managed_by && !Array.isArray(managed_by)) {
+        throw new ApiError(httpStatusCodes.BAD_REQUEST, 'managed_by must be an array.');
+    }
+    if (supported_by && !Array.isArray(supported_by)) {
+        throw new ApiError(httpStatusCodes.BAD_REQUEST, 'supported_by must be an array.');
+    }
+
     const tournamentId = uuidv4();
-    const newTournament = new Tournament( // Domain entity uses gameId
+    const newTournament = new Tournament(
       tournamentId,
-      tournamentData.name,
-      tournamentData.gameId, // Pass gameId to the entity
-      tournamentData.description || null,
-      tournamentData.rules || null,
-      'PENDING', // Initial status
-      parseFloat(tournamentData.entryFee),
-      parseFloat(tournamentData.prizePool),
-      parseInt(tournamentData.maxParticipants, 10),
+      name,
+      gameId,
+      description || null,
+      rules || null,
+      Tournament.Status.PENDING, // Initial status
+      parseFloat(entryFee),
+      entryFeeType, // Pass the new field
+      parseFloat(prizePool),
+      prizeType,    // Pass the new field
+      prizeDetails || null, // Pass the new field
+      parseInt(maxParticipants, 10),
       0, // currentParticipants
-      new Date(tournamentData.startDate),
-      tournamentData.endDate ? new Date(tournamentData.endDate) : null,
-      tournamentData.organizerId || null,
+      new Date(startDate),
+      endDate ? new Date(endDate) : null,
+      organizerId || null,
+      managed_by || [],     // Pass the new field
+      supported_by || [],   // Pass the new field
+      entryConditions || {}, // Pass the new field
       new Date(), // createdAt
-      new Date()  // updatedAt
+      new Date(),  // updatedAt
+      bannerImageUrl || null, // Pass existing optional field
+      bracketType,          // Pass existing optional field (or its default from Tournament entity)
+      settings || {}        // Pass existing optional field
     );
 
     // Persist the new tournament
