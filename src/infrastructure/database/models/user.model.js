@@ -11,7 +11,7 @@ class UserModel extends Model {
       data.username,
       data.email,
       data.passwordHash,
-      data.role,
+      data.roles,
       data.refreshToken,
       data.isVerified,
       data.lastLogin,
@@ -111,10 +111,10 @@ module.exports = (sequelize) => {
       type: DataTypes.STRING,
       allowNull: false,
     },
-    role: {
-      type: DataTypes.ENUM('User', 'Admin', 'DisputeModerator', 'FinanceManager'),
+    roles: {
+      type: DataTypes.ARRAY(DataTypes.STRING),
       allowNull: false,
-      defaultValue: 'User',
+      defaultValue: ['PLAYER'],
     },
     refreshToken: {
       type: DataTypes.STRING,

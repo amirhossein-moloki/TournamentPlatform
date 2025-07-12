@@ -79,7 +79,7 @@ class RefreshTokenUseCase {
     const payload = {
       sub: user.id,
       email: user.email, // Or username, depending on what's preferred
-      role: user.role,
+      roles: user.roles,
       // tokenVersion: user.tokenVersion, // Include if checking tokenVersion on access tokens too
     };
     return jwt.sign(payload, appConfig.jwt.secret, {

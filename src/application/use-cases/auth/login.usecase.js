@@ -63,7 +63,7 @@ class LoginUseCase {
     const payload = {
       sub: user.id, // Subject (user ID)
       email: user.email,
-      role: user.role,
+      roles: user.roles,
       // Add any other claims needed for quick access, but keep it minimal
     };
     return jwt.sign(payload, appConfig.jwt.secret, {
@@ -91,7 +91,7 @@ class LoginUseCase {
       id: user.id,
       username: user.username,
       email: user.email, // Email might be considered sensitive, adjust based on requirements
-      role: user.role,
+      roles: user.roles,
     };
   }
 }
@@ -103,5 +103,5 @@ module.exports = LoginUseCase;
  * @property {string} id
  * @property {string} username
  * @property {string} email - Optional, depending on privacy requirements.
- * @property {string} role
+ * @property {string[]} roles
  */

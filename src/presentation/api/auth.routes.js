@@ -1,6 +1,6 @@
 const router = require('express').Router();
 const { Joi, validate } = require('express-validation');
-const authController = require('../controllers/auth.controller');
+const { authController } = require('../../config/dependencies');
 const { authenticateToken } = require('../../middleware/auth.middleware');
 
 // Joi validation schemas
@@ -89,11 +89,6 @@ router.post('/refresh', authController.refresh);
     #swagger.responses[200] = {
         description: 'New access token generated.',
         content: { "application/json": { schema: { $ref: "#/components/schemas/RefreshTokenResponse" } } },
-        headers: {
-            "Set-Cookie": {
-                schema: { type: "string", example: "jid=yourNewRefreshToken; Path=/api/v1/auth; HttpOnly; Secure; SameSite=Strict (if token is rotated)" }
-            }
-        }
     }
     #swagger.responses[401] = { $ref: '#/components/responses/UnauthorizedError' }
     #swagger.responses[500] = { $ref: '#/components/responses/InternalServerError' }

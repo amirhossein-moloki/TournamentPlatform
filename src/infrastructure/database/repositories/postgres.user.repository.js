@@ -72,7 +72,7 @@ class PostgresUserRepository extends UserRepositoryInterface {
         username: userEntity.username,
         email: userEntity.email,
         passwordHash: userEntity.passwordHash,
-        role: userEntity.role,
+        roles: userEntity.roles,
         refreshToken: userEntity.refreshToken,
         isVerified: userEntity.isVerified,
         lastLogin: userEntity.lastLogin,
@@ -129,8 +129,8 @@ class PostgresUserRepository extends UserRepositoryInterface {
     const offset = (parseInt(page, 10) - 1) * parseInt(limit, 10);
     const whereClause = {};
 
-    if (filters.role) {
-      whereClause.role = filters.role;
+    if (filters.roles) {
+      whereClause.roles = { [this.Op.contains]: [filters.roles] };
     }
     if (filters.isVerified !== undefined) {
       whereClause.isVerified = filters.isVerified;
