@@ -77,39 +77,8 @@ if (process.env.NODE_ENV === 'development') {
 // API Routes
 const apiRouter = express.Router();
 
-apiRouter.use('/admin', adminRoutes);
-apiRouter.use('/auth', authRoutes);
-apiRouter.use('/leaderboards', leaderboardsRoutes);
-// apiRouter.use('/matches', matchesRoutes); // Will be replaced by the factory call
-const matchesRoutesInstance = matchesRoutes( // matchesRoutes is now a factory
-    { getMatchUseCase, getMatchUploadUrlUseCase, submitMatchResultUseCase },
-    authenticateToken || ((req,res,next)=>next())
-);
-apiRouter.use('/matches', matchesRoutesInstance);
-apiRouter.use('/teams', teamsRoutes);
-// apiRouter.use('/tournaments', tournamentsRoutes); // Will be replaced by the factory call
-const tournamentsRoutesInstance = tournamentsRoutes( // tournamentsRoutes is now a factory
-    { createTournamentUseCase, listTournamentsUseCase, getTournamentUseCase, registerForTournamentUseCase },
-    authenticateToken || ((req,res,next)=>next()),
-    authorizeRole || ((roles)=>(req,res,next)=>next())
-);
-apiRouter.use('/tournaments', tournamentsRoutesInstance);
-// apiRouter.use('/users', usersRoutes); // Will be replaced by the factory call
-const usersRoutesInstance = usersRoutes( // usersRoutes is now a factory
-    { getUserProfileUseCase, updateUserProfileUseCase, listUsersUseCase, adminUpdateUserUseCase, adminDeleteUserUseCase },
-    userGameProfileController,
-    authenticateToken || ((req,res,next)=>next()), // Placeholder for authenticateToken
-    authorizeRole || ((roles)=>(req,res,next)=>next()) // Placeholder for authorizeRole
-);
-apiRouter.use('/users', usersRoutesInstance);
-apiRouter.use('/wallet', walletRoutes);
-
-// Register Game API routes
-// Ensure authMiddleware and adminRoleMiddleware are correctly implemented or use placeholders
-const gamesRouter = gamesRoutesFactory(gameController, authMiddleware || ((req,res,next)=>next()), adminRoleMiddleware || ((req,res,next)=>next()));
-apiRouter.use('/games', gamesRouter);
-
-app.use('/api/v1', apiRouter);
+const routes = require('./routes');
+app.use('/api/v1', routes);
 
 // Swagger API Documentation
 app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerDocument));

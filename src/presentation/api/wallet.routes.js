@@ -27,8 +27,14 @@ const requestWithdrawalSchema = {
     body: Joi.object({
         amount: Joi.number().positive().precision(2).required(),
         currency: Joi.string().length(3).uppercase().required(),
-        withdrawalMethod: Joi.string().valid('PAYPAL', 'BANK_TRANSFER').required(),
-        withdrawalMethodDetails: Joi.object().required().min(1), // Kept generic as per audit, but OpenAPI will be specific
+        withdrawalMethodDetails: Joi.object({
+            type: Joi.string().valid('PAYPAL', 'BANK_TRANSFER').required(),
+            email: Joi.string().email().when('type', { is: 'PAYPAL', then: Joi.required() }),
+            accountHolderName: Joi.string().when('type', { is: 'BANK_TRANSFER', then: Joi.required() }),
+            accountNumber: Joi.string().when('type', { is: 'BANK_TRANSFER', then: Joi.required() }),
+            routingNumber: Joi.string().when('type', { is: 'BANK_TRANSFER', then: Joi.required() }),
+            bankName: Joi.string().when('type', { is: 'BANK_TRANSFER', then: Joi.optional() }),
+        }).required(),
     }),
 };
 
@@ -106,6 +112,9 @@ router.post('/withdrawals', authenticateToken, validate(requestWithdrawalSchema)
         description: 'Idempotent replay of a previous request.',
         content: { "application/json": { schema: { $ref: "#/components/schemas/RequestWithdrawalResponse" } } }
     }
+    #swagger.responses[400] = { $ref: '#/components/responses/BadRequestError' } // e.g., insufficient funds
+    #swagger.responses[401] = { $ref: '#/components/responses/UnauthorizedError' }
+    #swagger.responses[409] = { description: 'Idempotency key conflict.', schema: { $ref: '#/components/schemas/ErrorResponse' } }
     #swagger.responses[400] = { $ref: '#/components/responses/BadRequestError' } // e.g., insufficient funds
     #swagger.responses[401] = { $ref: '#/components/responses/UnauthorizedError' }
     #swagger.responses[409] = { description: 'Idempotency key conflict.', schema: { $ref: '#/components/schemas/ErrorResponse' } }

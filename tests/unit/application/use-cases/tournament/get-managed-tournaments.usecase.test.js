@@ -1,5 +1,6 @@
 const GetManagedTournamentsUseCase = require('../../../../../src/application/use-cases/tournament/get-managed-tournaments.usecase');
-const { User, UserRoles } = require('../../../../../src/domain/user/user.entity');
+const { User } = require('../../../../../src/domain/user/user.entity');
+const { UserRoles } = require('../../../../../src/domain/user/user.entity').User;
 const { Tournament } = require('../../../../../src/domain/tournament/tournament.entity');
 const ApiError = require('../../../../../src/utils/ApiError');
 const httpStatusCodes = require('http-status-codes');
@@ -28,7 +29,10 @@ describe('GetManagedTournamentsUseCase', () => {
   });
 
   it('should retrieve tournaments managed by the user with default pagination', async () => {
-    const tournaments = [new Tournament(faker.string.uuid(), 'Tour 1', 'game1'), new Tournament(faker.string.uuid(), 'Tour 2', 'game1')];
+    const tournaments = [
+      new Tournament(faker.string.uuid(), 'Tour 1', 'game1', 'description', 'rules', 'PENDING', 10, 'CASH', 100, 'CASH', 'details', 128, 0, new Date(), new Date(), null, [], [], {}, new Date(), new Date()),
+      new Tournament(faker.string.uuid(), 'Tour 2', 'game1', 'description', 'rules', 'PENDING', 10, 'CASH', 100, 'CASH', 'details', 128, 0, new Date(), new Date(), null, [], [], {}, new Date(), new Date())
+    ];
     mockTournamentRepository.findAndCountAll.mockResolvedValue({ tournaments, totalItems: 2 });
 
     const result = await getManagedTournamentsUseCase.execute(managerUser.id);

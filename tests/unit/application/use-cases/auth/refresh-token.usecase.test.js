@@ -3,7 +3,7 @@ const { User } = require('../../../../../src/domain/user/user.entity');
 const ApiError = require('../../../../../src/utils/ApiError');
 const httpStatusCodes = require('http-status-codes');
 const jwt = require('jsonwebtoken');
-const { appConfig } = require('../../../../../src/config/config');
+const { appConfig } = require('src/config/config');
 
 describe('RefreshTokenUseCase', () => {
   let refreshTokenUseCase;

@@ -27,7 +27,7 @@ const resolveDisputeSchema = {
     body: Joi.object({
         resolutionStatus: Joi.string().valid('RESOLVED_PARTICIPANT1_WIN', 'RESOLVED_PARTICIPANT2_WIN', 'RESOLVED_REPLAY', 'CLOSED_INVALID').required(),
         resolutionDetails: Joi.string().min(10).max(1000).required(),
-        // winningParticipantId: Joi.string().uuid().optional().allow(null), // If applicable
+        winningParticipantId: Joi.string().uuid().optional().allow(null), // If applicable
     }),
 };
 
@@ -169,5 +169,8 @@ router.post('/withdrawals/:id/reject', authenticateToken, authorizeRole([UserRol
     #swagger.responses[403] = { $ref: '#/components/responses/ForbiddenError' }
     #swagger.responses[404] = { $ref: '#/components/responses/NotFoundError' }
 */
+
+const adminUserRoutes = require('./admin/users.routes');
+router.use('/users', adminUserRoutes);
 
 module.exports = router;
