@@ -63,19 +63,10 @@ module.exports = {
     "node"
   ],
   // A map from regular expressions to module names or to arrays of module names that allow to stub out resources with a single module
-  moduleNameMapper: {
-    '^@/(.*)$': '<rootDir>/src/$1',
-    '^@config/(.*)$': '<rootDir>/config/$1',
-    '^@db/(.*)$': '<rootDir>/db/$1',
-    '^@domain/(.*)$': '<rootDir>/src/domain/$1',
-    '^@application/(.*)$': '<rootDir>/src/application/$1',
-    '^@infrastructure/(.*)$': '<rootDir>/src/infrastructure/$1',
-    '^@presentation/(.*)$': '<rootDir>/src/presentation/$1',
-    '^@middleware/(.*)$': '<rootDir>/src/middleware/$1',
-    '^@workers/(.*)$': '<rootDir>/src/workers/$1',
-    '^@utils/(.*)$': '<rootDir>/src/utils/$1',
-    '^@tests/(.*)$': '<rootDir>/tests/$1'
-  },
+  // A map from regular expressions to module names or to arrays of module names that allow to stub out resources with a single module
+  // moduleNameMapper: {
+  //   '^@/(.*)$': '<rootDir>/src/$1',
+  // },
   // An array of regexp pattern strings, matched against all module paths before considered 'visible' to the module loader
   // modulePathIgnorePatterns: [],
   // Activates notifications for test results

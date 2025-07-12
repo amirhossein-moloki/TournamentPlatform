@@ -6,9 +6,19 @@ module.exports = {
     jest: true,
   },
   extends: ['eslint:recommended', 'prettier'],
-  plugins: ['prettier'],
+  plugins: ['prettier', 'import'],
   parserOptions: {
     ecmaVersion: 12,
+  },
+  settings: {
+    'import/resolver': {
+      alias: {
+        map: [
+          ['@', './src'],
+        ],
+        extensions: ['.js', '.json'],
+      },
+    },
   },
   rules: {
     'prettier/prettier': 'error',

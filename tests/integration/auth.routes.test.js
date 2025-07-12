@@ -2,20 +2,16 @@ const request = require('supertest');
 const express = require('express');
 const cookieParser = require('cookie-parser');
 const httpStatusCodes = require('http-status-codes');
-const { appConfig } = require('../../config/config'); // To get cookie names etc.
+const { appConfig } = require('../../config/config');
 const ms = require('ms');
 
-// Import the router
 const authRoutes = require('../../src/presentation/api/auth.routes');
 
-// Mock Use Cases - Declare with let, initialize in beforeEach
 let mockRegisterUserUseCaseExecuteFn;
 let mockLoginUseCaseExecuteFn;
 let mockRefreshTokenUseCaseExecuteFn;
 let mockSendVerificationEmailUseCaseExecuteFn;
 let mockVerifyEmailUseCaseExecuteFn;
-
-// Mock for UserRepository instance methods, to be initialized in beforeEach
 let mockUserRepoUpdateFn;
 
 jest.mock('../../src/application/use-cases/auth/register-user.usecase', () => {
@@ -44,33 +40,22 @@ jest.mock('../../src/application/use-cases/auth/verify-email.usecase', () => {
     }));
 });
 
-// Mock UserRepository for logout, as it's directly used in the route
 jest.mock('../../src/infrastructure/database/repositories/postgres.user.repository', () => {
     return {
         PostgresUserRepository: jest.fn().mockImplementation(() => {
-            // This is the constructor of the mocked repository.
-            // It returns an object simulating an instance of PostgresUserRepository.
-            // The methods of this instance will call the mock functions defined in the test scope (e.g., in beforeEach).
             return {
                 update: (userId, data) => mockUserRepoUpdateFn(userId, data),
-                // findByEmail: (email) => mockUserRepoFindByEmailFn(email), // Example for other methods
-                // Add other methods as needed by the routes being tested
             };
         })
     };
 });
 
-// Declare mockAuthMiddleware with let so it can be reassigned in beforeEach
 let mockAuthMiddleware;
 
 jest.mock('../../src/middleware/auth.middleware', () => ({
-    // The factory function will use the `mockAuthMiddleware` variable from the outer scope.
-    // Its value will be set in `beforeEach`.
     authenticateToken: (req, res, next) => mockAuthMiddleware(req, res, next),
 }));
 
-
-// Centralized error handler mock (important for testing error responses)
 const errorHandler = (err, req, res, next) => {
   const statusCode = err.statusCode || httpStatusCodes.INTERNAL_SERVER_ERROR;
   res.status(statusCode).json({
@@ -78,29 +63,26 @@ const errorHandler = (err, req, res, next) => {
     statusCode,
     message: err.message || 'Internal Server Error',
     ...(err.errors && { errors: err.errors }),
-    stack: process.env.NODE_ENV === 'test_dev' ? err.stack : undefined, // Show stack in a specific test_dev env
+    stack: process.env.NODE_ENV === 'test_dev' ? err.stack : undefined,
   });
 };
 
 const app = express();
 app.use(express.json());
-app.use(cookieParser()); // Use cookie-parser middleware to handle req.cookies
+app.use(cookieParser());
 app.use('/api/v1/auth', authRoutes);
-app.use(errorHandler); // Add the centralized error handler
+app.use(errorHandler);
 
 describe('Auth Routes Integration Tests', () => {
   beforeEach(() => {
-    // Reset all mocks before each test
     jest.clearAllMocks();
 
-    // Initialize/re-initialize mock functions before each test
     mockAuthMiddleware = jest.fn((req, res, next) => {
         req.user = { sub: 'test-user-id', email: 'test@example.com', version: 0 };
         next();
     });
-    mockUserRepoUpdateFn = jest.fn(); // Initialize the actual mock function for user repo update
+    mockUserRepoUpdateFn = jest.fn();
 
-    // Initialize use case execute mocks
     mockRegisterUserUseCaseExecuteFn = jest.fn();
     mockLoginUseCaseExecuteFn = jest.fn();
     mockRefreshTokenUseCaseExecuteFn = jest.fn();
@@ -135,12 +117,10 @@ describe('Auth Routes Integration Tests', () => {
       expect(response.body.data.accessToken).toBe(mockTokens.accessToken);
       expect(mockRegisterUserUseCaseExecuteFn).toHaveBeenCalledWith(registerPayload);
 
-      // Check cookie
       const cookie = response.headers['set-cookie'][0];
       expect(cookie).toContain(`${appConfig.jwt.refreshCookieName}=${mockTokens.refreshToken}`);
       expect(cookie).toContain('HttpOnly');
       expect(cookie).toContain('Path=/api/v1/auth');
-      // expect(cookie).toContain('SameSite=Strict'); // Default SameSite might vary by supertest/express version
     });
 
     it('should return 400 Bad Request for invalid registration payload', async () => {
@@ -161,7 +141,7 @@ describe('Auth Routes Integration Tests', () => {
             .post('/api/v1/auth/register')
             .send(registerPayload);
 
-        expect(response.status).toBe(httpStatusCodes.INTERNAL_SERVER_ERROR); // Default error
+        expect(response.status).toBe(httpStatusCodes.INTERNAL_SERVER_ERROR);
         expect(response.body.success).toBe(false);
         expect(response.body.message).toBe('Registration failed');
     });
@@ -194,7 +174,7 @@ describe('Auth Routes Integration Tests', () => {
     });
 
     it('should return 400 Bad Request for invalid login payload', async () => {
-        const invalidPayload = { email: 'not-an-email' }; // Missing password
+        const invalidPayload = { email: 'not-an-email' };
         const response = await request(app)
             .post('/api/v1/auth/login')
             .send(invalidPayload);
@@ -205,7 +185,7 @@ describe('Auth Routes Integration Tests', () => {
     });
 
     it('should handle errors from LoginUseCase (e.g., invalid credentials)', async () => {
-        const ApiError = require('../../src/utils/ApiError'); // Local require for this test
+        const ApiError = require('../../src/utils/ApiError');
         mockLoginUseCaseExecuteFn.mockRejectedValue(new ApiError(httpStatusCodes.UNAUTHORIZED, 'Invalid credentials'));
         const response = await request(app)
             .post('/api/v1/auth/login')
@@ -221,11 +201,11 @@ describe('Auth Routes Integration Tests', () => {
     it('should return a new access token and set new refresh token cookie if rotation is enabled', async () => {
       const oldRefreshToken = 'oldFakeRefreshToken';
       const newAccessToken = 'newFakeAccessToken';
-      const newRotatedRefreshToken = 'newRotatedRefreshToken'; // Simulate rotation
+      const newRotatedRefreshToken = 'newRotatedRefreshToken';
 
       mockRefreshTokenUseCaseExecuteFn.mockResolvedValue({
         accessToken: newAccessToken,
-        newRefreshToken: newRotatedRefreshToken // Assume rotation gives a new one
+        newRefreshToken: newRotatedRefreshToken
       });
 
       const response = await request(app)
@@ -245,7 +225,6 @@ describe('Auth Routes Integration Tests', () => {
     it('should return a new access token without setting cookie if rotation is not enabled or no new token', async () => {
         const oldRefreshToken = 'oldFakeRefreshToken';
         const newAccessToken = 'newFakeAccessToken';
-        // Use case does not return newRefreshToken
         mockRefreshTokenUseCaseExecuteFn.mockResolvedValue({ accessToken: newAccessToken });
 
         const response = await request(app)
@@ -255,12 +234,11 @@ describe('Auth Routes Integration Tests', () => {
         expect(response.status).toBe(httpStatusCodes.OK);
         expect(response.body.data.accessToken).toBe(newAccessToken);
         expect(mockRefreshTokenUseCaseExecuteFn).toHaveBeenCalledWith(oldRefreshToken);
-        // Expect no set-cookie header if token isn't rotated
         expect(response.headers['set-cookie']).toBeUndefined();
       });
 
     it('should return 401 Unauthorized if refresh token is missing', async () => {
-      const response = await request(app).post('/api/v1/auth/refresh'); // No cookie
+      const response = await request(app).post('/api/v1/auth/refresh');
       expect(response.status).toBe(httpStatusCodes.UNAUTHORIZED);
       expect(response.body.message).toBe('Refresh token not found.');
     });
@@ -276,18 +254,18 @@ describe('Auth Routes Integration Tests', () => {
       expect(response.status).toBe(httpStatusCodes.UNAUTHORIZED);
       expect(response.body.message).toBe('Invalid or expired refresh token');
       const cookie = response.headers['set-cookie'][0];
-      expect(cookie).toContain(`${appConfig.jwt.refreshCookieName}=;`); // Cleared cookie
+      expect(cookie).toContain(`${appConfig.jwt.refreshCookieName}=;`);
       expect(cookie).toContain('Expires=Thu, 01 Jan 1970');
     });
   });
 
   describe('POST /api/v1/auth/logout', () => {
     it('should log out the user, clear refresh token cookie, and call userRepo.update', async () => {
-      mockUserRepoUpdateFn.mockResolvedValue({ success: true }); // Simulate successful update
+      mockUserRepoUpdateFn.mockResolvedValue({ success: true });
 
       const response = await request(app)
         .post('/api/v1/auth/logout')
-        .set('Authorization', 'Bearer fakeAccessToken'); // authMiddleware will use req.user from mock
+        .set('Authorization', 'Bearer fakeAccessToken');
 
       expect(response.status).toBe(httpStatusCodes.OK);
       expect(response.body.success).toBe(true);
@@ -314,7 +292,7 @@ describe('Auth Routes Integration Tests', () => {
         mockSendVerificationEmailUseCaseExecuteFn.mockResolvedValue({ message: 'Verification email sent.' });
         const response = await request(app)
             .post('/api/v1/auth/request-verification-email')
-            .set('Authorization', 'Bearer fakeAccessToken'); // authMiddleware provides req.user
+            .set('Authorization', 'Bearer fakeAccessToken');
 
         expect(response.status).toBe(httpStatusCodes.OK);
         expect(response.body.success).toBe(true);
@@ -324,15 +302,13 @@ describe('Auth Routes Integration Tests', () => {
 
     it('should return 401 if user is not authenticated', async () => {
         mockAuthMiddleware.mockImplementationOnce((req, res, next) => {
-            // Simulate auth failure specifically for this test
-            req.user = null; // Or simply don't call next() or throw error
+            req.user = null;
             const ApiError = require('../../src/utils/ApiError');
             next(new ApiError(httpStatusCodes.UNAUTHORIZED, 'User not authenticated or email not found in token.'));
         });
 
         const response = await request(app)
             .post('/api/v1/auth/request-verification-email');
-            // No Authorization header sent
 
         expect(response.status).toBe(httpStatusCodes.UNAUTHORIZED);
         expect(response.body.message).toContain('User not authenticated');

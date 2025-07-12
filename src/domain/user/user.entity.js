@@ -210,11 +210,7 @@ class User {
   }
 }
 
-// Export the User class
-module.exports = { User };
-
-// Define static enums on the User class
-User.UserRoles = Object.freeze({
+const UserRoles = Object.freeze({
   ADMIN: 'ADMIN', // Overall system administrator
   PLAYER: 'PLAYER', // Standard user, participates in tournaments
   MODERATOR: 'MODERATOR', // General content moderator, dispute resolution (broader than tournament support)
@@ -223,6 +219,12 @@ User.UserRoles = Object.freeze({
   GENERAL_SUPPORT: 'GENERAL_SUPPORT', // Provides general platform support, not tied to specific tournaments
   // Add other roles as needed (e.g., FINANCE_MANAGER, CONTENT_CREATOR)
 });
+
+// Define static enums on the User class
+User.UserRoles = UserRoles;
+
+// Export the User class
+module.exports = { User, UserRoles };
 
 // Default roles for new users - ensure PLAYER is the base role.
 User.DEFAULT_ROLES = [User.UserRoles.PLAYER];

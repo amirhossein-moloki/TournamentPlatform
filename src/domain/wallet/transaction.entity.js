@@ -163,4 +163,32 @@ class Transaction {
   }
 }
 
-module.exports = { Transaction };
+const TransactionType = Object.freeze({
+    DEPOSIT: 'DEPOSIT',
+    WITHDRAWAL: 'WITHDRAWAL',
+    TOURNAMENT_FEE: 'TOURNAMENT_FEE',
+    PRIZE_PAYOUT: 'PRIZE_PAYOUT',
+    REFUND: 'REFUND',
+    ADJUSTMENT_CREDIT: 'ADJUSTMENT_CREDIT',
+    ADJUSTMENT_DEBIT: 'ADJUSTMENT_DEBIT'
+});
+
+const TransactionStatus = Object.freeze({
+    PENDING: 'PENDING',
+    COMPLETED: 'COMPLETED',
+    FAILED: 'FAILED',
+    CANCELED: 'CANCELED',
+    REQUIRES_APPROVAL: 'REQUIRES_APPROVAL',
+    PROCESSING: 'PROCESSING',
+    REFUNDED: 'REFUNDED',
+    REJECTED: 'REJECTED',
+    PAYMENT_FAILED: 'PAYMENT_FAILED',
+    ERROR_INSUFFICIENT_FUNDS_POST_PAYMENT: 'ERROR_INSUFFICIENT_FUNDS_POST_PAYMENT'
+});
+
+Transaction.validTypes = Object.values(TransactionType);
+Transaction.Status = TransactionStatus;
+Transaction.validStatuses = Object.values(Transaction.Status);
+
+
+module.exports = { Transaction, TransactionType, TransactionStatus };
