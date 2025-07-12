@@ -26,14 +26,16 @@ A comprehensive, secure, and scalable tournament platform built with Node.js, Ex
 
 - **Secure Registration and Authentication**: JWT-based (Access & Refresh Tokens in HttpOnly cookies).
 - **Wallet System**: Top-up with idempotency, transaction history, secure withdrawal requests.
-- **Tournament Management**: List, view details, register for tournaments.
+- **Tournament Management**: Create, list, view details, register for, and manage tournaments. Tournament Managers can manage tournaments for games they are assigned to.
+- **Advanced Role Management**: Supports roles like `PLAYER`, `ADMIN`, `TOURNAMENT_MANAGER`, `TOURNAMENT_SUPPORT`, `GENERAL_SUPPORT` for granular access control.
+- **Flexible Tournament Types**: Supports various entry fees (free, paid cash, paid in-game currency) and prize types (cash, physical items, in-game items).
 - **Team Formation & Coordination**: (Conceptual - basic structure for rooms).
-- **Real-time Match Updates**: Live chat, bracket updates via Socket.io.
+- **Real-time Match Updates & Chat**: Live bracket updates via Socket.io. Groundwork for a comprehensive real-time chat system between users and support staff (Tournament Support, General Support) is in place with new ChatSession and ChatMessage entities.
 - **Secure Result Reporting**: Signed URLs for screenshot uploads, asynchronous malware scanning.
 - **Dispute Resolution**: Admin panel for moderators.
 - **Prize Payouts**: Asynchronous processing via message queue.
 - **Leaderboards**: Served from a read-optimized database (e.g., Redis).
-- **Admin Panel**: Role-based access for managing disputes and withdrawals.
+- **Admin Panel**: Role-based access for managing users, roles, disputes, and withdrawals.
 
 ## Architectural Principles
 
@@ -68,6 +70,7 @@ The project follows a Clean Architecture pattern:
 ├── src/
 │   ├── application/  # Use cases, application-specific logic
 │   ├── domain/       # Core business logic, entities, repository interfaces
+│   │   └── chat/     # Entities for the chat system (ChatSession, ChatMessage)
 │   ├── infrastructure/ # Database connectors, external service adapters (cache, messaging)
 │   ├── presentation/   # API routes, WebSocket handlers, webhook controllers
 │   ├── middleware/   # Express middleware (auth, error handling, RBAC)
@@ -197,15 +200,21 @@ The `server.js` file is configured to load `docs/swagger-generated.json` and ser
 
 Key endpoint categories include:
 
-- **Authentication**: `/api/v1/auth/register`, `/api/v1/auth/login`, etc.
-- **Wallet**: `/api/v1/wallet/deposit/initialize`, `/api/webhooks/payment-gateway`, etc.
-- **Tournaments**: `/api/v1/tournaments`, `/api/v1/tournaments/:id/register`, etc.
-- **Matches**: `/api/v1/matches/:id/results/upload-url`, `/api/v1/matches/:id/results`, etc.
-- **Admin**: `/api/v1/admin/disputes`, `/api/v1/admin/withdrawals`, etc.
+- **Authentication**: Endpoints for user registration, login, token refresh, logout, and email verification.
+- **Users & Admin**: User profile management (self and admin), user listing (admin), role assignment (admin).
+- **Games**: CRUD operations for games (admin).
+- **Tournaments**: Public listing and details, registration. Tournament creation and management by authorized Tournament Managers and Admins.
+- **Matches**: Result submission, fetching match details.
+- **Leaderboards**: Fetching game leaderboards and user ranks.
+- **Wallet**: Deposit initialization, transaction history, withdrawal requests. Admin management of withdrawals.
+- **Admin**: Dispute management, withdrawal approval/rejection, user management, role management.
+
+For detailed endpoint specifications, refer to the interactive Swagger UI.
 
 ## WebSocket Events
 
-Secure WebSocket communication is handled via Socket.io. Key events include:
+Secure WebSocket communication is handled via Socket.io. Key events are detailed in `SOCKET_IO_DOCUMENTATION.md`.
+The platform includes foundational entities (`ChatSession`, `ChatMessage`) for an upcoming comprehensive real-time chat system. This section will be updated as the chat feature is fully implemented. Existing conceptual events:
 
 | Direction          | Event Name     | Description                                                                                              |
 | :----------------- | :------------- | :------------------------------------------------------------------------------------------------------- |
@@ -286,7 +295,7 @@ The project uses GitHub Actions for Continuous Integration and Continuous Deploy
 ## Security Considerations
 
 - **Authentication**: JWTs with short-lived access tokens and HttpOnly refresh tokens.
-- **Authorization**: Role-Based Access Control (RBAC) middleware.
+- **Authorization**: Role-Based Access Control (RBAC) middleware. New roles (`TOURNAMENT_MANAGER`, `TOURNAMENT_SUPPORT`, `GENERAL_SUPPORT`) ensure granular access. For example, Tournament Managers can only manage tournaments for games they are assigned to and tournaments they explicitly manage.
 - **Input Validation**: Joi for request body, params, and query validation.
 - **SQL Injection Prevention**: Sequelize ORM handles query sanitization.
 - **XSS Prevention**: Contextual output encoding (though primarily an API, be mindful if serving HTML).

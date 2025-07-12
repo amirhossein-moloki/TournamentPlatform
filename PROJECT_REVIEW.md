@@ -4,10 +4,16 @@ This document provides a review of the Tournament Platform project, highlighting
 
 ## 1. API Specification (OpenAPI)
 
-The `docs/openapi.yml` specification was audited against the codebase. While a good foundation exists, several discrepancies were found, as detailed in `OPENAPI-AUDIT.RMD`. Key areas include:
+The API specification, located at `docs/swagger-generated.json` (previously referred to as `docs/openapi.yml` in earlier audit discussions), is auto-generated using `swagger-autogen` based on JSDoc comments in the route files and schema definitions in `swagger.js`.
+
+An audit (`OPENAPI-AUDIT.RMD`) was performed against the codebase and a previous version of the API specification. Based on that audit and recent feature additions (new data models, roles, Tournament Manager logic), significant updates have been made to:
+1.  The base schemas defined in `swagger.js`.
+2.  The JSDoc comments within the route handler files (`src/presentation/api/*.routes.js`).
+
+The `docs/swagger-generated.json` file has since been regenerated using `npm run swagger-gen`. This process aims to address many of the previously identified discrepancies, such as:
 
 ### 1.1. Undocumented Endpoints
-A number of API endpoints implemented in the code are not documented in `openapi.yml`. This makes it difficult for consumers of the API to discover and use these functionalities.
+Newly implemented endpoints (e.g., for Admin role management, Tournament Manager actions, Leaderboards, Game CRUD) and previously missed Auth endpoints have been documented via JSDoc comments in their respective route files.
 
 **Examples:**
 *   `POST /api/v1/auth/request-verification-email`
@@ -43,9 +49,9 @@ There are differences between the data structures (schemas) defined in `openapi.
     *   `withdrawalMethodDetails` in request body is more generic in code (Joi) than in OpenAPI (`oneOf` specific types).
     *   Response body in code includes a `status` field not in OpenAPI's `WithdrawalResponse`.
 
-**Recommendation:**
-*   Prioritize updating `docs/openapi.yml` to accurately reflect the current API implementation. This includes adding missing endpoints, correcting paths, documenting all parameters, and ensuring schemas match actual request/response bodies.
-*   Consider tools that can help generate or validate OpenAPI specs from code annotations to reduce drift.
+**Recommendation Status (Post-Update):**
+*   The primary mechanism for keeping the API specification (`docs/swagger-generated.json`) accurate is now through diligent JSDoc commenting in the route files and maintaining the base schemas in `swagger.js`. The `swagger-autogen` tool handles the generation.
+*   The process addresses the need to reduce drift between code and documentation. Ongoing vigilance in updating JSDoc comments with code changes is crucial.
 
 ## 2. Other Project Aspects
 
@@ -78,28 +84,25 @@ There are differences between the data structures (schemas) defined in `openapi.
 
 ### 2.7. Documentation
 *   **Strengths**:
-    *   `README.md`: Provides a good overview of the project, setup, and architecture.
-    *   `SOCKET_IO_DOCUMENTATION.md`: Offers detailed insights into the WebSocket implementation.
-    *   `docs/openapi.yml`: Serves as the API specification.
-    *   `OPENAPI-AUDIT.RMD`: This audit itself is a valuable piece of documentation highlighting areas for API spec improvement.
+    *   `README.md`: Provides a good overview of the project, setup, and architecture. (Updated for new features).
+    *   `SOCKET_IO_DOCUMENTATION.md`: Offers detailed insights into the WebSocket implementation. (Updated for new entities and roles).
+    *   `docs/swagger-generated.json`: Serves as the auto-generated API specification from source code comments. (Regenerated after updates).
+    *   `OPENAPI-AUDIT.RMD`: This audit highlighted areas for API spec improvement, many of which have been addressed by updating the source code annotations for `swagger-autogen`.
 *   **Areas for Attention**:
-    *   The primary concern is the synchronization of `docs/openapi.yml` with the codebase, as detailed above.
-    *   Consider adding more in-code documentation (e.g., JSDoc comments) for complex functions or modules.
-    *   Ensure all major features and architectural decisions are documented.
+    *   The primary concern of synchronizing the API specification with the codebase is now addressed by using `swagger-autogen`. The focus shifts to maintaining the accuracy of JSDoc comments in the route files and base schemas in `swagger.js`.
+    *   In-code documentation (JSDoc comments) for API endpoints has been significantly improved as part of this process.
+    *   Ensure all major features and architectural decisions continue to be documented.
 
 ## 3. Conclusion and Recommendations
 
-The Tournament Platform project is well-structured, utilizing modern technologies and good development practices (Clean Architecture, testing, linting, configuration management). The existing documentation provides a solid base.
+The Tournament Platform project is well-structured, utilizing modern technologies and good development practices. Recent efforts have focused on aligning the API documentation with the codebase using `swagger-autogen`.
 
-The most significant area requiring immediate attention is the **synchronization of the OpenAPI specification (`docs/openapi.yml`) with the actual API implementation**. Addressing the discrepancies identified in `OPENAPI-AUDIT.RMD` should be a high priority.
+The synchronization of the API specification (`docs/swagger-generated.json`) with the actual API implementation is now managed through JSDoc comments in the source code and the `swagger.js` configuration file. Many discrepancies identified in `OPENAPI-AUDIT.RMD` have been addressed through this process.
 
-**Key Recommendations:**
+**Key Recommendations (Updated):**
 
-1.  **Update OpenAPI Specification**: Dedicate effort to making `docs/openapi.yml` a true and accurate representation of the API.
-2.  **Establish Documentation Workflow**: Implement processes to ensure documentation (especially API specs) is updated as part of the development lifecycle when code changes are made. This could involve:
-    *   Including documentation updates in the definition of "done" for a feature/bugfix.
-    *   Using tools that help generate/validate OpenAPI from code annotations.
-    *   Regularly re-auditing the OpenAPI spec.
+1.  **Maintain JSDoc Accuracy**: Ensure JSDoc comments in route files and schemas in `swagger.js` are kept up-to-date as the API evolves. This is crucial for the accuracy of the auto-generated `docs/swagger-generated.json`.
+2.  **Regularly Regenerate API Spec**: Run `npm run swagger-gen` as part of the development workflow when API-related changes are made.
 3.  **Review Test Coverage**: Analyze the test coverage report to identify untested parts of the application and improve test suites accordingly.
 4.  **Regular Dependency & Security Reviews**: Schedule periodic reviews of dependencies for vulnerabilities and conduct security health checks.
 5.  **Address Minor Discrepancies**: Systematically go through the points raised in `OPENAPI-AUDIT.RMD` and this review to fix smaller inconsistencies.

@@ -106,14 +106,21 @@ const doc = {
                 },
                 required: ["email", "password"]
             },
-            UserPublicProfile: { // Consistent User Profile schema
+            UserPublicProfile: {
                 type: "object",
                 properties: {
                     id: { type: "string", format: "uuid", description: "User's unique identifier" },
                     username: { type: "string", description: "User's username" },
-                    role: { type: "string", description: "User's role", enum: ["User", "Admin", "DisputeModerator", "FinanceManager"], example: "User" },
-                    // Add other publicly visible fields if necessary, e.g., isVerified
-                    isVerified: { type: "boolean", description: "Indicates if the user's email is verified", example: true}
+                    email: { type: "string", format: "email" },
+                    roles: {
+                        type: "array",
+                        items: {
+                          "type": "string",
+                          "enum": ["PLAYER", "ADMIN", "TOURNAMENT_MANAGER", "TOURNAMENT_SUPPORT", "GENERAL_SUPPORT"]
+                        },
+                        description: "List of roles assigned to the user."
+                    },
+                    isVerified: { type: "boolean", description: "Indicates if the user's email is verified", example: true }
                 }
             },
             AuthResponse: {
@@ -175,8 +182,15 @@ const doc = {
                 properties: {
                     username: { type: "string", minLength: 3, description: "New username for the user", example: "updated_user" },
                     email: { type: "string", format: "email", description: "New email for the user", example: "updated_user@example.com" },
-                    role: { type: "string", enum: ["User", "Admin", "DisputeModerator", "FinanceManager"], description: "New role for the user", example: "Admin" },
-                    isVerified: { type: "boolean", description: "Set email verification status", example: true }
+                    roles: {
+                        type: "array",
+                        items: {
+                          "type": "string",
+                          "enum": ["PLAYER", "ADMIN", "TOURNAMENT_MANAGER", "TOURNAMENT_SUPPORT", "GENERAL_SUPPORT"]
+                        },
+                        description: "Array of roles to assign to the user."
+                    },
+                    isVerified: { "type": "boolean", "description": "Set email verification status", "example": true }
                 },
                 minProperties: 1
             },
@@ -289,25 +303,75 @@ const doc = {
                     }
                 ]
             },
-            // TODO: Add schemas for Games, Tournaments, Matches, Leaderboards, Wallet as their JSDoc/Joi schemas become clear
-            GameBase: {
+            ChatSession: {
+                "type": "object",
+                "properties": {
+                  "id": { "type": "string", "format": "uuid" },
+                  "userId": { "type": "string", "format": "uuid" },
+                  "supportId": { "type": "string", "format": "uuid", "nullable": true },
+                  "tournamentId": { "type": "string", "format": "uuid", "nullable": true },
+                  "status": { "type": "string", "enum": ["OPEN", "ACTIVE", "CLOSED_BY_USER", "CLOSED_BY_SUPPORT", "RESOLVED"], "default": "OPEN" },
+                  "createdAt": { "type": "string", "format": "date-time" },
+                  "updatedAt": { "type": "string", "format": "date-time" }
+                }
+            },
+            ChatMessage: {
+                "type": "object",
+                "properties": {
+                  "id": { "type": "string", "format": "uuid" },
+                  "sessionId": { "type": "string", "format": "uuid" },
+                  "senderId": { "type": "string", "format": "uuid" },
+                  "senderType": { "type": "string", "enum": ["USER", "SUPPORT"] },
+                  "messageContent": { "type": "string" },
+                  "messageType": { "type": "string", "enum": ["TEXT", "IMAGE_URL", "SYSTEM"], "default": "TEXT" },
+                  "timestamp": { "type": "string", "format": "date-time" },
+                  "metadata": { "type": "object", "additionalProperties": true, "nullable": true }
+                }
+            },
+            Game: {
                 type: "object",
                 properties: {
-                    name: { type: "string", description: "Name of the game", example: "Epic Quest RPG" },
-                    description: { type: "string", description: "Description of the game", example: "An immersive open-world RPG." },
-                    genre: { type: "string", description: "Genre of the game", example: "RPG" },
-                    platform: { type: "string", description: "Platform(s) the game is available on", example: "PC, PlayStation, Xbox" },
-                    releaseDate: { type: "string", format: "date", description: "Release date of the game", example: "2023-10-26" },
-                    developer: { type: "string", description: "Developer of the game", example: "Awesome Game Studios" },
-                    publisher: { type: "string", description: "Publisher of the game", example: "Global Gaming Inc." },
-                    thumbnailUrl: { type: "string", format: "url", nullable: true, description: "URL to the game's thumbnail image", example: "https://example.com/game_thumbnail.jpg" },
-                    bannerUrl: { type: "string", format: "url", nullable: true, description: "URL to the game's banner image", example: "https://example.com/game_banner.jpg" },
-                    rules: { type: "string", nullable: true, description: "Specific rules for tournaments of this game" }
+                    id: { "type": "string", "format": "uuid" },
+                    name: { "type": "string", "example": "Epic Quest RPG" },
+                    shortName: { "type": "string", "nullable": true, "example": "EQRPG" },
+                    description: { "type": "string", "nullable": true, "example": "An immersive open-world RPG." },
+                    "iconUrl": { "type": "string", "format": "url", "nullable": true },
+                    "bannerUrl": { "type": "string", "format": "url", "nullable": true },
+                    "platforms": { "type": "array", "items": { "type": "string" }, "nullable": true, "example": ["PC", "PlayStation"] },
+                    "supportedModes": { "type": "array", "items": { "type": "string" }, "nullable": true, "example": ["1v1", "5v5"] },
+                    "isActive": { "type": "boolean", "default": true },
+                    "winCondition": { "type": "string", "enum": ["higher_score_wins", "lower_score_wins"], "nullable": true },
+                    "tournament_managers": { "type": "array", "items": { "type": "string", "format": "uuid" }, "nullable": true },
+                    "tournament_supports": { "type": "array", "items": { "type": "string", "format": "uuid" }, "nullable": true },
+                    "createdAt": { "type": "string", "format": "date-time" },
+                    "updatedAt": { "type": "string", "format": "date-time" }
                 },
-                required: ["name", "genre", "platform", "developer"]
+                required: ["id", "name"]
             },
-            GameRequest: { // For POST/PUT body
-                allOf: [ { $ref: "#/components/schemas/GameBase" } ]
+            Tournament: {
+                type: "object",
+                properties: {
+                    id: { "type": "string", "format": "uuid" },
+                    name: { "type": "string" },
+                    "gameId": { "type": "string", "format": "uuid" },
+                    "description": { "type": "string", "nullable": true },
+                    "rules": { "type": "string", "nullable": true },
+                    "status": { "type": "string", "enum": ["PENDING", "REGISTRATION_OPEN", "REGISTRATION_CLOSED", "ONGOING", "COMPLETED", "CANCELED"] },
+                    "entryFee": { "type": "number", "format": "float" },
+                    "entryFeeType": { "type": "string", "enum": ["FREE", "PAID_CASH", "PAID_INGAME_CURRENCY"] },
+                    "prizePool": { "type": "number", "format": "float" },
+                    "prizeType": { "type": "string", "enum": ["NONE", "CASH", "PHYSICAL_ITEM", "INGAME_ITEM", "MIXED"] },
+                    "prizeDetails": { "type": "string", "nullable": true },
+                    "maxParticipants": { "type": "integer" },
+                    "currentParticipants": { "type": "integer" },
+                    "startDate": { "type": "string", "format": "date-time" },
+                    "endDate": { "type": "string", "format": "date-time", "nullable": true },
+                    "managed_by": { "type": "array", "items": { "type": "string", "format": "uuid" } },
+                    "supported_by": { "type": "array", "items": { "type": "string", "format": "uuid" } },
+                    "entryConditions": { "type": "object", "additionalProperties": true, "nullable": true },
+                    "createdAt": { "type": "string", "format": "date-time" },
+                    "updatedAt": { "type": "string", "format": "date-time" }
+                }
             },
             GameResponse: { // For GET responses
                 allOf: [
