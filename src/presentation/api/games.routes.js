@@ -1,185 +1,127 @@
-// src/presentation/api/games.routes.js
-const express = require('express');
-// const GameController = require('../controllers/game.controller.js');
-// const { authMiddleware, adminRoleMiddleware } = require('../../middleware/auth.middleware.js');
+const router = require('express').Router();
+const { Joi, validate } = require('express-validation');
+const gameController = require('../controllers/game.controller');
+const { authenticateToken, authorizeRole } = require('../../middleware/auth.middleware');
+const { UserRoles } = require('../../domain/user/user.entity');
 
-const router = express.Router();
-
-module.exports = (gameController, authMiddleware, adminRoleMiddleware) => {
-    // Public routes
-    router.get('/', gameController.listGames);
-    // #swagger.tags = ['Games']
-    // #swagger.summary = 'List all available games.'
-    // #swagger.description = 'Retrieves a paginated list of all games available on the platform. Publicly accessible.'
-    // #swagger.parameters['page'] = { in: 'query', description: 'Page number for pagination.', schema: { type: 'integer', default: 1, minimum: 1 } }
-    // #swagger.parameters['limit'] = { in: 'query', description: 'Number of games per page.', schema: { type: 'integer', default: 10, minimum: 1, maximum: 100 } }
-    // #swagger.parameters['genre'] = { in: 'query', description: 'Filter games by genre.', schema: { type: 'string' } }
-    // #swagger.parameters['platform'] = { in: 'query', description: 'Filter games by platform.', schema: { type: 'string' } }
-    /* #swagger.responses[200] = {
-            description: 'A paginated list of games.',
-            content: { "application/json": { schema: { $ref: "#/components/schemas/PaginatedGamesResponse" } } }
-    } */
-    /* #swagger.responses[500] = {
-            description: 'Internal server error.',
-            content: { "application/json": { schema: { $ref: "#/components/schemas/ErrorResponse" } } }
-    } */
-
-    router.get('/:gameId', gameController.getGame);
-    // #swagger.tags = ['Games']
-    // #swagger.summary = 'Get details of a specific game.'
-    // #swagger.description = 'Retrieves detailed information about a specific game by its ID. Publicly accessible.'
-    // #swagger.parameters['gameId'] = { in: 'path', description: 'ID of the game to retrieve.', required: true, schema: { type: 'string', format: 'uuid' } }
-    /* #swagger.responses[200] = {
-            description: 'Game details retrieved successfully.',
-            content: { "application/json": { schema: { $ref: "#/components/schemas/GameResponse" } } }
-    } */
-    /* #swagger.responses[404] = {
-            description: 'Game not found.',
-            content: { "application/json": { schema: { $ref: "#/components/schemas/ErrorResponse" } } }
-    } */
-    /* #swagger.responses[500] = {
-            description: 'Internal server error.',
-            content: { "application/json": { schema: { $ref: "#/components/schemas/ErrorResponse" } } }
-    } */
-
-
-    // Admin routes
-    router.post(
-        '/',
-        authMiddleware, // General authentication
-        adminRoleMiddleware, // Role check for admin
-        // TODO: Add Joi validation middleware for req.body
-        gameController.createGame
-    );
-    // #swagger.tags = ['Admin - Games']
-    // #swagger.summary = 'Create a new game (Admin only).'
-    // #swagger.description = 'Adds a new game to the platform. Requires Admin privileges.'
-    // #swagger.security = [{ "bearerAuth": [] }]
-    /* #swagger.requestBody = {
-            required: true,
-            content: {
-                "application/json": {
-                    schema: { $ref: "#/components/schemas/GameRequest" }
-                }
-            }
-    } */
-    /* #swagger.responses[201] = {
-            description: 'Game created successfully.',
-            content: { "application/json": { schema: { $ref: "#/components/schemas/GameResponse" } } }
-    } */
-    /* #swagger.responses[400] = {
-            description: 'Validation error (e.g., missing required fields).',
-            content: { "application/json": { schema: { $ref: "#/components/schemas/ErrorResponse" } } }
-    } */
-    /* #swagger.responses[401] = {
-            description: 'Unauthorized (not logged in).',
-            content: { "application/json": { schema: { $ref: "#/components/schemas/ErrorResponse" } } }
-    } */
-    /* #swagger.responses[403] = {
-            description: 'Forbidden (user is not an Admin).',
-            content: { "application/json": { schema: { $ref: "#/components/schemas/ErrorResponse" } } }
-    } */
-    /* #swagger.responses[500] = {
-            description: 'Internal server error.',
-            content: { "application/json": { schema: { $ref: "#/components/schemas/ErrorResponse" } } }
-    } */
-
-    router.put(
-        '/:gameId',
-        authMiddleware,
-        adminRoleMiddleware,
-        // TODO: Add Joi validation middleware for req.body & req.params
-        gameController.updateGame
-    );
-    // #swagger.tags = ['Admin - Games']
-    // #swagger.summary = 'Update an existing game (Admin only).'
-    // #swagger.description = 'Updates the details of an existing game. Requires Admin privileges.'
-    // #swagger.security = [{ "bearerAuth": [] }]
-    // #swagger.parameters['gameId'] = { in: 'path', description: 'ID of the game to update.', required: true, schema: { type: 'string', format: 'uuid' } }
-    /* #swagger.requestBody = {
-            required: true,
-            content: {
-                "application/json": {
-                    schema: { $ref: "#/components/schemas/GameRequest" }
-                }
-            }
-    } */
-    /* #swagger.responses[200] = {
-            description: 'Game updated successfully.',
-            content: { "application/json": { schema: { $ref: "#/components/schemas/GameResponse" } } }
-    } */
-    /* #swagger.responses[400] = {
-            description: 'Validation error or invalid Game ID.',
-            content: { "application/json": { schema: { $ref: "#/components/schemas/ErrorResponse" } } }
-    } */
-    /* #swagger.responses[401] = {
-            description: 'Unauthorized.',
-            content: { "application/json": { schema: { $ref: "#/components/schemas/ErrorResponse" } } }
-    } */
-    /* #swagger.responses[403] = {
-            description: 'Forbidden.',
-            content: { "application/json": { schema: { $ref: "#/components/schemas/ErrorResponse" } } }
-    } */
-    /* #swagger.responses[404] = {
-            description: 'Game not found.',
-            content: { "application/json": { schema: { $ref: "#/components/schemas/ErrorResponse" } } }
-    } */
-    /* #swagger.responses[500] = {
-            description: 'Internal server error.',
-            content: { "application/json": { schema: { $ref: "#/components/schemas/ErrorResponse" } } }
-    } */
-
-    router.delete(
-        '/:gameId',
-        authMiddleware,
-        adminRoleMiddleware,
-        // TODO: Add Joi validation middleware for req.params
-        gameController.deleteGame
-    );
-    // #swagger.tags = ['Admin - Games']
-    // #swagger.summary = 'Delete a game (Admin only).'
-    // #swagger.description = 'Deletes a game from the platform. Requires Admin privileges.'
-    // #swagger.security = [{ "bearerAuth": [] }]
-    // #swagger.parameters['gameId'] = { in: 'path', description: 'ID of the game to delete.', required: true, schema: { type: 'string', format: 'uuid' } }
-    /* #swagger.responses[200] = {
-            description: 'Game deleted successfully.',
-            content: { "application/json": { schema: { $ref: "#/components/schemas/SuccessResponse" } } } // Or 204 No Content
-    } */
-    // #swagger.responses[204] = { description: 'Game deleted successfully (No Content).' }
-    /* #swagger.responses[401] = {
-            description: 'Unauthorized.',
-            content: { "application/json": { schema: { $ref: "#/components/schemas/ErrorResponse" } } }
-    } */
-    /* #swagger.responses[403] = {
-            description: 'Forbidden.',
-            content: { "application/json": { schema: { $ref: "#/components/schemas/ErrorResponse" } } }
-    } */
-    /* #swagger.responses[404] = {
-            description: 'Game not found.',
-            content: { "application/json": { schema: { $ref: "#/components/schemas/ErrorResponse" } } }
-    } */
-    /* #swagger.responses[500] = {
-            description: 'Internal server error.',
-            content: { "application/json": { schema: { $ref: "#/components/schemas/ErrorResponse" } } }
-    } */
-
-    return router;
+// Joi Schemas for Game
+const gameIdParamSchema = {
+    params: Joi.object({
+        id: Joi.string().uuid().required(),
+    }),
 };
 
-// Example of how it might be used in app.js (or a main routes index file):
-// import gameRoutesFactory from './games.routes.js';
-// import GameController from '../controllers/game.controller.js';
-// // ... import use cases and repositories, then instantiate them
-// const gameControllerInstance = new GameController(...);
-// const authMiddlewareInstance = ...; // your auth middleware
-// const adminRoleMiddlewareInstance = ...; // your admin role middleware
-//
-// app.use('/api/v1/games', gameRoutesFactory(gameControllerInstance, authMiddlewareInstance, adminRoleMiddlewareInstance));
+const gamePayloadSchema = {
+    body: Joi.object({
+        name: Joi.string().min(1).max(100).required(),
+        shortName: Joi.string().min(1).max(20).optional().allow(null, ''),
+        description: Joi.string().max(1000).optional().allow(null, ''),
+        iconUrl: Joi.string().uri().optional().allow(null, ''),
+        bannerUrl: Joi.string().uri().optional().allow(null, ''),
+        platforms: Joi.array().items(Joi.string()).optional(),
+        supportedModes: Joi.array().items(Joi.string()).optional(),
+        isActive: Joi.boolean().default(true),
+        winCondition: Joi.string().valid('higher_score_wins', 'lower_score_wins').optional().allow(null),
+        tournament_managers: Joi.array().items(Joi.string().uuid()).optional().allow(null),
+        tournament_supports: Joi.array().items(Joi.string().uuid()).optional().allow(null)
+    }),
+};
 
-// Note: The actual middleware for auth and admin roles needs to be implemented
-// and available. For example:
-// export const authMiddleware = (req, res, next) => { /* ... */ };
-// export const adminRoleMiddleware = (req, res, next) => { /* ... if (req.user.role === 'Admin') next(); else res.sendStatus(403); ... */ };
-// These are simplified. Real auth is more complex.
-// Joi validation middleware would also be added here.
-// e.g. router.post('/', auth, admin, validate(createGameSchema), gameController.createGame);
+const listGamesSchema = {
+    query: Joi.object({
+        page: Joi.number().integer().min(1),
+        limit: Joi.number().integer().min(1).max(100),
+        isActive: Joi.boolean(),
+        sortBy: Joi.string(), // e.g., 'name:asc'
+    }),
+};
+
+
+// --- Routes ---
+
+// Create a new game (Admin only)
+router.post('/', authenticateToken, authorizeRole([UserRoles.ADMIN]), validate(gamePayloadSchema), gameController.createGame);
+/*  #swagger.tags = ['Games']
+    #swagger.summary = 'Create a new game (Admin only)'
+    #swagger.description = 'Allows an Admin to add a new game to the platform.'
+    #swagger.security = [{ "bearerAuth": [] }]
+    #swagger.requestBody = {
+        required: true,
+        content: { "application/json": { schema: { $ref: "#/components/schemas/Game" } } } // Assuming Game schema matches GameBase + id, createdAt, updatedAt
+    }
+    #swagger.responses[201] = {
+        description: 'Game created successfully.',
+        content: { "application/json": { schema: { $ref: "#/components/schemas/Game" } } }
+    }
+    #swagger.responses[400] = { $ref: '#/components/responses/BadRequestError' }
+    #swagger.responses[401] = { $ref: '#/components/responses/UnauthorizedError' }
+    #swagger.responses[403] = { $ref: '#/components/responses/ForbiddenError' }
+*/
+
+// Get a list of all games (Public, can filter by isActive)
+router.get('/', validate(listGamesSchema), gameController.listGames);
+/*  #swagger.tags = ['Games']
+    #swagger.summary = 'Get a list of games'
+    #swagger.description = 'Retrieves a paginated list of games, optionally filtered by active status.'
+    #swagger.parameters['page'] = { $ref: '#/components/parameters/PageParam' }
+    #swagger.parameters['limit'] = { $ref: '#/components/parameters/LimitParam' }
+    #swagger.parameters['isActive'] = { in: 'query', schema: { type: 'boolean' }, description: 'Filter by active status.' }
+    #swagger.parameters['sortBy'] = { in: 'query', schema: { type: 'string' }, description: 'Sort by field (e.g., name:asc).' }
+    #swagger.responses[200] = {
+        description: 'A list of games.',
+        content: { "application/json": { schema: { $ref: "#/components/schemas/PaginatedGamesResponse" } } } // Define PaginatedGamesResponse
+    }
+    #swagger.responses[400] = { $ref: '#/components/responses/BadRequestError' }
+*/
+
+// Get a specific game by ID (Public)
+router.get('/:id', validate(gameIdParamSchema), gameController.getGameById);
+/*  #swagger.tags = ['Games']
+    #swagger.summary = 'Get game details by ID'
+    #swagger.description = 'Retrieves detailed information for a specific game.'
+    #swagger.parameters['id'] = { $ref: '#/components/parameters/GameIdPath' } // Ensure GameIdPath is defined in components
+    #swagger.responses[200] = {
+        description: 'Game details retrieved successfully.',
+        content: { "application/json": { schema: { $ref: "#/components/schemas/Game" } } }
+    }
+    #swagger.responses[404] = { $ref: '#/components/responses/NotFoundError' }
+*/
+
+// Update a game by ID (Admin only)
+router.put('/:id', authenticateToken, authorizeRole([UserRoles.ADMIN]), validate(gameIdParamSchema), validate(gamePayloadSchema), gameController.updateGame);
+/*  #swagger.tags = ['Games']
+    #swagger.summary = 'Update a game by ID (Admin only)'
+    #swagger.description = 'Allows an Admin to update an existing game.'
+    #swagger.security = [{ "bearerAuth": [] }]
+    #swagger.parameters['id'] = { $ref: '#/components/parameters/GameIdPath' }
+    #swagger.requestBody = {
+        required: true,
+        content: { "application/json": { schema: { $ref: "#/components/schemas/Game" } } } // Can reuse Game schema or a specific UpdateGameRequest
+    }
+    #swagger.responses[200] = {
+        description: 'Game updated successfully.',
+        content: { "application/json": { schema: { $ref: "#/components/schemas/Game" } } }
+    }
+    #swagger.responses[400] = { $ref: '#/components/responses/BadRequestError' }
+    #swagger.responses[401] = { $ref: '#/components/responses/UnauthorizedError' }
+    #swagger.responses[403] = { $ref: '#/components/responses/ForbiddenError' }
+    #swagger.responses[404] = { $ref: '#/components/responses/NotFoundError' }
+*/
+
+// Delete a game by ID (Admin only)
+router.delete('/:id', authenticateToken, authorizeRole([UserRoles.ADMIN]), validate(gameIdParamSchema), gameController.deleteGame);
+/*  #swagger.tags = ['Games']
+    #swagger.summary = 'Delete a game by ID (Admin only)'
+    #swagger.description = 'Allows an Admin to delete a game.'
+    #swagger.security = [{ "bearerAuth": [] }]
+    #swagger.parameters['id'] = { $ref: '#/components/parameters/GameIdPath' }
+    #swagger.responses[200] = {
+        description: 'Game deleted successfully.',
+        content: { "application/json": { schema: { $ref: "#/components/schemas/SuccessResponseMessage" } } }
+    }
+    #swagger.responses[401] = { $ref: '#/components/responses/UnauthorizedError' }
+    #swagger.responses[403] = { $ref: '#/components/responses/ForbiddenError' }
+    #swagger.responses[404] = { $ref: '#/components/responses/NotFoundError' }
+*/
+
+module.exports = router;
