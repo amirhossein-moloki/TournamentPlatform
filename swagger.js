@@ -1,4 +1,4 @@
-const swaggerAutogen = require('swagger-autogen')({ openapi: '3.0.3' }); // Specify OpenAPI version here
+const swaggerAutogen = require('swagger-autogen')({ openapi: '3.0.3' });
 const path = require('path');
 const fs = require('fs');
 
@@ -812,21 +812,7 @@ const doc = {
 };
 
 const outputFile = './docs/swagger-generated.json';
-const endpointsFiles = [
-    // List all your route files here.
-    // It's crucial that these files contain the JSDoc comments that swagger-autogen uses.
-    './src/presentation/api/admin.routes.js',
-    './src/presentation/api/auth.routes.js',
-    './src/presentation/api/games.routes.js',
-    './src/presentation/api/leaderboards.routes.js',
-    './src/presentation/api/matches.routes.js',
-    './src/presentation/api/teams.routes.js',
-    './src/presentation/api/tournaments.routes.js',
-    './src/presentation/api/users.routes.js',
-    './src/presentation/api/wallet.routes.js'
-    // Do NOT include app.js if your routes are self-contained and mounted there.
-    // swagger-autogen works best by pointing directly to the files defining the router objects.
-];
+const endpointsFiles = ['./src/routes.js'];
 
 // Generate swagger.json
 swaggerAutogen(outputFile, endpointsFiles, doc).then(async () => {

@@ -141,7 +141,7 @@ describe('UpdateTournamentDetailsByManagerUseCase', () => {
 
   it('should successfully update gameId if new game exists', async () => {
     const newGameId = faker.string.uuid();
-    const newGame = new Game(newGameId, 'New Test Game', 'new-game-slug');
+    const newGame = new Game({ id: newGameId, name: 'New Test Game', shortName: 'new-game-slug' });
     mockGameRepository.findById.mockResolvedValueOnce(newGame); // Simulate new game found
 
     const updateData = { gameId: newGameId };
