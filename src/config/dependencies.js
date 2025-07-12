@@ -40,6 +40,14 @@ const UserGameProfileController = require('../presentation/controllers/userGameP
 // TODO: Add UserController when created/refactored
 // TODO: Add TournamentController if routes are refactored
 
+// Auth Use Cases
+const RegisterUserUseCase = require('../application/use-cases/auth/register-user.usecase.js');
+const LoginUseCase = require('../application/use-cases/auth/login.usecase.js');
+const RefreshTokenUseCase = require('../application/use-cases/auth/refresh-token.usecase.js');
+const LogoutUseCase = require('../application/use-cases/auth/logout.usecase.js');
+const SendVerificationEmailUseCase = require('../application/use-cases/auth/send-verification-email.usecase.js');
+const VerifyEmailUseCase = require('../application/use-cases/auth/verify-email.usecase.js');
+
 // User Use Cases (from users.routes.js)
 const GetUserProfileUseCase = require('../application/use-cases/user/get-user-profile.usecase');
 const UpdateUserProfileUseCase = require('../application/use-cases/user/update-user-profile.usecase');
@@ -75,6 +83,14 @@ const listActiveGamesUseCase = new ListActiveGamesUseCase(gameRepository);
 const updateGameUseCase = new UpdateGameUseCase(gameRepository);
 const deleteGameUseCase = new DeleteGameUseCase(gameRepository);
 
+// Instantiate Auth Use Cases
+const registerUserUseCase = new RegisterUserUseCase(userRepository);
+const loginUseCase = new LoginUseCase(userRepository);
+const refreshTokenUseCase = new RefreshTokenUseCase(userRepository);
+const logoutUseCase = new LogoutUseCase(userRepository);
+const sendVerificationEmailUseCase = new SendVerificationEmailUseCase(userRepository);
+const verifyEmailUseCase = new VerifyEmailUseCase(userRepository);
+
 // Instantiate User Use Cases (from users.routes.js)
 const getUserProfileUseCase = new GetUserProfileUseCase(userRepository);
 const updateUserProfileUseCase = new UpdateUserProfileUseCase(userRepository);
@@ -109,6 +125,17 @@ const updateScoreUseCase = new UpdateScoreUseCase(leaderboardRepository, userRep
 
 
 // Instantiate Controllers
+const AuthController = require('../presentation/controllers/auth.controller.js');
+
+const authController = new AuthController({
+    registerUser: registerUserUseCase,
+    login: loginUseCase,
+    refreshToken: refreshTokenUseCase,
+    logout: logoutUseCase,
+    sendVerificationEmail: sendVerificationEmailUseCase,
+    verifyEmail: verifyEmailUseCase,
+});
+
 const gameController = new GameController(
   createGameUseCase,
   getGameByIdUseCase,
@@ -131,6 +158,7 @@ const userGameProfileController = new UserGameProfileController(
 // Export instances
 module.exports = {
   // Controllers
+  authController,
   gameController,
   userGameProfileController, // Added
   // Repositories

@@ -112,7 +112,7 @@ describe('UpdateTournamentDetailsByManagerUseCase', () => {
   });
 
   it('should throw ApiError if user is not a TOURNAMENT_MANAGER', async () => {
-    managerUser.roles = [UserRoles.PLAYER]; // Not a manager
+    managerUser.roles = [User.UserRoles.PLAYER]; // Not a manager
     mockUserRepository.findById.mockResolvedValue(managerUser);
     await expect(updateTournamentDetailsByManagerUseCase.execute(managerUser.id, tournamentToUpdate.id, { name: 'New Name' }))
       .rejects.toThrow(new ApiError(httpStatusCodes.FORBIDDEN, `User ${managerUser.id} is not authorized as a Tournament Manager.`));
