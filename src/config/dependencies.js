@@ -129,6 +129,21 @@ const getUserRankUseCase = new GetUserRankUseCase(leaderboardRepository);
 const updateScoreUseCase = new UpdateScoreUseCase(leaderboardRepository, userRepository); // userRepository can be optional
 
 
+const ChatController = require('../presentation/controllers/chat.controller.js');
+const CreateChatSessionUseCase = require('../application/use-cases/chat/createChatSession.usecase.js');
+const GetUserChatSessionsUseCase = require('../application/use-cases/chat/getUserChatSessions.usecase.js');
+const GetChatHistoryUseCase = require('../application/use-cases/chat/getChatHistory.usecase.js');
+
+const createChatSessionUseCase = new CreateChatSessionUseCase({ chatRepository, userRepository });
+const getUserChatSessionsUseCase = new GetUserChatSessionsUseCase({ chatRepository });
+const getChatHistoryUseCase = new GetChatHistoryUseCase({ chatRepository });
+
+const chatController = new ChatController({
+    createChatSessionUseCase,
+    getUserChatSessionsUseCase,
+    getChatHistoryUseCase,
+});
+
 // Instantiate Controllers
 const AuthController = require('../presentation/controllers/auth.controller.js');
 
@@ -174,6 +189,7 @@ module.exports = {
   gameController,
   userGameProfileController, // Added
   tournamentController,
+  chatController,
   // Repositories
   gameRepository,
   userRepository,
