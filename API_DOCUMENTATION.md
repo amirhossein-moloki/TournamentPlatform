@@ -17,6 +17,7 @@ This document provides a detailed description of the REST API for the Tournament
   - [Matches](#matches)
   - [Leaderboards](#leaderboards)
   - [Wallet](#wallet)
+  - [Chat](#chat)
 
 ---
 

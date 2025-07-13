@@ -10,6 +10,8 @@ const defineWalletModel = require('./wallet.model'); // Import WalletModel defin
 const defineTransactionModel = require('./transaction.model'); // Import TransactionModel definer
 const defineDisputeTicketModel = require('./disputeTicket.model'); // Import DisputeTicketModel definer
 const defineIdempotencyRequestModel = require('./idempotencyRequest.model'); // Import IdempotencyRequestModel definer
+const defineChatSessionModel = require('./chatSession.model');
+const defineChatMessageModel = require('./chatMessage.model');
 
 const db = {};
 
@@ -27,6 +29,8 @@ db.WalletModel = defineWalletModel(sequelize); // Initialize WalletModel
 db.TransactionModel = defineTransactionModel(sequelize); // Initialize TransactionModel
 db.DisputeTicketModel = defineDisputeTicketModel(sequelize); // Initialize DisputeTicketModel
 db.IdempotencyRequestModel = defineIdempotencyRequestModel(sequelize); // Initialize IdempotencyRequestModel
+db.ChatSessionModel = defineChatSessionModel(sequelize);
+db.ChatMessageModel = defineChatMessageModel(sequelize);
 
 // Define associations
 // Call associate method on each model if it exists
