@@ -1,45 +1,49 @@
-const Team = require('../../../domain/team/team.entity'); // Not strictly needed if not mapping to domain entity here
-const TeamRole = require('../../../domain/team/teamRole.enums');
+const Team = require('../../../domain/team/team.entity');
+const TeamMember = require('../../../domain/team/teamMember.entity');
+const { TeamRoles } = require('../../../domain/team/teamRole.enums');
 const ApiError = require('../../../utils/ApiError');
-const httpStatus = require('http-status');
+const httpStatusCodes = require('http-status-codes');
 
 class CreateTeamUseCase {
-  constructor({ teamRepository, userRepository, teamMemberRepository, logger }) { // Added logger
+  constructor({ teamRepository, teamMemberRepository, userRepository }) {
+    if (!teamRepository) throw new Error('teamRepository is required');
+    if (!teamMemberRepository) throw new Error('teamMemberRepository is required');
+    if (!userRepository) throw new Error('userRepository is required');
+
     this.teamRepository = teamRepository;
+    this.teamMemberRepository = teamMemberRepository;
     this.userRepository = userRepository;
-    // teamMemberRepository might not be directly needed if teamRepository.create handles owner membership
-    this.logger = logger;
   }
 
-  async execute({ name, description, logoUrl, ownerId }) {
-    this.logger.info(`Attempting to create team with name: ${name} by owner ID: ${ownerId}`);
+  async execute({ name, description, tag, ownerId }) {
+    if (!name || !ownerId) {
+      throw new ApiError(httpStatusCodes.BAD_REQUEST, 'Team name and owner ID are required.');
+    }
 
     const owner = await this.userRepository.findById(ownerId);
     if (!owner) {
-      this.logger.warn(`Owner (User) not found for ID: ${ownerId} during team creation.`);
-      throw new ApiError(httpStatus.NOT_FOUND, 'Owner (User) not found.');
+      throw new ApiError(httpStatusCodes.NOT_FOUND, 'Owner not found.');
     }
 
     const existingTeam = await this.teamRepository.findByName(name);
     if (existingTeam) {
-      this.logger.warn(`Team name "${name}" already taken. Conflict during creation.`);
-      throw new ApiError(httpStatus.CONFLICT, 'Team name already taken.');
+      throw new ApiError(httpStatusCodes.CONFLICT, 'A team with this name already exists.');
     }
 
-    const teamData = { name, description, logoUrl };
+    const team = new Team({ name, description, tag, ownerId });
+    const createdTeam = await this.teamRepository.create(team);
 
-    try {
-      const newTeam = await this.teamRepository.create(teamData, ownerId);
-      this.logger.info(`Team "${name}" (ID: ${newTeam.id}) created successfully by owner ID: ${ownerId}.`);
-      return newTeam.get({ plain: true });
-    } catch (error) {
-      this.logger.error(`Error creating team "${name}": ${error.message}`, { error });
-      // Check if it's a known DB constraint error vs other errors
-      if (error.name === 'SequelizeUniqueConstraintError') {
-         throw new ApiError(httpStatus.CONFLICT, 'Team name already exists or another unique constraint failed.');
-      }
-      throw new ApiError(httpStatus.INTERNAL_SERVER_ERROR, `Failed to create team: ${error.message}`);
-    }
+    const ownerMember = new TeamMember({
+      teamId: createdTeam.id,
+      userId: ownerId,
+      role: TeamRoles.OWNER,
+      status: 'active',
+    });
+    await this.teamMemberRepository.create(ownerMember);
+
+    // It's useful to return the created team with its owner member
+    const teamWithMembers = await this.teamRepository.findById(createdTeam.id, { includeMembers: true });
+    return teamWithMembers;
   }
 }
 

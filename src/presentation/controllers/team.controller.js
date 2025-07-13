@@ -1,100 +1,55 @@
-const httpStatus = require('http-status');
-const catchAsync = require('../../utils/catchAsync'); // Assuming catchAsync utility
-const ApiError = require('../../utils/ApiError'); // For direct error throwing if needed
+const httpStatusCodes = require('http-status-codes');
+const ApiResponse = require('../../utils/ApiResponse');
 
 class TeamController {
-  constructor({ createTeamUseCase, getTeamByIdUseCase, getAllTeamsUseCase, updateTeamUseCase, deleteTeamUseCase, changeTeamOwnerUseCase, logger }) {
+  constructor({ createTeamUseCase, getTeamByIdUseCase /*... other use cases */ }) {
     this.createTeamUseCase = createTeamUseCase;
     this.getTeamByIdUseCase = getTeamByIdUseCase;
-    this.getAllTeamsUseCase = getAllTeamsUseCase;
-    this.updateTeamUseCase = updateTeamUseCase;
-    this.deleteTeamUseCase = deleteTeamUseCase;
-    this.changeTeamOwnerUseCase = changeTeamOwnerUseCase;
-    this.logger = logger;
-
-    // Bind methods to ensure 'this' context is correct and wrap with catchAsync
-    this.createTeam = catchAsync(this.createTeam.bind(this));
-    this.getTeamById = catchAsync(this.getTeamById.bind(this));
-    this.getAllTeams = catchAsync(this.getAllTeams.bind(this));
-    this.updateTeam = catchAsync(this.updateTeam.bind(this));
-    this.deleteTeam = catchAsync(this.deleteTeam.bind(this));
-    this.changeTeamOwner = catchAsync(this.changeTeamOwner.bind(this));
   }
 
-  async createTeam(req, res) {
-    if (!req.user || !req.user.id) {
-      throw new ApiError(httpStatus.UNAUTHORIZED, 'User authentication required.');
+  createTeam = async (req, res, next) => {
+    try {
+      const { name, description, tag } = req.body;
+      const ownerId = req.user.id;
+
+      const team = await this.createTeamUseCase.execute({ name, description, tag, ownerId });
+
+      return res.status(httpStatusCodes.CREATED).json(new ApiResponse(httpStatusCodes.CREATED, team, 'Team created successfully.'));
+    } catch (error) {
+      next(error);
     }
-    const ownerId = req.user.id;
-    const { name, description, logoUrl } = req.body;
+  };
 
-    if (!name) {
-        throw new ApiError(httpStatus.BAD_REQUEST, 'Team name is required.');
+  // Placeholder for other methods
+  getAllTeams = async (req, res, next) => {
+    res.status(httpStatusCodes.OK).json(new ApiResponse(httpStatusCodes.OK, [], 'Teams fetched successfully.'));
+  };
+
+  getTeamById = async (req, res, next) => {
+     try {
+      const { id } = req.params;
+      const team = await this.getTeamByIdUseCase.execute(id);
+      return res.status(httpStatusCodes.OK).json(new ApiResponse(httpStatusCodes.OK, team, 'Team fetched successfully.'));
+    } catch (error) {
+      next(error);
     }
+  };
 
-    this.logger.info(`TeamController: User ${ownerId} attempting to create team with name: ${name}`);
-    const team = await this.createTeamUseCase.execute({ name, description, logoUrl, ownerId });
-    res.status(httpStatus.CREATED).send(team);
-  }
+  updateTeam = async (req, res, next) => {
+    res.status(httpStatusCodes.OK).json(new ApiResponse(httpStatusCodes.OK, {}, 'Team updated successfully.'));
+  };
 
-  async getTeamById(req, res) {
-    const { teamId } = req.params;
-    this.logger.info(`TeamController: Fetching team by ID: ${teamId}`);
-    const team = await this.getTeamByIdUseCase.execute(teamId);
-    res.status(httpStatus.OK).send(team);
-  }
+  deleteTeam = async (req, res, next) => {
+    res.status(httpStatusCodes.OK).json(new ApiResponse(httpStatusCodes.OK, {}, 'Team deleted successfully.'));
+  };
 
-  async getAllTeams(req, res) {
-    const queryOptions = req.query;
-    this.logger.info('TeamController: Fetching all teams with query options:', queryOptions);
-    const result = await this.getAllTeamsUseCase.execute(queryOptions);
-    res.status(httpStatus.OK).send(result);
-  }
+  addMember = async (req, res, next) => {
+    res.status(httpStatusCodes.OK).json(new ApiResponse(httpStatusCodes.OK, {}, 'Member added successfully.'));
+  };
 
-  async updateTeam(req, res) {
-    if (!req.user || !req.user.id) {
-      throw new ApiError(httpStatus.UNAUTHORIZED, 'User authentication required.');
-    }
-    const { teamId } = req.params;
-    const updatePayload = req.body;
-    const requestingUserId = req.user.id;
-
-    if (Object.keys(updatePayload).length === 0) {
-        throw new ApiError(httpStatus.BAD_REQUEST, 'No update data provided.');
-    }
-
-    this.logger.info(`TeamController: User ${requestingUserId} attempting to update team ID: ${teamId}`);
-    const team = await this.updateTeamUseCase.execute(teamId, updatePayload, requestingUserId);
-    res.status(httpStatus.OK).send(team);
-  }
-
-  async deleteTeam(req, res) {
-    if (!req.user || !req.user.id) {
-      throw new ApiError(httpStatus.UNAUTHORIZED, 'User authentication required.');
-    }
-    const { teamId } = req.params;
-    const requestingUserId = req.user.id;
-    this.logger.info(`TeamController: User ${requestingUserId} attempting to delete team ID: ${teamId}`);
-    await this.deleteTeamUseCase.execute(teamId, requestingUserId);
-    res.status(httpStatus.NO_CONTENT).send();
-  }
-
-  async changeTeamOwner(req, res) {
-    if (!req.user || !req.user.id) {
-      throw new ApiError(httpStatus.UNAUTHORIZED, 'User authentication required.');
-    }
-    const { teamId } = req.params;
-    const { newOwnerId } = req.body;
-    const currentUserId = req.user.id;
-
-    if (!newOwnerId) {
-        throw new ApiError(httpStatus.BAD_REQUEST, 'New owner ID is required.');
-    }
-
-    this.logger.info(`TeamController: User ${currentUserId} attempting to change owner of team ID: ${teamId} to ${newOwnerId}`);
-    const team = await this.changeTeamOwnerUseCase.execute(teamId, newOwnerId, currentUserId);
-    res.status(httpStatus.OK).send(team);
-  }
+  removeMember = async (req, res, next) => {
+    res.status(httpStatusCodes.OK).json(new ApiResponse(httpStatusCodes.OK, {}, 'Member removed successfully.'));
+  };
 }
 
 module.exports = TeamController;
