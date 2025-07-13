@@ -20,10 +20,10 @@ class CreateGameUseCase {
       return newGame;
     } catch (error) {
       // Handle specific errors, e.g., unique constraint violation for name/shortName
-      if (error.message.includes('already exists')) { // Basic check, can be improved
-        throw new Error(`Cannot create game: ${error.message}`);
+      if (error.name === 'SequelizeUniqueConstraintError') {
+        throw new ApiError(409, 'A game with this name or short name already exists.');
       }
-      throw new Error(`Error creating game: ${error.message}`);
+      throw new ApiError(500, `Error creating game: ${error.message}`);
     }
   }
 }

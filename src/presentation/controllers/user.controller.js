@@ -1,8 +1,15 @@
-const ApiResponse = require('../../utils/ApiResponse');
+const ApiError = require('../../utils/ApiError');
 const httpStatusCodes = require('http-status-codes');
+const { getUserProfileUseCase, updateUserProfileUseCase } = require('../../config/dependencies');
 
-const getCurrentUserProfile = (req, res, next) => {
-  res.status(httpStatusCodes.OK).json(new ApiResponse(httpStatusCodes.OK, {}, 'User profile fetched successfully.'));
+const getCurrentUserProfile = async (req, res, next) => {
+  try {
+    const { id: userId } = req.user;
+    const userProfile = await getUserProfileUseCase.execute(userId);
+    res.status(httpStatusCodes.OK).json(userProfile);
+  } catch (error) {
+    next(error);
+  }
 };
 
 const updateCurrentUserProfile = (req, res, next) => {

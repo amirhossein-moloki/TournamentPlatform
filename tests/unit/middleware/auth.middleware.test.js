@@ -2,6 +2,7 @@ const jwt = require('jsonwebtoken');
 const { authenticateToken, authorizeRole, authenticateSocketToken } = require('../../../src/middleware/auth.middleware');
 const ApiError = require('../../../src/utils/ApiError');
 const httpStatusCodes = require('http-status-codes');
+
 const { appConfig } = require('../../../config/config'); // For JWT secret
 
 jest.mock('../../../config/config', () => ({
@@ -10,6 +11,12 @@ jest.mock('../../../config/config', () => ({
       secret: 'test-secret', // Use a fixed secret for tests
       expiresIn: '1h',
     },
+  },
+}));
+
+jest.mock('@/infrastructure/database/models', () => ({
+  UserModel: {
+    toDomainEntity: jest.fn((user) => user),
   },
 }));
 

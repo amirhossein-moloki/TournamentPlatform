@@ -32,14 +32,7 @@ class GameController {
       const game = await this.createGameUseCase.execute(gameData);
       res.status(httpStatusCodes.CREATED).json(game.toPlainObject ? game.toPlainObject() : game);
     } catch (error) {
-      // Map domain/application errors to HTTP errors
-      if (error.message.includes('already exists')) {
-        next(new ApiError(httpStatusCodes.CONFLICT, error.message));
-      } else if (error.message.includes('validation failed')) { // Example
-        next(new ApiError(httpStatusCodes.BAD_REQUEST, error.message));
-      } else {
-        next(error); // Forward to generic error handler
-      }
+      next(error);
     }
   }
 
@@ -81,11 +74,7 @@ class GameController {
       }
       res.status(httpStatusCodes.OK).json(updatedGame.toPlainObject ? updatedGame.toPlainObject() : updatedGame);
     } catch (error) {
-      if (error.message.includes('already exists')) {
-        next(new ApiError(httpStatusCodes.CONFLICT, error.message));
-      } else {
-        next(error);
-      }
+      next(error);
     }
   }
 
@@ -95,11 +84,7 @@ class GameController {
       await this.deleteGameUseCase.execute(gameId);
       res.status(httpStatusCodes.NO_CONTENT).send();
     } catch (error) {
-      if (error.message.includes('not found')) { // More specific error from use case needed
-          next(new ApiError(httpStatusCodes.NOT_FOUND, error.message));
-      } else {
-          next(error);
-      }
+      next(error);
     }
   }
 }
