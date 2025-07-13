@@ -3,10 +3,15 @@ const ApiError = require('../../../utils/ApiError');
 const httpStatusCodes = require('http-status-codes');
 const { Tournament } = require('../../../domain/tournament/tournament.entity'); // Assuming entity path
 
+/**
+ * @class CreateTournamentUseCase
+ * @description Use case for creating a new tournament.
+ */
 class CreateTournamentUseCase {
   /**
    * @param {object} tournamentRepository - Repository for tournament data persistence.
    * @param {object} userRepository - Repository for user data (to validate organizerId if needed).
+   * @param {object} gameRepository - Repository for game data (to validate gameId).
    */
   constructor(tournamentRepository, userRepository, gameRepository) { // Added gameRepository
     this.tournamentRepository = tournamentRepository;

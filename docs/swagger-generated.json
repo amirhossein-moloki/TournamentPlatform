@@ -713,7 +713,7 @@
                   "description": {
                     "example": "any"
                   },
-                  "logoUrl": {
+                  "tag": {
                     "example": "any"
                   }
                 }
@@ -898,6 +898,13 @@
             "name": "id",
             "in": "path",
             "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "include",
+            "in": "query",
             "schema": {
               "type": "string"
             }

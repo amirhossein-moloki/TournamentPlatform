@@ -9,6 +9,25 @@ const { Match } = require('./match.entity'); // Assuming Match entity is in the 
  */
 
 class BracketLogic {
+  static Brackets = {
+    SINGLE_ELIMINATION: 'SINGLE_ELIMINATION',
+    DOUBLE_ELIMINATION: 'DOUBLE_ELIMINATION',
+    ROUND_ROBIN: 'ROUND_ROBIN',
+  }
+
+  static generate(bracketType, tournamentId, participantIdsOrObjects, options = {}) {
+    switch (bracketType) {
+      case this.Brackets.SINGLE_ELIMINATION:
+        return this.generateSingleElimination(tournamentId, participantIdsOrObjects, options);
+      case this.Brackets.DOUBLE_ELIMINATION:
+        return this.generateDoubleElimination(tournamentId, participantIdsOrObjects, options);
+      case this.Brackets.ROUND_ROBIN:
+        return this.generateRoundRobin(tournamentId, participantIdsOrObjects, options);
+      default:
+        throw new Error(`Unsupported bracket type: ${bracketType}`);
+    }
+  }
+
   /**
    * Generates a single elimination bracket structure.
    * @param {string} tournamentId - The ID of the tournament.
@@ -221,6 +240,16 @@ class BracketLogic {
     // - nextMatchId links correctly (no orphans, no loops).
     // - Participant progression makes sense.
     return true;
+  }
+
+  static generateDoubleElimination(tournamentId, participantIdsOrObjects, options = {}) {
+    // TODO: Implement double elimination bracket generation
+    throw new Error('Double elimination bracket generation is not yet implemented.');
+  }
+
+  static generateRoundRobin(tournamentId, participantIdsOrObjects, options = {}) {
+    // TODO: Implement round robin bracket generation
+    throw new Error('Round robin bracket generation is not yet implemented.');
   }
 }
 

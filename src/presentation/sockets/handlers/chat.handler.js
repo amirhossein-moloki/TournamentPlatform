@@ -1,9 +1,7 @@
 const Joi = require('joi');
 const logger = require('../../../utils/logger');
-// const ChatMessageRepository = require('../../../infrastructure/database/repositories/chat.message.repository'); // Conceptual
-// const { ChatMessage } = require('../../../domain/chat/chat.message.entity'); // Conceptual
-
-// const chatMessageRepository = new ChatMessageRepository(); // Conceptual
+const { chatRepository } = require('../../../config/dependencies');
+const { ChatMessage } = require('../../../domain/chat/chat_message.entity');
 
 // --- Joi Schemas for Chat Event Payloads ---
 const joinRoomSchema = Joi.object({
@@ -59,9 +57,8 @@ function registerChatHandlers(io, socket, activeSockets) {
       // Notify other clients in the room that a user has joined (optional)
       socket.to(roomId).emit('userJoined', { roomId, userId, username });
 
-      // (Conceptual) Fetch and send recent message history for the room
-      // const recentMessages = await chatMessageRepository.findRecentMessages(roomId, 20);
-      // socket.emit('messageHistory', { roomId, messages: recentMessages });
+      const recentMessages = await chatRepository.findMessagesBySessionId(roomId, 50);
+      socket.emit('messageHistory', { roomId, messages: recentMessages.reverse() });
 
       if (typeof callback === 'function') callback({ success: true, roomId });
 
@@ -121,20 +118,17 @@ function registerChatHandlers(io, socket, activeSockets) {
          return;
       }
 
-      const messageData = {
-        id: require('uuid').v4(), // Generate message ID
-        roomId,
-        sender: { id: userId, username },
-        text,
-        timestamp: new Date(),
-      };
+      const messageData = new ChatMessage({
+        sessionId: roomId,
+        senderId: userId,
+        senderType: 'USER', // Assuming sender is always a user for now
+        messageContent: text,
+      });
 
-      // (Conceptual) Persist message to database
-      // const chatMessageEntity = new ChatMessage(messageData.id, roomId, userId, username, text, messageData.timestamp);
-      // await chatMessageRepository.create(chatMessageEntity);
+      await chatRepository.createMessage(messageData);
 
       // Broadcast the new message to all clients in the room (including sender)
-      io.to(roomId).emit('newMessage', messageData);
+      io.to(roomId).emit('newMessage', messageData.toPlainObject());
       logger.debug(`[ChatHandler] User ${username} (${userId}) sent message to room ${roomId}: "${text}"`);
 
       if (typeof callback === 'function') callback({ success: true, messageId: messageData.id });

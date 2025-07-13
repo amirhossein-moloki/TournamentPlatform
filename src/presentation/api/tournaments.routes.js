@@ -1,6 +1,6 @@
 const router = require('express').Router();
 const { Joi, validate } = require('express-validation');
-const tournamentController = require('../controllers/tournament.controller'); // Assuming you create this
+const { tournamentController } = require('../../config/dependencies');
 const { authenticateToken, authorizeRole } = require('../../middleware/auth.middleware');
 const { UserRoles } = require('../../domain/user/user.entity'); // Corrected path
 

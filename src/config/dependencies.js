@@ -10,6 +10,7 @@ const { PostgresTournamentRepository } = require('../infrastructure/database/rep
 const { PostgresMatchRepository } = require('../infrastructure/database/repositories/postgres.match.repository.js');
 const { PostgresUserRepository } = require('../infrastructure/database/repositories/postgres.user.repository.js');
 const { PostgresTournamentParticipantRepository } = require('../infrastructure/database/repositories/postgres.tournamentParticipant.repository.js'); // Assuming this exists or will be created
+const PostgresChatRepository = require('../infrastructure/database/repositories/postgres.chat.repository.js');
 
 // Game Use Cases
 const CreateGameUseCase = require('../application/use-cases/game/createGame.useCase.js');
@@ -38,7 +39,7 @@ const SubmitMatchResultUseCase = require('../application/use-cases/match/submit-
 const GameController = require('../presentation/controllers/game.controller.js');
 const UserGameProfileController = require('../presentation/controllers/userGameProfile.controller.js');
 // TODO: Add UserController when created/refactored
-// TODO: Add TournamentController if routes are refactored
+const TournamentController = require('../presentation/controllers/tournament.controller.js');
 
 // Auth Use Cases
 const RegisterUserUseCase = require('../application/use-cases/auth/register-user.usecase.js');
@@ -71,6 +72,10 @@ const matchRepository = new PostgresMatchRepository({
     MatchModel: db.MatchModel,
     TournamentModel: db.TournamentModel,
     GameModel: db.GameModel
+});
+const chatRepository = new PostgresChatRepository({
+    ChatSessionModel: db.ChatSessionModel,
+    ChatMessageModel: db.ChatMessageModel,
 });
 const LeaderboardRedisRepository = require('../infrastructure/database/repositories/leaderboard.redis.repository');
 const leaderboardRepository = new LeaderboardRedisRepository(); // Assumes redis client is available via adapter
@@ -107,7 +112,7 @@ const getUserGameProfileForGameUseCase = new GetUserGameProfileForGameUseCase(us
 const createTournamentUseCase = new CreateTournamentUseCase(tournamentRepository, userRepository, gameRepository); // Already updated
 const listTournamentsUseCase = new ListTournamentsUseCase(tournamentRepository); // Already correct
 const getTournamentUseCase = new GetTournamentUseCase(tournamentRepository); // Added
-const registerForTournamentUseCase = new RegisterForTournamentUseCase(tournamentRepository, tournamentParticipantRepository, userGameProfileRepository); // Already updated
+const registerForTournamentUseCase = new RegisterForTournamentUseCase(tournamentRepository, tournamentParticipantRepository, userGameProfileRepository, walletRepository); // Already updated
 
 // Instantiate Match Use Cases
 const getMatchUseCase = new GetMatchUseCase(tournamentRepository, userGameProfileRepository, matchRepository);
@@ -154,6 +159,13 @@ const userGameProfileController = new UserGameProfileController(
 // For now, users.routes.js handles its own controller logic or directly uses use cases.
 // If we refactor users.routes.js to use a dedicated UserController, instantiate it here.
 
+const tournamentController = new TournamentController({
+  createTournamentUseCase,
+  listTournamentsUseCase,
+  getTournamentUseCase,
+  registerForTournamentUseCase,
+});
+
 
 // Export instances
 module.exports = {
@@ -161,6 +173,7 @@ module.exports = {
   authController,
   gameController,
   userGameProfileController, // Added
+  tournamentController,
   // Repositories
   gameRepository,
   userRepository,
@@ -169,6 +182,7 @@ module.exports = {
   matchRepository,
   tournamentParticipantRepository,
   leaderboardRepository, // Added
+  chatRepository,
   // Game Use Cases
   createGameUseCase,
   getGameByIdUseCase,
