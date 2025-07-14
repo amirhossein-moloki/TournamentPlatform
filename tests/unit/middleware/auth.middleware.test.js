@@ -14,11 +14,17 @@ jest.mock('../../../config/config', () => ({
   },
 }));
 
-jest.mock('@/infrastructure/database/models', () => ({
-  UserModel: {
-    toDomainEntity: jest.fn((user) => user),
-  },
-}));
+const mockUserModel = {
+  toDomainEntity: jest.fn((user) => user),
+};
+
+jest.mock('../../../src/infrastructure/database/repositories/postgres.user.repository', () => {
+  return jest.fn().mockImplementation(() => {
+    return {
+      findByPk: jest.fn().mockResolvedValue({ id: 'user123', roles: ['PLAYER', 'ADMIN'] }),
+    };
+  });
+});
 
 describe('Auth Middleware', () => {
   let mockReq;

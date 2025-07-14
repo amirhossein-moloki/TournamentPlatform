@@ -1,3 +1,4 @@
+console.log('Test file loading...');
 const RegisterForTournamentUseCase = require('../../../../../src/application/use-cases/tournament/registerForTournament.useCase');
 const { Tournament, TournamentStatus, EntryFeeType, PrizeType } = require('../../../../../src/domain/tournament/tournament.entity'); // Added Enums
 const ApiError = require('../../../../../src/utils/ApiError');
@@ -27,6 +28,7 @@ describe('RegisterForTournamentUseCase', () => {
   let testUserGameProfile;
 
   beforeEach(() => {
+    console.log('beforeEach start');
     jest.clearAllMocks();
     registerForTournamentUseCase = new RegisterForTournamentUseCase(
       mockTournamentRepository,
@@ -81,11 +83,12 @@ describe('RegisterForTournamentUseCase', () => {
     mockUserGameProfileRepository.findByUserIdAndGameId.mockResolvedValue(testUserGameProfile);
     mockTournamentParticipantRepository.create.mockResolvedValue({ userId, tournamentId, registeredAt: new Date() });
     mockTournamentRepository.incrementParticipantCount.mockResolvedValue(true);
+    console.log('beforeEach end');
   });
 
   it('should register user successfully', async () => {
     const canRegisterSpy = jest.spyOn(testTournamentEntity, 'canRegister').mockReturnValue(true);
-    const result = await registerForTournamentUseCase.execute(userId, tournamentId);
+    const result = await registerForTournamentUseCase.execute({ userId, tournamentId });
     expect(mockTournamentRepository.findById).toHaveBeenCalledWith(tournamentId);
     expect(canRegisterSpy).toHaveBeenCalledTimes(1);
     expect(mockTournamentParticipantRepository.findByUserIdAndTournamentId).toHaveBeenCalledWith(userId, tournamentId);
@@ -96,13 +99,13 @@ describe('RegisterForTournamentUseCase', () => {
   });
 
   it('should throw ApiError if userId or tournamentId is missing', async () => {
-    await expect(registerForTournamentUseCase.execute(null, tournamentId))
+    await expect(registerForTournamentUseCase.execute({ userId: null, tournamentId }))
       .rejects.toThrow(new ApiError(httpStatusCodes.BAD_REQUEST, 'User ID and Tournament ID are required.'));
   });
 
   it('should throw ApiError if tournament not found', async () => {
     mockTournamentRepository.findById.mockResolvedValue(null);
-    await expect(registerForTournamentUseCase.execute(userId, tournamentId))
+    await expect(registerForTournamentUseCase.execute({ userId, tournamentId }))
       .rejects.toThrow(new ApiError(httpStatusCodes.NOT_FOUND, `Tournament with ID ${tournamentId} not found.`));
   });
 
@@ -111,7 +114,7 @@ describe('RegisterForTournamentUseCase', () => {
     jest.spyOn(testTournamentEntity, 'canRegister').mockReturnValue(false); // Ensure canRegister reflects this
     mockTournamentRepository.findById.mockResolvedValue(testTournamentEntity);
 
-    await expect(registerForTournamentUseCase.execute(userId, tournamentId))
+    await expect(registerForTournamentUseCase.execute({ userId, tournamentId }))
       .rejects.toThrow(new ApiError(httpStatusCodes.FORBIDDEN, `Cannot register for tournament: Tournament registration is not open (status: ${TournamentStatus.PENDING}).`));
   });
 
@@ -120,20 +123,20 @@ describe('RegisterForTournamentUseCase', () => {
     jest.spyOn(testTournamentEntity, 'canRegister').mockReturnValue(false);
     mockTournamentRepository.findById.mockResolvedValue(testTournamentEntity);
 
-    await expect(registerForTournamentUseCase.execute(userId, tournamentId))
+    await expect(registerForTournamentUseCase.execute({ userId, tournamentId }))
       .rejects.toThrow(new ApiError(httpStatusCodes.FORBIDDEN, 'Cannot register for tournament: Tournament is full.'));
   });
 
   it('should throw ApiError if user is already registered', async () => {
     mockTournamentParticipantRepository.findByUserIdAndTournamentId.mockResolvedValue({ userId, tournamentId });
-    await expect(registerForTournamentUseCase.execute(userId, tournamentId))
+    await expect(registerForTournamentUseCase.execute({ userId, tournamentId }))
       .rejects.toThrow(new ApiError(httpStatusCodes.CONFLICT, 'User is already registered for this tournament.'));
   });
 
   it('should throw ApiError if tournament gameId is missing (data inconsistency)', async () => {
     testTournamentEntity.gameId = null; // Simulate inconsistent data
     mockTournamentRepository.findById.mockResolvedValue(testTournamentEntity);
-    await expect(registerForTournamentUseCase.execute(userId, tournamentId))
+    await expect(registerForTournamentUseCase.execute({ userId, tournamentId }))
         .rejects.toThrow(new ApiError(httpStatusCodes.INTERNAL_SERVER_ERROR, 'Tournament game ID is missing.'));
   });
 
@@ -154,7 +157,7 @@ describe('RegisterForTournamentUseCase', () => {
     // Let's restore a simplified version of that for the error message if it's indeed used.
     testTournamentEntity.game = { name: 'Test Game' }; // Simplified mock for game name in error
 
-    await expect(registerForTournamentUseCase.execute(userId, tournamentId))
+    await expect(registerForTournamentUseCase.execute({ userId, tournamentId }))
       .rejects.toThrow(new ApiError(httpStatusCodes.BAD_REQUEST, `You must set your In-Game Name for the game '${testTournamentEntity.game.name}' before registering for this tournament.`));
   });
 
@@ -163,19 +166,19 @@ describe('RegisterForTournamentUseCase', () => {
     mockUserGameProfileRepository.findByUserIdAndGameId.mockResolvedValue(testUserGameProfile);
     testTournamentEntity.game = { name: 'Test Game' }; // For error message
 
-    await expect(registerForTournamentUseCase.execute(userId, tournamentId))
+    await expect(registerForTournamentUseCase.execute({ userId, tournamentId }))
       .rejects.toThrow(new ApiError(httpStatusCodes.BAD_REQUEST, `You must set your In-Game Name for the game '${testTournamentEntity.game.name}' before registering for this tournament.`));
   });
 
   it('should throw error if participant creation fails', async () => {
     mockTournamentParticipantRepository.create.mockRejectedValue(new Error('DB participant error'));
-    await expect(registerForTournamentUseCase.execute(userId, tournamentId))
+    await expect(registerForTournamentUseCase.execute({ userId, tournamentId }))
         .rejects.toThrow('DB participant error');
   });
 
   it('should throw error if incrementing participant count fails', async () => {
     mockTournamentRepository.incrementParticipantCount.mockRejectedValue(new Error('DB count error'));
-    await expect(registerForTournamentUseCase.execute(userId, tournamentId))
+    await expect(registerForTournamentUseCase.execute({ userId, tournamentId }))
         .rejects.toThrow('DB count error');
   });
 

@@ -1,5 +1,7 @@
 const { BadRequestError, NotFoundError, InternalServerError } = require('../../../utils/errors');
+const ApiError = require('../../../utils/ApiError');
 const { User } = require('../../../domain/user/user.entity'); // For User.UserRoles
+const httpStatusCodes = require('http-status-codes');
 
 class RemoveRoleUseCase {
   /**

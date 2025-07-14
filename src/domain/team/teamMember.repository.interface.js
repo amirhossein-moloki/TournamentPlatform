@@ -1,4 +1,8 @@
 class ITeamMemberRepository {
+  async create(memberData, options = {}) {
+    throw new Error("Method 'create()' must be implemented.");
+  }
+
   async add(teamId, userId, role, status = 'invited', invitedByUserId = null) {
     // invitedByUserId can be null if system invites or owner adds directly
     throw new Error("Method 'add()' must be implemented.");

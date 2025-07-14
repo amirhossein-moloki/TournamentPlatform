@@ -44,9 +44,11 @@ class UserRepositoryInterface {
   /**
    * Creates a new user.
    * @param {User} userEntity - The User entity instance to persist.
+   * @param {object} [options] - Optional parameters, e.g., for transaction.
+   * @param {object} [options.transaction] - A database transaction object.
    * @returns {Promise<User>} The created User entity (potentially with DB-generated fields like createdAt).
    */
-  async create(userEntity) {
+  async create(userEntity, options = {}) {
     throw new Error('Method "create" not implemented.');
   }
 

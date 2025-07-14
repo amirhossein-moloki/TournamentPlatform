@@ -12,39 +12,19 @@ class SequelizeTeamRepository extends ITeamRepository {
     this.sequelize = sequelize;
   }
 
-  async create(teamData, ownerId) {
-    const transaction = await this.sequelize.transaction();
-    try {
-      const team = await this.TeamModel.create({
-        ...teamData,
-        ownerId: ownerId,
-      }, { transaction });
-
-      await this.TeamMemberModel.create({
-        teamId: team.id,
-        userId: ownerId,
-        role: TeamRole.OWNER,
-        status: 'active',
-      }, { transaction });
-
-      await transaction.commit();
-      // Return a plain object or map to domain entity. For now, returning Sequelize model instance.
-      // To get a plain object: return team.get({ plain: true });
-      return team;
-    } catch (error) {
-      await transaction.rollback();
-      // Log error: console.error('Error creating team:', error);
-      throw error;
-    }
+  async create(teamData, options = {}) {
+    const team = await this.TeamModel.create(teamData, { transaction: options.transaction });
+    return team;
   }
 
-  async findById(teamId) {
+  async findById(teamId, options = {}) {
     const team = await this.TeamModel.findByPk(teamId, {
       include: [
         { model: this.UserModel, as: 'owner', attributes: ['id', 'username', 'email'] },
         // Example: Include members count
         // [this.sequelize.literal('(SELECT COUNT(*) FROM "TeamMembers" WHERE "TeamMembers"."teamId" = "TeamModel"."id")'), 'membersCount']
       ],
+      transaction: options.transaction,
     });
     return team; // Consider mapping to domain entity
   }

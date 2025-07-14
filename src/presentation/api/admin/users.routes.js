@@ -1,51 +1,12 @@
 const router = require('express').Router();
-const { Joi, validate } = require('express-validation');
+const { body, validationResult } = require('express-validator');
 const userController = require('../../controllers/user.controller');
 const { authenticateToken, authorizeRole } = require('../../../middleware/auth.middleware');
-
-// --- Joi Schemas for Validation ---
-const adminUpdateUserSchema = {
-    params: Joi.object({
-        id: Joi.string().uuid().required(),
-    }),
-    body: Joi.object({
-        username: Joi.string().min(3).max(30),
-        email: Joi.string().email(),
-        roles: Joi.array().items(Joi.string()),
-        isVerified: Joi.boolean(),
-    }).min(1),
-};
-
-const listUsersSchema = {
-    query: Joi.object({
-        page: Joi.number().integer().min(1),
-        limit: Joi.number().integer().min(1).max(100),
-        role: Joi.string(),
-        isVerified: Joi.boolean(),
-        sortBy: Joi.string(), // e.g., 'createdAt:desc'
-    }),
-};
-
-const assignRoleSchema = {
-    params: Joi.object({
-        id: Joi.string().uuid().required(),
-    }),
-    body: Joi.object({
-        role: Joi.string().required(),
-    }),
-};
-
-const removeRoleSchema = {
-    params: Joi.object({
-        id: Joi.string().uuid().required(),
-        role: Joi.string().required(),
-    }),
-};
 
 // --- Admin User Routes ---
 
 // Get a list of all users (Admin only)
-router.get('/', authenticateToken, authorizeRole(['Admin']), validate(listUsersSchema), userController.listUsers);
+router.get('/', authenticateToken, authorizeRole(['Admin']), userController.listUsers);
 /*  #swagger.tags = ['Admin - Users']
     #swagger.summary = 'Get a list of all users (Admin only)'
     #swagger.description = 'Retrieves a paginated list of all users. Can be filtered by role and verification status.'
@@ -60,7 +21,7 @@ router.get('/', authenticateToken, authorizeRole(['Admin']), validate(listUsersS
 */
 
 // Get a specific user by ID (Admin only)
-router.get('/:id', authenticateToken, authorizeRole(['Admin']), validate({ params: Joi.object({ id: Joi.string().uuid().required() }) }), userController.getUserById);
+router.get('/:id', authenticateToken, authorizeRole(['Admin']), userController.getUserById);
 /*  #swagger.tags = ['Admin - Users']
     #swagger.summary = 'Get a specific user by ID (Admin only)'
     #swagger.description = 'Retrieves the profile of a specific user by their ID.'
@@ -73,7 +34,7 @@ router.get('/:id', authenticateToken, authorizeRole(['Admin']), validate({ param
 */
 
 // Update a user by ID (Admin only)
-router.put('/:id', authenticateToken, authorizeRole(['Admin']), validate(adminUpdateUserSchema), userController.updateUserById);
+router.put('/:id', authenticateToken, authorizeRole(['Admin']), userController.updateUserById);
 /*  #swagger.tags = ['Admin - Users']
     #swagger.summary = 'Update a user by ID (Admin only)'
     #swagger.description = "Allows an Admin to update a user's profile information (username, email, roles, verification status)."
@@ -88,7 +49,7 @@ router.put('/:id', authenticateToken, authorizeRole(['Admin']), validate(adminUp
 */
 
 // Delete a user by ID (Admin only)
-router.delete('/:id', authenticateToken, authorizeRole(['Admin']), validate({ params: Joi.object({ id: Joi.string().uuid().required() }) }), userController.deleteUserById);
+router.delete('/:id', authenticateToken, authorizeRole(['Admin']), userController.deleteUserById);
 /*  #swagger.tags = ['Admin - Users']
     #swagger.summary = 'Delete a user by ID (Admin only)'
     #swagger.description = 'Allows an Admin to delete a user. An admin cannot delete their own account via this endpoint.'
@@ -103,7 +64,7 @@ router.delete('/:id', authenticateToken, authorizeRole(['Admin']), validate({ pa
 
 // --- Admin Role Management ---
 
-router.post('/:id/roles', authenticateToken, authorizeRole(['Admin']), validate(assignRoleSchema), userController.assignRole);
+router.post('/:id/roles', authenticateToken, authorizeRole(['Admin']), userController.assignRole);
 /*  #swagger.tags = ['Admin - Users']
     #swagger.summary = 'Assign a role to a user (Admin only)'
     #swagger.description = 'Adds a new role to a user\'s role list.'
@@ -130,7 +91,7 @@ router.post('/:id/roles', authenticateToken, authorizeRole(['Admin']), validate(
     #swagger.responses[404] = { $ref: '#/components/responses/NotFoundError' }
 */
 
-router.delete('/:id/roles/:role', authenticateToken, authorizeRole(['Admin']), validate(removeRoleSchema), userController.removeRole);
+router.delete('/:id/roles/:role', authenticateToken, authorizeRole(['Admin']), userController.removeRole);
 /*  #swagger.tags = ['Admin - Users']
     #swagger.summary = 'Remove a role from a user (Admin only)'
     #swagger.description = 'Removes a role from a user\'s role list.'

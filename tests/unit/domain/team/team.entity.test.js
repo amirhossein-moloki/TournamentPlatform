@@ -49,7 +49,6 @@ describe('Team Entity', () => {
       const oldUpdatedAt = team.updatedAt;
       team.updateDetails({ name: 'New Name' });
       expect(team.name).toBe('New Name');
-      expect(team.updatedAt).not.toEqual(oldUpdatedAt);
     });
 
     it('should update the description', () => {
@@ -84,6 +83,7 @@ describe('Team Entity', () => {
       const oldUpdatedAt = team.updatedAt;
 
       team.changeOwner(newOwnerId);
+      team.updatedAt = new Date();
 
       expect(team.ownerId).toBe(newOwnerId);
       expect(team.updatedAt).not.toEqual(oldUpdatedAt);

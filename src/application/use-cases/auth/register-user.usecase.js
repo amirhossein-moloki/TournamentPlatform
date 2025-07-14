@@ -4,6 +4,7 @@ const { BadRequestError, ConflictError, InternalServerError } = require('../../.
 const { User } = require('../../../domain/user/user.entity'); // Assuming User entity is correctly imported
 const jwt = require('jsonwebtoken');
 const { appConfig } = require('../../../../config/config');
+const { withTransaction } = require('../../../infrastructure/database/postgres.connector');
 
 // Interface for an email service (to be implemented in infrastructure)
 // class EmailService {
@@ -75,35 +76,21 @@ class RegisterUserUseCase {
     );
 
     // Persist the new user
-    const createdUser = await this.userRepository.create(newUser);
+    const createdUser = await withTransaction(async (transaction) => {
+      // Persist the new user within the transaction
+      const user = await this.userRepository.create(newUser, { transaction });
 
-    // Create a wallet for the new user
-    // This should ideally be part of a transaction with user creation
-    // to ensure atomicity. Sequelize transactions can be used here if
-    // userRepository.create and walletRepository.create support a transaction object.
-    try {
+      // Create a wallet for the new user within the same transaction
       const walletId = uuidv4();
-      // Assuming Wallet entity/constructor exists or repository handles creation from params
       await this.walletRepository.create({
         id: walletId,
-        userId: createdUser.id,
+        userId: user.id,
         balance: 0.00,
         currency: 'USD', // Default currency, should be configurable
-      });
-    } catch (walletError) {
-      // If wallet creation fails, we should ideally roll back user creation.
-      // This highlights the need for transactional operations.
-      // For now, log the error and potentially delete the created user.
-      console.error(`Failed to create wallet for user ${createdUser.id}:`, walletError);
-      // await this.userRepository.delete(createdUser.id); // Rollback user
-      // throw new InternalServerError('User registration failed during wallet creation.');
-      // Or, mark user as incomplete / requiring attention.
-      // For this implementation, we'll proceed but acknowledge the issue.
-      // A robust solution would use a transaction manager or unit of work pattern.
-      throw new InternalServerError(
-        'User registered, but wallet creation failed. Please contact support.'
-      );
-    }
+      }, { transaction });
+
+      return user;
+    });
 
 
     // Send verification email (if emailService is provided)

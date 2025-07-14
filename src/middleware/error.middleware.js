@@ -1,9 +1,23 @@
 const logger = require('../utils/logger'); // Assuming logger is in utils
 const ApiError = require('../utils/ApiError');
 const { NODE_ENV } = process.env;
+const { BaseError, ValidationError, UniqueConstraintError } = require('sequelize');
+
 
 const errorHandler = (err, req, res, next) => {
     let error = err;
+
+    if (err instanceof UniqueConstraintError) {
+      const message = `Duplicate field value: ${err.errors.map(e => e.path).join(', ')}`;
+      error = new ApiError(409, message, err.errors);
+    } else if (err instanceof ValidationError) {
+      const message = `Validation error: ${err.errors.map(e => e.message).join(', ')}`;
+      error = new ApiError(400, message, err.errors);
+    } else if (err instanceof BaseError) {
+        // Handle other generic Sequelize errors
+        error = new ApiError(500, `Database Error: ${err.message}`);
+    }
+
 
     // If the error is not an instance of ApiError, convert it
     if (!(error instanceof ApiError)) {
