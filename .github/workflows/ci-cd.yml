@@ -35,6 +35,14 @@ jobs:
       - name: Run linters (ESLint)
         run: npm run lint
 
+      - name: Check for outdated OpenAPI spec
+        run: |
+          npm run swagger-gen
+          if ! git diff --exit-code --quiet docs/swagger-generated.json; then
+            echo "::error::OpenAPI specification is out of date. Please run 'npm run swagger-gen' and commit the changes."
+            exit 1
+          fi
+
       - name: Run unit and integration tests
         run: npm test
         env:

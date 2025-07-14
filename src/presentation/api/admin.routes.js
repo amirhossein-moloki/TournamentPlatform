@@ -54,7 +54,7 @@ router.post('/disputes/:id/resolve', authenticateToken, authorizeRole([UserRoles
             type: "object",
             properties: {
                 dispute: { $ref: "#/components/schemas/DisputeTicketResponse" },
-                match: { $ref: "#/components/schemas/Match" }
+                match: { $ref: "#/components/schemas/MatchDetailsResponse" }
             }
         }}}
     }

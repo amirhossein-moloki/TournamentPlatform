@@ -53,6 +53,74 @@ const doc = {
         { name: 'Webhooks', description: 'Webhook endpoints for external services (e.g., payment gateways)'} // Assuming this might exist
     ],
     components: {
+        parameters: {
+            PageParam: {
+                in: 'query',
+                name: 'page',
+                schema: { type: 'integer', default: 1 },
+                description: 'Page number for pagination.'
+            },
+            LimitParam: {
+                in: 'query',
+                name: 'limit',
+                schema: { type: 'integer', default: 10 },
+                description: 'Number of items per page.'
+            },
+            UserIdPath: {
+                in: 'path',
+                name: 'id',
+                required: true,
+                schema: { type: 'string', format: 'uuid' },
+                description: 'The ID of the user.'
+            },
+            TeamIdPath: {
+                in: 'path',
+                name: 'id',
+                required: true,
+                schema: { type: 'string', format: 'uuid' },
+                description: 'The ID of the team.'
+            },
+            TournamentIdPath: {
+                in: 'path',
+                name: 'id',
+                required: true,
+                schema: { type: 'string', format: 'uuid' },
+                description: 'The ID of the tournament.'
+            },
+            MatchIdPath: {
+                in: 'path',
+                name: 'id',
+                required: true,
+                schema: { type: 'string', format: 'uuid' },
+                description: 'The ID of the match.'
+            }
+        },
+        responses: {
+            BadRequestError: {
+                description: 'Bad Request - The server cannot or will not process the request due to something that is perceived to be a client error.',
+                content: { 'application/json': { schema: { $ref: '#/components/schemas/ErrorResponse' } } }
+            },
+            UnauthorizedError: {
+                description: 'Unauthorized - The client must authenticate itself to get the requested response.',
+                content: { 'application/json': { schema: { $ref: '#/components/schemas/ErrorResponse' } } }
+            },
+            ForbiddenError: {
+                description: 'Forbidden - The client does not have access rights to the content.',
+                content: { 'application/json': { schema: { $ref: '#/components/schemas/ErrorResponse' } } }
+            },
+            NotFoundError: {
+                description: 'Not Found - The server can not find the requested resource.',
+                content: { 'application/json': { schema: { $ref: '#/components/schemas/ErrorResponse' } } }
+            },
+            ConflictError: {
+                description: 'Conflict - The request could not be completed due to a conflict with the current state of the resource.',
+                content: { 'application/json': { schema: { $ref: '#/components/schemas/ErrorResponse' } } }
+            },
+            InternalServerError: {
+                description: 'Internal Server Error - The server has encountered a situation it doesn\'t know how to handle.',
+                content: { 'application/json': { schema: { $ref: '#/components/schemas/ErrorResponse' } } }
+            }
+        },
         schemas: {
             // --- General Schemas ---
             ErrorResponse: {
@@ -680,18 +748,27 @@ const doc = {
                 ]
             },
             WithdrawalMethodDetails: { // Based on Joi schema
-                type: "object",
-                properties: {
-                    type: { type: "string", enum: ['PAYPAL', 'BANK_TRANSFER'], description: "Type of withdrawal method." },
-                    email: { type: "string", format: "email", description: "PayPal email address (required if type is PAYPAL)." },
-                    accountHolderName: { type: "string", description: "Bank account holder name (required if type is BANK_TRANSFER)." },
-                    accountNumber: { type: "string", description: "Bank account number (required if type is BANK_TRANSFER)." },
-                    routingNumber: { type: "string", description: "Bank routing number (required if type is BANK_TRANSFER)." },
-                    bankName: { type: "string", nullable: true, description: "Name of the bank (optional for BANK_TRANSFER)." }
-                },
-                required: ["type"]
-                // Conditional requirements (email for PAYPAL, bank details for BANK_TRANSFER) are hard to express directly in OpenAPI 3.0 schema,
-                // often handled by description or oneOf/anyOf if more complex.
+                oneOf: [
+                    {
+                        type: 'object',
+                        properties: {
+                            type: { type: 'string', enum: ['PAYPAL'] },
+                            email: { type: 'string', format: 'email' }
+                        },
+                        required: ['type', 'email']
+                    },
+                    {
+                        type: 'object',
+                        properties: {
+                            type: { type: 'string', enum: ['BANK_TRANSFER'] },
+                            accountHolderName: { type: 'string' },
+                            accountNumber: { type: 'string' },
+                            routingNumber: { type: 'string' },
+                            bankName: { type: 'string' }
+                        },
+                        required: ['type', 'accountHolderName', 'accountNumber', 'routingNumber']
+                    }
+                ]
             },
             RequestWithdrawalRequest: { // Based on requestWithdrawalSchema
                 type: "object",
@@ -720,7 +797,7 @@ const doc = {
                     tournamentId: { type: "string", format: "uuid", nullable: true },
                     reportedByUserId: { type: "string", format: "uuid" },
                     reason: { type: "string" },
-                    status: { type: "string", enum: ['OPEN', 'UNDER_REVIEW', 'RESOLVED_PARTICIPANT1_WIN', 'RESOLVED_PARTICIPANT2_WIN', 'RESOLVED_REPLAY', 'CLOSED', 'CLOSED_INVALID'] },
+                    status: { type: "string", enum: ['OPEN', 'UNDER_REVIEW', 'RESOLVED_PARTICIPANT1_WIN', 'RESOLVED_PARTICIPANT2_WIN', 'RESOLVED_REPLAY', 'CLOSED_INVALID'] },
                     resolutionDetails: { type: "string", nullable: true },
                     moderatorId: { type: "string", format: "uuid", nullable: true, description: "ID of the admin/moderator who handled it." },
                     createdAt: { type: "string", format: "date-time" },

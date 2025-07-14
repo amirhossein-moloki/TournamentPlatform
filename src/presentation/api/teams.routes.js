@@ -1,5 +1,5 @@
 const router = require('express').Router();
-const teamController = require('../controllers/team.controller');
+const { teamController } = require('../../config/dependencies');
 const { authenticateToken, authorizeRole } = require('../../middleware/auth.middleware');
 const { UserRoles } = require('../../domain/user/user.entity');
 const validate = require('../../middleware/validation.middleware');

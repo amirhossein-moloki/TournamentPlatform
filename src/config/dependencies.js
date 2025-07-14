@@ -10,6 +10,8 @@ const { PostgresTournamentRepository } = require('../infrastructure/database/rep
 const { PostgresMatchRepository } = require('../infrastructure/database/repositories/postgres.match.repository.js');
 const { PostgresUserRepository } = require('../infrastructure/database/repositories/postgres.user.repository.js');
 const { PostgresTournamentParticipantRepository } = require('../infrastructure/database/repositories/postgres.tournamentParticipant.repository.js'); // Assuming this exists or will be created
+const { PostgresTeamRepository } = require('../infrastructure/database/repositories/postgres.team.repository.js');
+const { PostgresTeamMemberRepository } = require('../infrastructure/database/repositories/postgres.teamMember.repository.js');
 const PostgresChatRepository = require('../infrastructure/database/repositories/postgres.chat.repository.js');
 
 // Game Use Cases
@@ -35,11 +37,21 @@ const GetMatchUseCase = require('../application/use-cases/match/get-match.usecas
 const GetMatchUploadUrlUseCase = require('../application/use-cases/match/get-match-upload-url.usecase.js'); // Added
 const SubmitMatchResultUseCase = require('../application/use-cases/match/submit-match-result.usecase.js'); // Added
 
+// Team Use Cases
+const CreateTeamUseCase = require('../application/use-cases/team/createTeam.usecase.js');
+const GetTeamByIdUseCase = require('../application/use-cases/team/getTeamById.usecase.js');
+const GetAllTeamsUseCase = require('../application/use-cases/team/getAllTeams.usecase.js');
+const UpdateTeamUseCase = require('../application/use-cases/team/updateTeam.usecase.js');
+const DeleteTeamUseCase = require('../application/use-cases/team/deleteTeam.usecase.js');
+const AddTeamMemberUseCase = require('../application/use-cases/teamMember/addTeamMember.usecase.js');
+const RemoveTeamMemberUseCase = require('../application/use-cases/teamMember/removeTeamMember.usecase.js');
+
 // Controllers
 const GameController = require('../presentation/controllers/game.controller.js');
 const UserGameProfileController = require('../presentation/controllers/userGameProfile.controller.js');
 // TODO: Add UserController when created/refactored
 const TournamentController = require('../presentation/controllers/tournament.controller.js');
+const TeamController = require('../presentation/controllers/team.controller.js');
 
 // Auth Use Cases
 const RegisterUserUseCase = require('../application/use-cases/auth/register-user.usecase.js');
@@ -73,6 +85,8 @@ const matchRepository = new PostgresMatchRepository({
     TournamentModel: db.TournamentModel,
     GameModel: db.GameModel
 });
+const teamRepository = new PostgresTeamRepository(db.TeamModel);
+const teamMemberRepository = new PostgresTeamMemberRepository(db.TeamMemberModel);
 const chatRepository = new PostgresChatRepository({
     ChatSessionModel: db.ChatSessionModel,
     ChatMessageModel: db.ChatMessageModel,
@@ -118,6 +132,15 @@ const registerForTournamentUseCase = new RegisterForTournamentUseCase(tournament
 const getMatchUseCase = new GetMatchUseCase(tournamentRepository, userGameProfileRepository, matchRepository);
 const getMatchUploadUrlUseCase = new GetMatchUploadUrlUseCase(matchRepository /*, s3Service */); // s3Service to be added
 const submitMatchResultUseCase = new SubmitMatchResultUseCase(matchRepository /*, fileValidationService */); // fileValidationService to be added
+
+// Instantiate Team Use Cases
+const createTeamUseCase = new CreateTeamUseCase(teamRepository, teamMemberRepository);
+const getTeamByIdUseCase = new GetTeamByIdUseCase(teamRepository);
+const getAllTeamsUseCase = new GetAllTeamsUseCase(teamRepository);
+const updateTeamUseCase = new UpdateTeamUseCase(teamRepository);
+const deleteTeamUseCase = new DeleteTeamUseCase(teamRepository);
+const addTeamMemberUseCase = new AddTeamMemberUseCase(teamMemberRepository, teamRepository, userRepository);
+const removeTeamMemberUseCase = new RemoveTeamMemberUseCase(teamMemberRepository, teamRepository);
 
 // Instantiate Leaderboard Use Cases
 const GetLeaderboardUseCase = require('../application/use-cases/leaderboard/get-leaderboard.usecase');
@@ -181,6 +204,16 @@ const tournamentController = new TournamentController({
   registerForTournamentUseCase,
 });
 
+const teamController = new TeamController({
+    createTeamUseCase,
+    getTeamByIdUseCase,
+    getAllTeamsUseCase,
+    updateTeamUseCase,
+    deleteTeamUseCase,
+    addTeamMemberUseCase,
+    removeTeamMemberUseCase,
+});
+
 
 // Export instances
 module.exports = {
@@ -189,6 +222,7 @@ module.exports = {
   gameController,
   userGameProfileController, // Added
   tournamentController,
+  teamController,
   chatController,
   // Repositories
   gameRepository,
@@ -215,6 +249,14 @@ module.exports = {
   upsertUserGameProfileUseCase,
   getUserGameProfilesUseCase,
   getUserGameProfileForGameUseCase,
+  // Team Use Cases
+  createTeamUseCase,
+  getTeamByIdUseCase,
+  getAllTeamsUseCase,
+  updateTeamUseCase,
+  deleteTeamUseCase,
+  addTeamMemberUseCase,
+  removeTeamMemberUseCase,
   // Tournament Use Cases
   createTournamentUseCase,
   listTournamentsUseCase,

@@ -1055,9 +1055,169 @@
           }
         }
       }
+    },
+    "/chats/": {
+      "post": {
+        "description": "",
+        "responses": {
+          "default": {
+            "description": ""
+          }
+        }
+      },
+      "get": {
+        "description": "",
+        "responses": {
+          "default": {
+            "description": ""
+          }
+        }
+      }
+    },
+    "/chats/{sessionId}/messages": {
+      "get": {
+        "description": "",
+        "parameters": [
+          {
+            "name": "sessionId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "default": {
+            "description": ""
+          }
+        }
+      }
     }
   },
   "components": {
+    "parameters": {
+      "PageParam": {
+        "in": "query",
+        "name": "page",
+        "schema": {
+          "type": "integer",
+          "default": 1
+        },
+        "description": "Page number for pagination."
+      },
+      "LimitParam": {
+        "in": "query",
+        "name": "limit",
+        "schema": {
+          "type": "integer",
+          "default": 10
+        },
+        "description": "Number of items per page."
+      },
+      "UserIdPath": {
+        "in": "path",
+        "name": "id",
+        "required": true,
+        "schema": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "description": "The ID of the user."
+      },
+      "TeamIdPath": {
+        "in": "path",
+        "name": "id",
+        "required": true,
+        "schema": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "description": "The ID of the team."
+      },
+      "TournamentIdPath": {
+        "in": "path",
+        "name": "id",
+        "required": true,
+        "schema": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "description": "The ID of the tournament."
+      },
+      "MatchIdPath": {
+        "in": "path",
+        "name": "id",
+        "required": true,
+        "schema": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "description": "The ID of the match."
+      }
+    },
+    "responses": {
+      "BadRequestError": {
+        "description": "Bad Request - The server cannot or will not process the request due to something that is perceived to be a client error.",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ErrorResponse"
+            }
+          }
+        }
+      },
+      "UnauthorizedError": {
+        "description": "Unauthorized - The client must authenticate itself to get the requested response.",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ErrorResponse"
+            }
+          }
+        }
+      },
+      "ForbiddenError": {
+        "description": "Forbidden - The client does not have access rights to the content.",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ErrorResponse"
+            }
+          }
+        }
+      },
+      "NotFoundError": {
+        "description": "Not Found - The server can not find the requested resource.",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ErrorResponse"
+            }
+          }
+        }
+      },
+      "ConflictError": {
+        "description": "Conflict - The request could not be completed due to a conflict with the current state of the resource.",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ErrorResponse"
+            }
+          }
+        }
+      },
+      "InternalServerError": {
+        "description": "Internal Server Error - The server has encountered a situation it doesn't know how to handle.",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ErrorResponse"
+            }
+          }
+        }
+      }
+    },
     "schemas": {
       "ErrorResponse": {
         "type": "object",
@@ -5978,118 +6138,87 @@
       "WithdrawalMethodDetails": {
         "type": "object",
         "properties": {
-          "type": {
-            "type": "string",
-            "example": "object"
-          },
-          "properties": {
-            "type": "object",
-            "properties": {
-              "type": {
-                "type": "object",
+          "oneOf": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "type": {
+                  "type": "string",
+                  "example": "object"
+                },
                 "properties": {
-                  "type": {
-                    "type": "string",
-                    "example": "string"
-                  },
-                  "enum": {
-                    "type": "array",
-                    "example": [
-                      "PAYPAL",
-                      "BANK_TRANSFER"
-                    ],
-                    "items": {
-                      "type": "string"
+                  "type": "object",
+                  "properties": {
+                    "type": {
+                      "type": "object",
+                      "properties": {
+                        "type": {
+                          "type": "string",
+                          "example": "string"
+                        },
+                        "enum": {
+                          "type": "array",
+                          "example": [
+                            "BANK_TRANSFER"
+                          ],
+                          "items": {
+                            "type": "string"
+                          }
+                        }
+                      }
+                    },
+                    "accountHolderName": {
+                      "type": "object",
+                      "properties": {
+                        "type": {
+                          "type": "string",
+                          "example": "string"
+                        }
+                      }
+                    },
+                    "accountNumber": {
+                      "type": "object",
+                      "properties": {
+                        "type": {
+                          "type": "string",
+                          "example": "string"
+                        }
+                      }
+                    },
+                    "routingNumber": {
+                      "type": "object",
+                      "properties": {
+                        "type": {
+                          "type": "string",
+                          "example": "string"
+                        }
+                      }
+                    },
+                    "bankName": {
+                      "type": "object",
+                      "properties": {
+                        "type": {
+                          "type": "string",
+                          "example": "string"
+                        }
+                      }
                     }
-                  },
-                  "description": {
-                    "type": "string",
-                    "example": "Type of withdrawal method."
                   }
-                }
-              },
-              "email": {
-                "type": "object",
-                "properties": {
-                  "type": {
-                    "type": "string",
-                    "example": "string"
-                  },
-                  "format": {
-                    "type": "string",
-                    "example": "email"
-                  },
-                  "description": {
-                    "type": "string",
-                    "example": "PayPal email address (required if type is PAYPAL)."
-                  }
-                }
-              },
-              "accountHolderName": {
-                "type": "object",
-                "properties": {
-                  "type": {
-                    "type": "string",
-                    "example": "string"
-                  },
-                  "description": {
-                    "type": "string",
-                    "example": "Bank account holder name (required if type is BANK_TRANSFER)."
-                  }
-                }
-              },
-              "accountNumber": {
-                "type": "object",
-                "properties": {
-                  "type": {
-                    "type": "string",
-                    "example": "string"
-                  },
-                  "description": {
-                    "type": "string",
-                    "example": "Bank account number (required if type is BANK_TRANSFER)."
-                  }
-                }
-              },
-              "routingNumber": {
-                "type": "object",
-                "properties": {
-                  "type": {
-                    "type": "string",
-                    "example": "string"
-                  },
-                  "description": {
-                    "type": "string",
-                    "example": "Bank routing number (required if type is BANK_TRANSFER)."
-                  }
-                }
-              },
-              "bankName": {
-                "type": "object",
-                "properties": {
-                  "type": {
-                    "type": "string",
-                    "example": "string"
-                  },
-                  "nullable": {
-                    "type": "boolean",
-                    "example": true
-                  },
-                  "description": {
-                    "type": "string",
-                    "example": "Name of the bank (optional for BANK_TRANSFER)."
+                },
+                "required": {
+                  "type": "array",
+                  "example": [
+                    "type",
+                    "accountHolderName",
+                    "accountNumber",
+                    "routingNumber"
+                  ],
+                  "items": {
+                    "type": "string"
                   }
                 }
               }
-            }
-          },
-          "required": {
-            "type": "array",
-            "example": [
-              "type"
-            ],
-            "items": {
-              "type": "string"
             }
           }
         }
@@ -6332,7 +6461,6 @@
                       "RESOLVED_PARTICIPANT1_WIN",
                       "RESOLVED_PARTICIPANT2_WIN",
                       "RESOLVED_REPLAY",
-                      "CLOSED",
                       "CLOSED_INVALID"
                     ],
                     "items": {
