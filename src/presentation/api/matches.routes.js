@@ -1,35 +1,9 @@
 const router = require('express').Router();
-const { Joi, validate } = require('express-validation');
 const matchController = require('../controllers/match.controller'); // Assuming you'll create this
 const { authenticateToken, authorizeRole } = require('../../middleware/auth.middleware');
 const { USER_ROLES } = require('../../domain/user/user.entity').User; // Assuming UserRoles is exported as USER_ROLES
-
-// Joi validation schemas
-const matchIdParamSchema = {
-    params: Joi.object({
-        id: Joi.string().uuid().required(),
-    }),
-};
-
-const uploadUrlRequestSchema = {
-    body: Joi.object({
-        filename: Joi.string().pattern(new RegExp('^[^/\\0]+\\.(png|jpe?g|gif)$')).required()
-            .messages({
-                'string.pattern.base': 'Filename must be valid and have a .png, .jpg, .jpeg, or .gif extension.',
-            }),
-        contentType: Joi.string().valid('image/png', 'image/jpeg', 'image/gif').required(),
-    }),
-};
-
-const submitResultSchema = {
-    body: Joi.object({
-        winningParticipantId: Joi.string().uuid().required(),
-        scoreParticipant1: Joi.number().integer().min(0).optional().allow(null),
-        scoreParticipant2: Joi.number().integer().min(0).optional().allow(null),
-        resultScreenshotFileKey: Joi.string().required(), // S3 Key from upload step
-        comments: Joi.string().max(500).optional().allow('', null),
-    }),
-};
+const validate = require('../../middleware/validation.middleware');
+const { matchIdParamSchema, uploadUrlRequestSchema, submitResultSchema } = require('../validators/match.validator');
 
 
 // --- Routes ---

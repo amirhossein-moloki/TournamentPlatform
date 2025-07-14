@@ -1,5 +1,4 @@
-const ApiError = require('../../../utils/ApiError');
-const httpStatusCodes = require('http-status-codes');
+const { BadRequestError, NotFoundError, ConflictError, InternalServerError } = require('../../../utils/errors');
 const { User } = require('../../../domain/user/user.entity'); // For User.UserRoles
 
 class AssignRoleUseCase {
@@ -19,30 +18,30 @@ class AssignRoleUseCase {
    */
   async execute(targetUserId, roleToAssign, adminUserId /* for future audit logging */) {
     if (!targetUserId) {
-      throw new ApiError(httpStatusCodes.BAD_REQUEST, 'Target User ID is required.');
+      throw new BadRequestError('Target User ID is required.');
     }
     if (!roleToAssign) {
-      throw new ApiError(httpStatusCodes.BAD_REQUEST, 'Role to assign is required.');
+      throw new BadRequestError('Role to assign is required.');
     }
 
     if (!Object.values(User.UserRoles).includes(roleToAssign)) {
-      throw new ApiError(httpStatusCodes.BAD_REQUEST, `Invalid role specified: ${roleToAssign}.`);
+      throw new BadRequestError(`Invalid role specified: ${roleToAssign}.`);
     }
 
     const userToUpdate = await this.userRepository.findById(targetUserId);
     if (!userToUpdate) {
-      throw new ApiError(httpStatusCodes.NOT_FOUND, `Target user with ID ${targetUserId} not found.`);
+      throw new NotFoundError(`Target user with ID ${targetUserId} not found.`);
     }
 
     if (userToUpdate.hasRole(roleToAssign)) {
-      throw new ApiError(httpStatusCodes.CONFLICT, `User already has the role: ${roleToAssign}.`);
+      throw new ConflictError(`User already has the role: ${roleToAssign}.`);
     }
 
     try {
       userToUpdate.addRole(roleToAssign); // Entity method handles validation and updates roles array + updatedAt
     } catch (domainError) {
       // Catch errors from entity method (e.g., invalid role, though checked above, or other internal logic)
-      throw new ApiError(httpStatusCodes.BAD_REQUEST, domainError.message);
+      throw new BadRequestError(domainError.message);
     }
 
     const updatedUser = await this.userRepository.update(targetUserId, {
@@ -51,7 +50,7 @@ class AssignRoleUseCase {
     });
 
     if (!updatedUser) {
-      throw new ApiError(httpStatusCodes.INTERNAL_SERVER_ERROR, `Failed to assign role '${roleToAssign}' to user ${targetUserId}.`);
+      throw new InternalServerError(`Failed to assign role '${roleToAssign}' to user ${targetUserId}.`);
     }
 
     // TODO: Add audit logging here if adminUserId is provided

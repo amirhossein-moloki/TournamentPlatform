@@ -1,6 +1,5 @@
 const { v4: uuidv4 } = require('uuid');
-const ApiError = require('../../../utils/ApiError');
-const httpStatusCodes = require('http-status-codes');
+const { BadRequestError } = require('../../../utils/errors');
 const { Tournament } = require('../../../domain/tournament/tournament.entity'); // Assuming entity path
 
 /**
@@ -33,44 +32,44 @@ class CreateTournamentUseCase {
    * @param {string|Date} [tournamentData.endDate] - Optional end date/time.
    * @param {string} [tournamentData.organizerId] - Optional ID of the user organizing the tournament.
    * @returns {Promise<Tournament>} The created tournament entity.
-   * @throws {ApiError} If creation fails (e.g., validation error, organizer not found).
+   * @throws {import('../../../utils/errors').BadRequestError} If creation fails (e.g., validation error, organizer not found).
    */
   async execute(tournamentData) {
     // Basic validation (Joi schema validation should be primary at controller level)
     const requiredFields = ['name', 'gameId', 'entryFee', 'prizePool', 'maxParticipants', 'startDate']; // Changed gameName to gameId
     for (const field of requiredFields) {
       if (tournamentData[field] === undefined || tournamentData[field] === null) {
-        throw new ApiError(httpStatusCodes.BAD_REQUEST, `Missing required field: ${field}`);
+        throw new BadRequestError(`Missing required field: ${field}`);
       }
     }
 
     // Validate gameId
     const game = await this.gameRepository.findById(tournamentData.gameId);
     if (!game || !game.isActive) { // Assuming Game entity has an isActive property
-      throw new ApiError(httpStatusCodes.BAD_REQUEST, `Game with ID ${tournamentData.gameId} not found or is not active.`);
+      throw new BadRequestError(`Game with ID ${tournamentData.gameId} not found or is not active.`);
     }
 
     if (new Date(tournamentData.startDate) <= new Date()) {
-      throw new ApiError(httpStatusCodes.BAD_REQUEST, 'Start date must be in the future.');
+      throw new BadRequestError('Start date must be in the future.');
     }
     if (tournamentData.endDate && new Date(tournamentData.endDate) <= new Date(tournamentData.startDate)) {
-      throw new ApiError(httpStatusCodes.BAD_REQUEST, 'End date must be after the start date.');
+      throw new BadRequestError('End date must be after the start date.');
     }
     if (tournamentData.entryFee < 0) {
-      throw new ApiError(httpStatusCodes.BAD_REQUEST, 'Entry fee cannot be negative.');
+      throw new BadRequestError('Entry fee cannot be negative.');
     }
     if (tournamentData.prizePool < 0) { // Could be 0 if no prize, or >= entryFee * some_factor
-      throw new ApiError(httpStatusCodes.BAD_REQUEST, 'Prize pool cannot be negative.');
+      throw new BadRequestError('Prize pool cannot be negative.');
     }
     if (tournamentData.maxParticipants <= 1) { // Typically need at least 2 participants
-      throw new ApiError(httpStatusCodes.BAD_REQUEST, 'Maximum participants must be greater than 1.');
+      throw new BadRequestError('Maximum participants must be greater than 1.');
     }
 
     // Validate organizerId if provided
     if (tournamentData.organizerId) {
       const organizer = await this.userRepository.findById(tournamentData.organizerId);
       if (!organizer) {
-        throw new ApiError(httpStatusCodes.BAD_REQUEST, `Organizer with ID ${tournamentData.organizerId} not found.`);
+        throw new BadRequestError(`Organizer with ID ${tournamentData.organizerId} not found.`);
       }
       // Future: Check if organizer has 'Admin' or 'TournamentOrganizer' role if such roles exist
     }
@@ -82,10 +81,10 @@ class CreateTournamentUseCase {
     } = tournamentData;
 
     if (managed_by && !Array.isArray(managed_by)) {
-        throw new ApiError(httpStatusCodes.BAD_REQUEST, 'managed_by must be an array.');
+        throw new BadRequestError('managed_by must be an array.');
     }
     if (supported_by && !Array.isArray(supported_by)) {
-        throw new ApiError(httpStatusCodes.BAD_REQUEST, 'supported_by must be an array.');
+        throw new BadRequestError('supported_by must be an array.');
     }
 
     const tournamentId = uuidv4();

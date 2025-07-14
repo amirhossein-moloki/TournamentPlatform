@@ -1,5 +1,4 @@
-const ApiError = require('../../../utils/ApiError');
-const httpStatusCodes = require('http-status-codes');
+const { BadRequestError, NotFoundError, InternalServerError } = require('../../../utils/errors');
 const { User } = require('../../../domain/user/user.entity'); // For type hinting if using TypeScript/JSDoc
 
 class UpdateUserProfileUseCase {
@@ -18,28 +17,30 @@ class UpdateUserProfileUseCase {
    * @param {string} userId - The ID of the user to update.
    * @param {object} updateData - Data to update (e.g., { firstName, lastName, bio, avatarUrl, socialLinks, country }).
    * @returns {Promise<object>} The updated user's public profile.
-   * @throws {ApiError} If validation fails, user not found, or update fails.
+   * @throws {import('../../../utils/errors').BadRequestError}
+   * @throws {import('../../../utils/errors').NotFoundError}
+   * @throws {import('../../../utils/errors').InternalServerError}
    */
   async execute(userId, updateData) {
     if (!userId) {
-      throw new ApiError(httpStatusCodes.BAD_REQUEST, 'User ID is required.');
+      throw new BadRequestError('User ID is required.');
     }
     // Changed error message to match test expectation, original was "No update data provided."
     if (!updateData || Object.keys(updateData).length === 0) {
-      throw new ApiError(httpStatusCodes.BAD_REQUEST, 'Update data is required.');
+      throw new BadRequestError('Update data is required.');
     }
 
     try {
       const user = await this.userRepository.findById(userId);
       if (!user) {
         // Aligning with the more specific error message expectation from the test
-        throw new ApiError(httpStatusCodes.NOT_FOUND, `User with ID ${userId} not found.`);
+        throw new NotFoundError(`User with ID ${userId} not found.`);
       }
 
       // Check if user entity has the updateProfile method
       if (typeof user.updateProfile !== 'function') {
         console.error('User entity is missing updateProfile method.', new TypeError('user.updateProfile is not a function'));
-        throw new ApiError(httpStatusCodes.INTERNAL_SERVER_ERROR, 'Failed to process user profile for update.');
+        throw new InternalServerError('Failed to process user profile for update.');
       }
       user.updateProfile(updateData); // This updates the user entity instance
 
@@ -54,23 +55,23 @@ class UpdateUserProfileUseCase {
           // This might occur if the repository's update method returns null or undefined on failure
           // or if it's designed to return the updated entity and failed to do so.
           console.error(`Update operation for user ${userId} did not return an updated entity.`);
-          throw new ApiError(httpStatusCodes.INTERNAL_SERVER_ERROR, 'Failed to confirm user profile update.');
+          throw new InternalServerError('Failed to confirm user profile update.');
       }
 
 
       // Check if the returned/updated entity has toPublicProfile method
       if (typeof updatedUserEntity.toPublicProfile !== 'function') {
           console.error('Updated user entity is missing toPublicProfile method.');
-          throw new ApiError(httpStatusCodes.INTERNAL_SERVER_ERROR, 'Failed to process updated user profile.');
+          throw new InternalServerError('Failed to process updated user profile.');
       }
       return updatedUserEntity.toPublicProfile();
 
     } catch (error) {
-      if (error instanceof ApiError) {
-        throw error; // Re-throw ApiErrors directly
+      if (error instanceof BadRequestError || error instanceof NotFoundError || error instanceof InternalServerError) {
+        throw error; // Re-throw specific errors directly
       }
       console.error('Error updating user profile:', error);
-      throw new ApiError(httpStatusCodes.INTERNAL_SERVER_ERROR, 'Failed to update user profile.');
+      throw new InternalServerError('Failed to update user profile.');
     }
   }
 }

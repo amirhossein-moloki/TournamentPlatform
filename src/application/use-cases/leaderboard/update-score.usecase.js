@@ -1,5 +1,4 @@
-const ApiError = require('../../../utils/ApiError');
-const httpStatusCodes = require('http-status-codes');
+const { BadRequestError } = require('../../../utils/errors');
 // Potentially, we might need UserRepository to fetch the latest username if not provided directly
 // const UserRepository = require('../../../domain/user/user.repository.interface');
 
@@ -42,7 +41,7 @@ class UpdateScoreUseCase {
    */
   async execute({ userId, username, gameName, scores }) {
     if (!userId || !gameName || !Array.isArray(scores) || scores.length === 0) {
-      throw new ApiError(httpStatusCodes.BAD_REQUEST, 'User ID, game name, and scores array are required.');
+      throw new BadRequestError('User ID, game name, and scores array are required.');
     }
 
     let currentUsername = username;

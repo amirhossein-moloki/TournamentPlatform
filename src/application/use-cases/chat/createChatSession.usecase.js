@@ -1,6 +1,5 @@
-// src/application/use-cases/chat/createChatSession.usecase.js
-
 const { ChatSession } = require('../../../domain/chat/chat_session.entity');
+const { NotFoundError, BadRequestError } = require('../../../utils/errors');
 
 class CreateChatSessionUseCase {
   constructor({ chatRepository, userRepository }) {
@@ -9,9 +8,12 @@ class CreateChatSessionUseCase {
   }
 
   async execute({ userId, tournamentId = null }) {
+    if(!userId) {
+        throw new BadRequestError('User ID is required.');
+    }
     const user = await this.userRepository.findById(userId);
     if (!user) {
-      throw new Error('User not found');
+      throw new NotFoundError('User not found');
     }
 
     // Optional: Check if there's an existing open session for this user and tournament

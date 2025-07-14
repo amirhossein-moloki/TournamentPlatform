@@ -1,5 +1,4 @@
-const ApiError = require('../../../utils/ApiError');
-const httpStatusCodes = require('http-status-codes');
+const { BadRequestError, NotFoundError, InternalServerError } = require('../../../utils/errors');
 
 class GetMatchUseCase {
   /**
@@ -18,18 +17,20 @@ class GetMatchUseCase {
    * @param {string} matchId - The ID of the match to retrieve.
    * @param {string} [requestingUserId] - Optional: ID of the user requesting the match, for authorization checks.
    * @returns {Promise<import('../../../domain/tournament/match.entity').Match>} The Match domain entity.
-   * @throws {ApiError} If the match is not found or access is denied.
+   * @throws {import('../../../utils/errors').BadRequestError}
+   * @throws {import('../../../utils/errors').NotFoundError}
+   * @throws {import('../../../utils/errors').InternalServerError}
    */
   async execute(matchId, requestingUserId = null) {
     if (!matchId) {
-      throw new ApiError(httpStatusCodes.BAD_REQUEST, 'Match ID is required.');
+      throw new BadRequestError('Match ID is required.');
     }
 
     // The findMatchById method in PostgresTournamentRepository currently takes (matchId, options)
     const matchData = await this.matchRepository.findMatchById(matchId, { includeTournament: true });
 
     if (!matchData) {
-      throw new ApiError(httpStatusCodes.NOT_FOUND, 'Match not found.');
+      throw new NotFoundError('Match not found.');
     }
 
     // Assuming matchData is a domain entity or an object that can be converted to one.
@@ -44,13 +45,13 @@ class GetMatchUseCase {
         // If gameId is not directly available, fetch the tournament to get its gameId
         const tournament = await this.tournamentRepository.findById(matchData.tournamentId);
         if (!tournament || !tournament.gameId) {
-            throw new ApiError(httpStatusCodes.INTERNAL_SERVER_ERROR, 'Could not determine game for the match.');
+            throw new InternalServerError('Could not determine game for the match.');
         }
         gameId = tournament.gameId;
         // Optionally attach full tournament info to matchData if not already there
         if(!matchData.tournament) matchData.tournament = tournament;
     } else {
-        throw new ApiError(httpStatusCodes.INTERNAL_SERVER_ERROR, 'Match data is missing tournament information.');
+        throw new InternalServerError('Match data is missing tournament information.');
     }
 
 

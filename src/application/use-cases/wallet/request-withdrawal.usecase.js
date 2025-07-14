@@ -1,6 +1,5 @@
 const { v4: uuidv4 } = require('uuid');
-const ApiError = require('../../../utils/ApiError');
-const httpStatusCodes = require('http-status-codes');
+const { BadRequestError, NotFoundError, ConflictError } = require('../../../utils/errors');
 const { Transaction } = require('../../../domain/wallet/transaction.entity');
 // const { Wallet } = require('../../../domain/wallet/wallet.entity'); // For type hinting if needed
 
@@ -25,14 +24,16 @@ class RequestWithdrawalUseCase {
    * @param {object} withdrawalData.withdrawalMethodDetails - Specifics of the withdrawal method (e.g., bank details, PayPal email).
    * @param {string|null} [idempotencyKey] - Optional key for idempotency.
    * @returns {Promise<{transaction: Transaction, message: string}>}
-   * @throws {ApiError} If validation fails, insufficient funds, or other errors.
+   * @throws {import('../../../utils/errors').BadRequestError}
+   * @throws {import('../../../utils/errors').NotFoundError}
+   * @throws {import('../../../utils/errors').ConflictError}
    */
   async execute(userId, { amount, currency, withdrawalMethodDetails }, idempotencyKey = null) {
     if (!userId || amount == null || !currency || !withdrawalMethodDetails) {
-      throw new ApiError(httpStatusCodes.BAD_REQUEST, 'User ID, amount, currency, and withdrawal method details are required.');
+      throw new BadRequestError('User ID, amount, currency, and withdrawal method details are required.');
     }
     if (typeof amount !== 'number' || amount <= 0) {
-      throw new ApiError(httpStatusCodes.BAD_REQUEST, 'Withdrawal amount must be a positive number.');
+      throw new BadRequestError('Withdrawal amount must be a positive number.');
     }
     // Add more validation for currency, withdrawalMethodDetails structure as needed.
 
@@ -52,7 +53,7 @@ class RequestWithdrawalUseCase {
                     message: `Withdrawal request already submitted or being processed (Idempotency). Status: ${existingTransaction.status}`,
                 };
             } else {
-                 throw new ApiError(httpStatusCodes.CONFLICT, `Idempotency key ${idempotencyKey} already used with different request parameters.`);
+                 throw new ConflictError(`Idempotency key ${idempotencyKey} already used with different request parameters.`);
             }
         }
         // If FAILED, policy might allow retry or require new key.
@@ -62,10 +63,10 @@ class RequestWithdrawalUseCase {
     // 2. Get user's wallet and check balance
     const wallet = await this.walletRepository.findByUserId(userId);
     if (!wallet) {
-      throw new ApiError(httpStatusCodes.NOT_FOUND, 'User wallet not found.');
+      throw new NotFoundError('User wallet not found.');
     }
     if (!wallet.hasSufficientFunds(amount)) {
-      throw new ApiError(httpStatusCodes.BAD_REQUEST, 'Insufficient balance for withdrawal.');
+      throw new BadRequestError('Insufficient balance for withdrawal.');
     }
     // Note: Currency check (wallet.currency vs withdrawalData.currency) might be needed if system is multi-currency.
 

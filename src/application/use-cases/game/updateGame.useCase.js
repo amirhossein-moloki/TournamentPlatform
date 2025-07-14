@@ -1,4 +1,4 @@
-// src/application/use-cases/game/updateGame.useCase.js
+const { BadRequestError, NotFoundError } = require('../../../utils/errors');
 
 class UpdateGameUseCase {
   constructor(gameRepository) {

@@ -1,5 +1,4 @@
-const ApiError = require('../../../utils/ApiError');
-const httpStatusCodes = require('http-status-codes');
+const { BadRequestError, NotFoundError, InternalServerError } = require('../../../utils/errors');
 const { User } = require('../../../domain/user/user.entity'); // For User.UserRoles
 
 class RemoveRoleUseCase {

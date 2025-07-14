@@ -1,5 +1,4 @@
-const ApiError = require('../../../utils/ApiError');
-const httpStatusCodes = require('http-status-codes');
+const { BadRequestError, NotFoundError, ConflictError, InternalServerError } = require('../../../utils/errors');
 const { Transaction } = require('../../../domain/wallet/transaction.entity'); // Assuming entity path
 const { Wallet } = require('../../../domain/wallet/wallet.entity'); // Assuming entity path
 // const { appConfig } = require('../../../../config/config'); // For currency or other defaults if needed
@@ -31,11 +30,14 @@ class ProcessDepositUseCase {
    * @param {string} depositData.status - The status from the gateway (e.g., 'success', 'completed').
    * @param {object} [depositData.metadata] - Additional metadata from the gateway.
    * @returns {Promise<{transaction: Transaction, wallet: Wallet}>} The updated transaction and wallet.
-   * @throws {ApiError} If processing fails (e.g., transaction not found, already processed, update conflict).
+   * @throws {import('../../../utils/errors').BadRequestError}
+   * @throws {import('../../../utils/errors').NotFoundError}
+   * @throws {import('../../../utils/errors').ConflictError}
+   * @throws {import('../../../utils/errors').InternalServerError}
    */
   async execute({ internalTransactionId, gatewayTransactionId, amount, currency, status, metadata }) {
     if (!internalTransactionId || !gatewayTransactionId || amount == null || !currency || !status) {
-      throw new ApiError(httpStatusCodes.BAD_REQUEST, 'Missing required deposit data from gateway.');
+      throw new BadRequestError('Missing required deposit data from gateway.');
     }
 
     // 1. Fetch the original transaction record from our database
@@ -45,8 +47,7 @@ class ProcessDepositUseCase {
       // This could happen if the webhook arrives before our system has fully processed
       // the initialization, or if the ID is incorrect.
       // Depending on policy, could retry, log for investigation, or reject.
-      throw new ApiError(
-        httpStatusCodes.NOT_FOUND,
+      throw new NotFoundError(
         `Transaction with internal ID ${internalTransactionId} not found.`
       );
     }
@@ -61,8 +62,7 @@ class ProcessDepositUseCase {
         const wallet = await this.walletRepository.findById(existingTransaction.walletId);
         return { transaction: existingTransaction, wallet }; // Return existing state
       }
-      throw new ApiError(
-        httpStatusCodes.CONFLICT,
+      throw new ConflictError(
         `Transaction ${internalTransactionId} already processed with status: ${existingTransaction.status}.`
       );
     }
@@ -76,7 +76,7 @@ class ProcessDepositUseCase {
         description: `Amount mismatch: Expected ${existingTransaction.amount}, Gateway reported ${amount}. Gateway ID: ${gatewayTransactionId}`,
         metadata: { ...existingTransaction.metadata, gatewayReportedAmount: amount, gatewayData: metadata },
       });
-      throw new ApiError(httpStatusCodes.BAD_REQUEST, 'Transaction amount mismatch with gateway confirmation.');
+      throw new BadRequestError('Transaction amount mismatch with gateway confirmation.');
     }
     // Similarly, check currency if your system supports multiple and it's part of the initial transaction.
 
@@ -102,14 +102,14 @@ class ProcessDepositUseCase {
       if (this.lockManager) {
         lock = await this.lockManager.acquire(`wallet:${existingTransaction.walletId}`);
         if (!lock) {
-          throw new ApiError(httpStatusCodes.SERVICE_UNAVAILABLE, 'Could not acquire lock to update wallet. Please retry.');
+          throw new InternalServerError('Could not acquire lock to update wallet. Please retry.');
         }
       }
 
       // Fetch the wallet again, within the lock if applicable, to get the latest balance
       const wallet = await this.walletRepository.findById(existingTransaction.walletId);
       if (!wallet) {
-        throw new ApiError(httpStatusCodes.NOT_FOUND, `Wallet not found for transaction ${internalTransactionId}.`);
+        throw new NotFoundError(`Wallet not found for transaction ${internalTransactionId}.`);
       }
 
       // Update wallet balance
@@ -134,8 +134,8 @@ class ProcessDepositUseCase {
       // Log the error, potentially try to revert or mark for reconciliation
       console.error(`Error processing deposit for transaction ${internalTransactionId}:`, error);
       // If it's a known ApiError, rethrow it, otherwise wrap it
-      if (error instanceof ApiError) throw error;
-      throw new ApiError(httpStatusCodes.INTERNAL_SERVER_ERROR, 'Failed to process deposit due to an internal error.');
+      if (error instanceof BadRequestError || error instanceof NotFoundError || error instanceof ConflictError || error instanceof InternalServerError) throw error;
+      throw new InternalServerError('Failed to process deposit due to an internal error.');
     } finally {
       if (this.lockManager && lock) {
         await this.lockManager.release(lock);

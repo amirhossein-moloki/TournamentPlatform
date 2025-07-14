@@ -1,5 +1,4 @@
-const ApiError = require('../../../utils/ApiError');
-const httpStatusCodes = require('http-status-codes');
+const { BadRequestError, NotFoundError, ForbiddenError, InternalServerError } = require('../../../utils/errors');
 const { User } = require('../../../domain/user/user.entity'); // Import User
 const { Tournament } = require('../../../domain/tournament/tournament.entity');
 
@@ -24,44 +23,44 @@ class UpdateTournamentDetailsByManagerUseCase {
    */
   async execute(managerUserId, tournamentId, updateData) {
     if (!managerUserId) {
-      throw new ApiError(httpStatusCodes.BAD_REQUEST, 'Manager User ID is required.');
+      throw new BadRequestError('Manager User ID is required.');
     }
     if (!tournamentId) {
-      throw new ApiError(httpStatusCodes.BAD_REQUEST, 'Tournament ID is required.');
+      throw new BadRequestError('Tournament ID is required.');
     }
     if (!updateData || typeof updateData !== 'object' || Object.keys(updateData).length === 0) {
-      throw new ApiError(httpStatusCodes.BAD_REQUEST, 'Update data is required.');
+      throw new BadRequestError('Update data is required.');
     }
 
     // 1. Validate Manager
     const manager = await this.userRepository.findById(managerUserId);
     if (!manager) {
-      throw new ApiError(httpStatusCodes.NOT_FOUND, `Manager user with ID ${managerUserId} not found.`);
+      throw new NotFoundError(`Manager user with ID ${managerUserId} not found.`);
     }
     if (!manager.hasRole(User.UserRoles.TOURNAMENT_MANAGER)) { // Corrected to User.UserRoles
-      throw new ApiError(httpStatusCodes.FORBIDDEN, `User ${managerUserId} is not authorized as a Tournament Manager.`);
+      throw new ForbiddenError(`User ${managerUserId} is not authorized as a Tournament Manager.`);
     }
 
     // 2. Fetch Tournament
     const tournamentToUpdate = await this.tournamentRepository.findById(tournamentId);
     if (!tournamentToUpdate) {
-      throw new ApiError(httpStatusCodes.NOT_FOUND, `Tournament with ID ${tournamentId} not found.`);
+      throw new NotFoundError(`Tournament with ID ${tournamentId} not found.`);
     }
 
     // 3. Authorization Check: Is this manager allowed to manage THIS tournament?
     if (!tournamentToUpdate.managed_by || !tournamentToUpdate.managed_by.includes(managerUserId)) {
-      throw new ApiError(httpStatusCodes.FORBIDDEN, `User ${managerUserId} is not authorized to manage this specific tournament.`);
+      throw new ForbiddenError(`User ${managerUserId} is not authorized to manage this specific tournament.`);
     }
 
     // 4. If gameId is being updated, validate the new gameId
     if (updateData.gameId && updateData.gameId !== tournamentToUpdate.gameId) {
         const game = await this.gameRepository.findById(updateData.gameId);
         if (!game) {
-            throw new ApiError(httpStatusCodes.BAD_REQUEST, `Game with ID ${updateData.gameId} not found.`);
+            throw new BadRequestError(`Game with ID ${updateData.gameId} not found.`);
         }
         // Optional: Check if this manager is authorized for the *new* game as well
         // if (!game.tournament_managers || !game.tournament_managers.includes(managerUserId)) {
-        //   throw new ApiError(httpStatusCodes.FORBIDDEN, `Manager ${managerUserId} is not authorized for the new game ${updateData.gameId}.`);
+        //   throw new ForbiddenError(`Manager ${managerUserId} is not authorized for the new game ${updateData.gameId}.`);
         // }
     }
 
@@ -69,7 +68,7 @@ class UpdateTournamentDetailsByManagerUseCase {
     try {
       tournamentToUpdate.updateDetails(updateData);
     } catch (domainError) {
-      throw new ApiError(httpStatusCodes.BAD_REQUEST, domainError.message);
+      throw new BadRequestError(domainError.message);
     }
 
     // 6. Persist Changes
@@ -110,7 +109,7 @@ class UpdateTournamentDetailsByManagerUseCase {
     const updatedTournament = await this.tournamentRepository.update(tournamentId, fieldsForPersistence);
 
     if (!updatedTournament) {
-      throw new ApiError(httpStatusCodes.INTERNAL_SERVER_ERROR, 'Failed to update tournament details.');
+      throw new InternalServerError('Failed to update tournament details.');
     }
 
     return updatedTournament;

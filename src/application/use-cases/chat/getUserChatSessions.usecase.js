@@ -1,4 +1,4 @@
-// src/application/use-cases/chat/getUserChatSessions.usecase.js
+const { BadRequestError } = require('../../../utils/errors');
 
 class GetUserChatSessionsUseCase {
   constructor({ chatRepository }) {

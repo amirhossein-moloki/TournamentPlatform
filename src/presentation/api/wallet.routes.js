@@ -1,42 +1,13 @@
 const router = require('express').Router();
-const { Joi, validate } = require('express-validation');
 const walletController = require('../controllers/wallet.controller'); // Assuming you create this
 const { authenticateToken } = require('../../middleware/auth.middleware');
-const { TransactionStatus, TransactionType } = require('../../domain/wallet/transaction.entity');
+const validate = require('../../middleware/validation.middleware');
+const {
+  initializeDepositSchema,
+  getTransactionHistorySchema,
+  requestWithdrawalSchema,
+} = require('../validators/wallet.validator');
 
-// Joi Schemas
-const initializeDepositSchema = {
-    body: Joi.object({
-        amount: Joi.number().positive().precision(2).required(),
-        currency: Joi.string().length(3).uppercase().default('IRR'), // Example default
-    }),
-};
-
-const getTransactionHistorySchema = {
-    query: Joi.object({
-        page: Joi.number().integer().min(1),
-        limit: Joi.number().integer().min(1).max(100),
-        type: Joi.string().valid(...Object.values(TransactionType)),
-        status: Joi.string().valid(...Object.values(TransactionStatus)),
-        sortBy: Joi.string().valid('transactionDate', 'amount'),
-        sortOrder: Joi.string().valid('ASC', 'DESC'),
-    }),
-};
-
-const requestWithdrawalSchema = {
-    body: Joi.object({
-        amount: Joi.number().positive().precision(2).required(),
-        currency: Joi.string().length(3).uppercase().required(),
-        withdrawalMethodDetails: Joi.object({
-            type: Joi.string().valid('PAYPAL', 'BANK_TRANSFER').required(),
-            email: Joi.string().email().when('type', { is: 'PAYPAL', then: Joi.required() }),
-            accountHolderName: Joi.string().when('type', { is: 'BANK_TRANSFER', then: Joi.required() }),
-            accountNumber: Joi.string().when('type', { is: 'BANK_TRANSFER', then: Joi.required() }),
-            routingNumber: Joi.string().when('type', { is: 'BANK_TRANSFER', then: Joi.required() }),
-            bankName: Joi.string().when('type', { is: 'BANK_TRANSFER', then: Joi.optional() }),
-        }).required(),
-    }),
-};
 
 // --- Routes ---
 

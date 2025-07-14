@@ -1,5 +1,4 @@
-const ApiError = require('../../../utils/ApiError');
-const httpStatusCodes = require('http-status-codes');
+const { BadRequestError, NotFoundError, ForbiddenError, ConflictError, InternalServerError } = require('../../../utils/errors');
 const { Tournament, TournamentStatus } = require('../../../domain/tournament/tournament.entity');
 const { User } = require('../../../domain/user/user.entity'); // Import User to access User.UserRoles
 const { v4: uuidv4 } = require('uuid');
@@ -40,31 +39,31 @@ class CreateTournamentByManagerUseCase {
    */
   async execute(managerUserId, tournamentData) {
     if (!managerUserId) {
-      throw new ApiError(httpStatusCodes.BAD_REQUEST, 'Manager User ID is required.');
+      throw new BadRequestError('Manager User ID is required.');
     }
     if (!tournamentData || typeof tournamentData !== 'object' || Object.keys(tournamentData).length === 0) {
-      throw new ApiError(httpStatusCodes.BAD_REQUEST, 'Tournament data is required.');
+      throw new BadRequestError('Tournament data is required.');
     }
 
     // 1. Validate Manager
     const manager = await this.userRepository.findById(managerUserId);
     if (!manager) {
-      throw new ApiError(httpStatusCodes.NOT_FOUND, `User with ID ${managerUserId} not found.`);
+      throw new NotFoundError(`User with ID ${managerUserId} not found.`);
     }
     if (!manager.hasRole(User.UserRoles.TOURNAMENT_MANAGER)) { // Corrected to User.UserRoles
-      throw new ApiError(httpStatusCodes.FORBIDDEN, `User ${managerUserId} is not authorized to create tournaments (missing TOURNAMENT_MANAGER role).`);
+      throw new ForbiddenError(`User ${managerUserId} is not authorized to create tournaments (missing TOURNAMENT_MANAGER role).`);
     }
 
     // 2. Validate Game and Manager's authorization for the game
     if (!tournamentData.gameId) {
-        throw new ApiError(httpStatusCodes.BAD_REQUEST, 'Game ID is required in tournament data.');
+        throw new BadRequestError('Game ID is required in tournament data.');
     }
     const game = await this.gameRepository.findById(tournamentData.gameId);
     if (!game) {
-      throw new ApiError(httpStatusCodes.BAD_REQUEST, `Game with ID ${tournamentData.gameId} not found.`);
+      throw new BadRequestError(`Game with ID ${tournamentData.gameId} not found.`);
     }
     if (!game.tournament_managers || !game.tournament_managers.includes(managerUserId)) {
-      throw new ApiError(httpStatusCodes.FORBIDDEN, `Manager ${managerUserId} is not authorized to create tournaments for game ${tournamentData.gameId}.`);
+      throw new ForbiddenError(`Manager ${managerUserId} is not authorized to create tournaments for game ${tournamentData.gameId}.`);
     }
 
     // 3. Check for existing tournament with same name and overlapping dates (simplified check for now)
@@ -76,7 +75,7 @@ class CreateTournamentByManagerUseCase {
             tournamentData.endDate ? new Date(tournamentData.endDate) : null
         );
         if (existingTournament) {
-            throw new ApiError(httpStatusCodes.CONFLICT, 'A tournament with the same name and overlapping dates already exists.');
+            throw new ConflictError('A tournament with the same name and overlapping dates already exists.');
         }
     }
 
@@ -111,13 +110,13 @@ class CreateTournamentByManagerUseCase {
         tournamentData.settings
       );
     } catch (error) {
-      throw new ApiError(httpStatusCodes.BAD_REQUEST, `Failed to create tournament entity: ${error.message}`);
+      throw new BadRequestError(`Failed to create tournament entity: ${error.message}`);
     }
 
     // 5. Persist Tournament
     const createdTournament = await this.tournamentRepository.create(newTournament);
     if (!createdTournament) {
-      throw new ApiError(httpStatusCodes.INTERNAL_SERVER_ERROR, 'Failed to save the new tournament.');
+      throw new InternalServerError('Failed to save the new tournament.');
     }
 
     return createdTournament;

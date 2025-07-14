@@ -1,6 +1,5 @@
 const { UserRankDetail } = require('../../../domain/leaderboard/leaderboard.entity');
-const ApiError = require('../../../utils/ApiError');
-const httpStatusCodes = require('http-status-codes');
+const { BadRequestError, NotFoundError } = require('../../../utils/errors');
 
 class GetUserRankUseCase {
   /**
@@ -22,7 +21,7 @@ class GetUserRankUseCase {
    */
   async execute(userId, { gameName, metric, period }, surroundingCount = 2) {
     if (!userId || !gameName || !metric || !period) {
-      throw new ApiError(httpStatusCodes.BAD_REQUEST, 'Missing required parameters for user rank.');
+      throw new BadRequestError('Missing required parameters for user rank.');
     }
 
     const rankDetails = await this.leaderboardRepository.getUserRank(
@@ -34,7 +33,7 @@ class GetUserRankUseCase {
     );
 
     if (!rankDetails || !rankDetails.userExists) {
-      throw new ApiError(httpStatusCodes.NOT_FOUND, `User ${userId} not found on leaderboard for ${gameName} (${metric}, ${period}).`);
+      throw new NotFoundError(`User ${userId} not found on leaderboard for ${gameName} (${metric}, ${period}).`);
     }
 
     // Adapt LeaderboardEntry structure (score to value) for API response consistency

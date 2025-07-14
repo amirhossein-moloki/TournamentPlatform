@@ -1,5 +1,4 @@
-const ApiError = require('../../../utils/ApiError');
-const httpStatusCodes = require('http-status-codes');
+const { BadRequestError, NotFoundError, InternalServerError } = require('../../../utils/errors');
 const { Transaction } = require('../../../domain/wallet/transaction.entity'); // For status constants
 const { sequelize } = require('../../../infrastructure/database/postgres.connector');
 
@@ -23,11 +22,13 @@ class ApproveWithdrawalUseCase {
    * @param {string} adminUserId - The ID of the admin/finance manager approving.
    * @param {string} [notes] - Optional notes from the admin.
    * @returns {Promise<import('../../../domain/wallet/transaction.entity').Transaction>} The updated Transaction entity.
-   * @throws {ApiError}
+   * @throws {import('../../../utils/errors').BadRequestError}
+   * @throws {import('../../../utils/errors').NotFoundError}
+   * @throws {import('../../../utils/errors').InternalServerError}
    */
   async execute(withdrawalTransactionId, adminUserId, notes = null) {
     if (!withdrawalTransactionId || !adminUserId) {
-      throw new ApiError(httpStatusCodes.BAD_REQUEST, 'Withdrawal Transaction ID and Admin User ID are required.');
+      throw new BadRequestError('Withdrawal Transaction ID and Admin User ID are required.');
     }
 
     const dbTransaction = await sequelize.transaction();
@@ -40,15 +41,15 @@ class ApproveWithdrawalUseCase {
 
       if (!withdrawal) {
         await dbTransaction.rollback();
-        throw new ApiError(httpStatusCodes.NOT_FOUND, 'Withdrawal request not found.');
+        throw new NotFoundError('Withdrawal request not found.');
       }
       if (withdrawal.type !== 'WITHDRAWAL') {
         await dbTransaction.rollback();
-        throw new ApiError(httpStatusCodes.BAD_REQUEST, 'Transaction is not a withdrawal type.');
+        throw new BadRequestError('Transaction is not a withdrawal type.');
       }
       if (withdrawal.status !== 'REQUIRES_APPROVAL') {
         await dbTransaction.rollback();
-        throw new ApiError(httpStatusCodes.BAD_REQUEST, `Withdrawal request cannot be approved from current status: ${withdrawal.status}.`);
+        throw new BadRequestError(`Withdrawal request cannot be approved from current status: ${withdrawal.status}.`);
       }
 
       // 2. (Conceptual) Initiate actual payment via PaymentService
@@ -74,7 +75,7 @@ class ApproveWithdrawalUseCase {
             metadata: { ...withdrawal.metadata, adminUserId, adminNotes: notes, paymentError: paymentError.message },
           }, { transaction: dbTransaction });
           await dbTransaction.commit(); // Commit this FAILED_PAYMENT status.
-          throw new ApiError(httpStatusCodes.INTERNAL_SERVER_ERROR, `Payment processing failed: ${paymentError.message}`);
+          throw new InternalServerError(`Payment processing failed: ${paymentError.message}`);
         }
       } else {
         logger.warn(`[ApproveWithdrawal] No payment service configured. Simulating payout for withdrawal ${withdrawal.id}.`);
@@ -89,7 +90,7 @@ class ApproveWithdrawalUseCase {
       });
       if (!wallet) {
         await dbTransaction.rollback(); // Should not happen if withdrawal record is valid
-        throw new ApiError(httpStatusCodes.INTERNAL_SERVER_ERROR, 'Associated wallet not found.');
+        throw new InternalServerError('Associated wallet not found.');
       }
       if (!wallet.hasSufficientFunds(withdrawal.amount) && withdrawal.status !== 'PAYMENT_FAILED') {
          // This check is important. If funds became insufficient after request, it's an issue.
@@ -104,7 +105,7 @@ class ApproveWithdrawalUseCase {
             metadata: { ...withdrawal.metadata, adminUserId, adminNotes: notes, paymentGatewayReference },
           }, { transaction: dbTransaction });
         await dbTransaction.commit();
-        throw new ApiError(httpStatusCodes.INTERNAL_SERVER_ERROR, 'Critical error: Insufficient funds after payment processing.');
+        throw new InternalServerError('Critical error: Insufficient funds after payment processing.');
       }
 
       // This part only runs if payment was successful (or mocked)
@@ -134,8 +135,10 @@ class ApproveWithdrawalUseCase {
         await dbTransaction.rollback();
       }
       console.error(`Error approving withdrawal ${withdrawalTransactionId}:`, error);
-      if (error instanceof ApiError) throw error;
-      throw new ApiError(httpStatusCodes.INTERNAL_SERVER_ERROR, 'Failed to approve withdrawal request.');
+      if (error instanceof BadRequestError || error instanceof NotFoundError || error instanceof InternalServerError) {
+        throw error;
+      }
+      throw new InternalServerError('Failed to approve withdrawal request.');
     }
   }
 }

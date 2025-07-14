@@ -1,4 +1,4 @@
-// src/application/use-cases/chat/getChatHistory.usecase.js
+const { NotFoundError, UnauthorizedError, BadRequestError } = require('../../../utils/errors');
 
 class GetChatHistoryUseCase {
   constructor({ chatRepository }) {

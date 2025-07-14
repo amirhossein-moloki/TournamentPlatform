@@ -1,5 +1,4 @@
-const ApiError = require('../../../utils/ApiError');
-const httpStatusCodes = require('http-status-codes');
+const { BadRequestError, InternalServerError, ForbiddenError, NotFoundError } = require('../../../utils/errors');
 
 class AdminDeleteUserUseCase {
   /**
@@ -14,25 +13,28 @@ class AdminDeleteUserUseCase {
    * @param {string} targetUserId - The ID of the user to be deleted.
    * @param {string} adminUserId - The ID of the admin performing the deletion (for auditing and checks).
    * @returns {Promise<{message: string, deletedUserId: string}>}
-   * @throws {ApiError} If user not found, admin tries to delete self, or deletion fails.
+   * @throws {import('../../../utils/errors').BadRequestError}
+   * @throws {import('../../../utils/errors').InternalServerError}
+   * @throws {import('../../../utils/errors').ForbiddenError}
+   * @throws {import('../../../utils/errors').NotFoundError}
    */
   async execute(targetUserId, adminUserId) {
     if (!targetUserId) {
-      throw new ApiError(httpStatusCodes.BAD_REQUEST, 'Target User ID is required for deletion.');
+      throw new BadRequestError('Target User ID is required for deletion.');
     }
     if (!adminUserId) {
-      throw new ApiError(httpStatusCodes.INTERNAL_SERVER_ERROR, 'Admin User ID performing deletion is required.');
+      throw new InternalServerError('Admin User ID performing deletion is required.');
     }
 
     // Prevent admin from deleting themselves through this specific endpoint
     if (targetUserId === adminUserId) {
-      throw new ApiError(httpStatusCodes.FORBIDDEN, "Administrators cannot delete their own account using this function. Use a dedicated account management process if needed.");
+      throw new ForbiddenError("Administrators cannot delete their own account using this function. Use a dedicated account management process if needed.");
     }
 
     // Check if the target user exists
     const userToDelete = await this.userRepository.findById(targetUserId);
     if (!userToDelete) {
-      throw new ApiError(httpStatusCodes.NOT_FOUND, 'User to be deleted not found.');
+      throw new NotFoundError('User to be deleted not found.');
     }
 
     // Business logic before deletion:
@@ -50,7 +52,7 @@ class AdminDeleteUserUseCase {
     if (!success) {
       // This might happen if the user was deleted by another process between findById and delete,
       // or if there's a DB constraint preventing deletion not caught by business logic.
-      throw new ApiError(httpStatusCodes.INTERNAL_SERVER_ERROR, 'Failed to delete user. The user might have already been deleted or a database error occurred.');
+      throw new InternalServerError('Failed to delete user. The user might have already been deleted or a database error occurred.');
     }
 
     // Post-deletion actions:

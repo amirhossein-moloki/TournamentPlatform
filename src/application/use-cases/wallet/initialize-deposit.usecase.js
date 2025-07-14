@@ -1,6 +1,5 @@
 const { v4: uuidv4 } = require('uuid');
-const ApiError = require('../../../utils/ApiError');
-const httpStatusCodes = require('http-status-codes');
+const { BadRequestError, ConflictError, NotFoundError, InternalServerError } = require('../../../utils/errors');
 const { Transaction } = require('../../../domain/wallet/transaction.entity'); // Domain entity
 const zarinpal = require('../../../config/zarinpal'); // Import Zarinpal instance
 const { appConfig } = require('../../../../config/config');
@@ -26,21 +25,24 @@ class InitializeDepositUseCase {
    * @param {string} currency - The currency of the deposit (e.g., 'IRR'). Zarinpal only supports IRR.
    * @param {string} idempotencyKey - A unique key to ensure the operation is processed only once.
    * @returns {Promise<{paymentGatewayUrl: string, transactionId: string, message: string, authority: string}>}
-   * @throws {ApiError} If validation fails, wallet not found, or idempotency check fails.
+   * @throws {import('../../../utils/errors').BadRequestError}
+   * @throws {import('../../../utils/errors').ConflictError}
+   * @throws {import('../../../utils/errors').NotFoundError}
+   * @throws {import('../../../utils/errors').InternalServerError}
    */
   async execute(userId, amount, currency, idempotencyKey) {
     if (!userId || amount == null || !currency || !idempotencyKey) {
-      throw new ApiError(httpStatusCodes.BAD_REQUEST, 'User ID, amount, currency, and idempotency key are required.');
+      throw new BadRequestError('User ID, amount, currency, and idempotency key are required.');
     }
     if (typeof amount !== 'number' || amount <= 0) {
-      throw new ApiError(httpStatusCodes.BAD_REQUEST, 'Deposit amount must be a positive number.');
+      throw new BadRequestError('Deposit amount must be a positive number.');
     }
     // Zarinpal expects amounts in Rials. We'll assume the input amount is already in Rials.
     // Currency should ideally be 'IRR' for Zarinpal.
     if (currency !== 'IRR') {
       // For now, we'll proceed but log a warning. In a real system, this might be an error or trigger conversion.
       console.warn(`InitializeDepositUseCase: Currency is ${currency}, but Zarinpal primarily uses IRR. Ensure amount is in Rials.`);
-      // throw new ApiError(httpStatusCodes.BAD_REQUEST, "Invalid currency for Zarinpal. Only IRR is supported and amount should be in Rials.");
+      // throw new BadRequestError("Invalid currency for Zarinpal. Only IRR is supported and amount should be in Rials.");
     }
 
 
@@ -70,17 +72,17 @@ class InitializeDepositUseCase {
             authority: existingTransaction.metadata.authority,
           };
         } else {
-          throw new ApiError(httpStatusCodes.CONFLICT, `Idempotency key ${idempotencyKey} already used with different request parameters.`);
+          throw new ConflictError(`Idempotency key ${idempotencyKey} already used with different request parameters.`);
         }
       } else {
-        throw new ApiError(httpStatusCodes.CONFLICT, `Idempotency key ${idempotencyKey} corresponds to a transaction with status ${existingTransaction.status}. Cannot re-initiate.`);
+        throw new ConflictError(`Idempotency key ${idempotencyKey} corresponds to a transaction with status ${existingTransaction.status}. Cannot re-initiate.`);
       }
     }
 
     // 2. Get user's wallet
     const wallet = await this.walletRepository.findByUserId(userId);
     if (!wallet) {
-      throw new ApiError(httpStatusCodes.NOT_FOUND, 'User wallet not found.');
+      throw new NotFoundError('User wallet not found.');
     }
 
     // 3. Create Payment Request with Zarinpal
@@ -97,12 +99,12 @@ class InitializeDepositUseCase {
 
       if (!zarinpalResponse || zarinpalResponse.data.errors || !zarinpalResponse.data.authority) {
         console.error('Zarinpal payment creation error:', zarinpalResponse ? zarinpalResponse.data.errors : 'No response');
-        throw new ApiError(httpStatusCodes.INTERNAL_SERVER_ERROR, 'Failed to create payment request with Zarinpal.', zarinpalResponse ? zarinpalResponse.data.errors : undefined);
+        throw new InternalServerError('Failed to create payment request with Zarinpal.', zarinpalResponse ? zarinpalResponse.data.errors : undefined);
       }
     } catch (error) {
       console.error('Error calling Zarinpal payments.create:', error);
-      if (error instanceof ApiError) throw error;
-      throw new ApiError(httpStatusCodes.INTERNAL_SERVER_ERROR, 'Error initiating payment with Zarinpal.', error.message);
+      if (error instanceof InternalServerError || error instanceof BadRequestError || error instanceof ConflictError || error instanceof NotFoundError) throw error;
+      throw new InternalServerError('Error initiating payment with Zarinpal.', error.message);
     }
 
     const { authority } = zarinpalResponse.data;

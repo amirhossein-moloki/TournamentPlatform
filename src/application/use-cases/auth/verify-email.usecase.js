@@ -1,5 +1,4 @@
-const ApiError = require('../../../utils/ApiError');
-const httpStatusCodes = require('http-status-codes');
+const { BadRequestError } = require('../../../utils/errors');
 
 class VerifyEmailUseCase {
   /**
@@ -13,11 +12,11 @@ class VerifyEmailUseCase {
    * Executes the email verification use case.
    * @param {string} verificationToken - The verification token from the email link.
    * @returns {Promise<{message: string, userId: string}>}
-   * @throws {ApiError} If token is invalid, expired, or user not found.
+   * @throws {import('../../../utils/errors').BadRequestError} If token is invalid, expired, or user not found.
    */
   async execute(verificationToken) {
     if (!verificationToken) {
-      throw new ApiError(httpStatusCodes.BAD_REQUEST, 'Verification token is required.');
+      throw new BadRequestError('Verification token is required.');
     }
 
     // Add a new method to UserRepositoryInterface and implement it in PostgresUserRepository
@@ -25,7 +24,7 @@ class VerifyEmailUseCase {
     const user = await this.userRepository.findByVerificationToken(verificationToken);
 
     if (!user) {
-      throw new ApiError(httpStatusCodes.BAD_REQUEST, 'Invalid or expired verification token.');
+      throw new BadRequestError('Invalid or expired verification token.');
     }
 
     if (user.isVerified) {

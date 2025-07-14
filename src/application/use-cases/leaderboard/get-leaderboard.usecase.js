@@ -1,6 +1,5 @@
 const { Leaderboard } = require('../../../domain/leaderboard/leaderboard.entity');
-const ApiError = require('../../../utils/ApiError');
-const httpStatusCodes = require('http-status-codes');
+const { BadRequestError } = require('../../../utils/errors');
 
 class GetLeaderboardUseCase {
   /**
@@ -22,7 +21,7 @@ class GetLeaderboardUseCase {
    */
   async execute({ gameName, metric, period, page, limit }) {
     if (!gameName || !metric || !period || !page || !limit) {
-      throw new ApiError(httpStatusCodes.BAD_REQUEST, 'Missing required query parameters for leaderboard.');
+      throw new BadRequestError('Missing required query parameters for leaderboard.');
     }
 
     const { entries, totalItems } = await this.leaderboardRepository.getLeaderboard(

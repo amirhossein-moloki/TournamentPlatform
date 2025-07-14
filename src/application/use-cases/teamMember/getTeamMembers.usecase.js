@@ -1,5 +1,4 @@
-const ApiError = require('../../../utils/ApiError');
-const httpStatus = require('http-status');
+const { NotFoundError, ForbiddenError } = require('../../../utils/errors');
 const TeamRole = require('../../../domain/team/teamRole.enums'); // For role filtering if needed
 
 class GetTeamMembersUseCase {
@@ -15,7 +14,7 @@ class GetTeamMembersUseCase {
     const team = await this.teamRepository.findById(teamId);
     if (!team) {
         this.logger.warn(`Team not found for ID: ${teamId} when fetching members.`);
-        throw new ApiError(httpStatus.NOT_FOUND, 'Team not found.');
+        throw new NotFoundError('Team not found.');
     }
 
     // Optional: Authorization check if only team members can view the member list
@@ -23,7 +22,7 @@ class GetTeamMembersUseCase {
     //   const requesterMembership = await this.teamMemberRepository.findByTeamAndUser(teamId, requestingUserId);
     //   if (!requesterMembership || requesterMembership.status !== 'active') {
     //     this.logger.warn(`User ID: ${requestingUserId} is not an active member of team ID: ${teamId}, cannot view members.`);
-    //     throw new ApiError(httpStatus.FORBIDDEN, 'You must be an active member of the team to view its members.');
+    //     throw new ForbiddenError('You must be an active member of the team to view its members.');
     //   }
     // }
 

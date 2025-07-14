@@ -7,6 +7,9 @@ const {
   GetChatHistoryUseCase,
   AssignSupportToChatUseCase,
 } = require('../../../application/use-cases/chat'); // Assuming a barrel export
+const { validateSocketPayload } = require('../../../utils/socketValidation.util');
+const redisAdapter = require('../../../infrastructure/cache/redis.adapter');
+
 
 // --- Joi Schemas for Validation ---
 const joinRoomSchema = Joi.object({
@@ -27,42 +30,31 @@ const typingSchema = Joi.object({
  * Registers chat-related event handlers for a connected socket.
  * @param {SocketIO.Server} io - The Socket.IO server instance.
  * @param {SocketIO.Socket} socket - The connected socket instance.
- * @param {Map} activeSockets - Map of active sockets.
  * @param {object} dependencies - Injected dependencies (use cases, etc.).
  */
-function chatHandler(io, socket, activeSockets, dependencies) {
+function chatHandler(io, socket, dependencies) {
   const { sendMessageUseCase, getChatHistoryUseCase } = dependencies;
 
   // --- Event Handler: joinRoom ---
   const handleJoinRoom = async (payload, callback) => {
-    const { error } = joinRoomSchema.validate(payload);
-    if (error) {
-      logger.warn(`Invalid joinRoom payload from ${socket.user.id}: ${error.message}`);
-      return callback({ success: false, error: error.message });
-    }
+    if (!validateSocketPayload(joinRoomSchema, payload, callback)) return;
 
     const { roomId } = payload;
     const user = socket.user;
 
     try {
-      // Authorization: In a real app, check if user has permission to join this room.
-      // For now, we assume if they have the roomId, they can join.
-      // This is where GetChatHistoryUseCase can also validate session existence.
-      const messages = await getChatHistoryUseCase.execute({ sessionId: roomId });
+      const messages = await getChatHistoryUseCase.execute({ sessionId: roomId, userId: user.id });
 
       await socket.join(roomId);
-      activeSockets.get(socket.id)?.rooms.add(roomId);
 
       logger.info(`User ${user.id} (${socket.id}) joined chat room: ${roomId}`);
 
-      // Notify others in the room
       socket.to(roomId).emit('userJoined', {
         roomId,
         userId: user.id,
         username: user.email,
       });
 
-      // Send chat history to the user who just joined
       callback({ success: true, roomId, history: messages.map(m => m.toPlainObject()) });
     } catch (err) {
       logger.error(`Error in joinRoom for user ${user.id} in room ${roomId}:`, err);
@@ -72,15 +64,10 @@ function chatHandler(io, socket, activeSockets, dependencies) {
 
   // --- Event Handler: leaveRoom ---
   const handleLeaveRoom = (payload, callback) => {
-    // Similar to joinRoom, but for leaving
-    const { error } = joinRoomSchema.validate(payload);
-    if (error) {
-        return callback({ success: false, error: error.message });
-    }
+    if (!validateSocketPayload(joinRoomSchema, payload, callback)) return;
 
     const { roomId } = payload;
     socket.leave(roomId);
-    activeSockets.get(socket.id)?.rooms.delete(roomId);
 
     logger.info(`User ${socket.user.id} left room: ${roomId}`);
 
@@ -95,15 +82,11 @@ function chatHandler(io, socket, activeSockets, dependencies) {
 
   // --- Event Handler: sendMessage ---
   const handleSendMessage = async (payload, callback) => {
-    const { error } = sendMessageSchema.validate(payload);
-    if (error) {
-      return callback({ success: false, error: error.message });
-    }
+    if (!validateSocketPayload(sendMessageSchema, payload, callback)) return;
 
     const { roomId, text } = payload;
     const sender = socket.user;
 
-    // Basic authorization check: is the socket in the room it's trying to send a message to?
     if (!socket.rooms.has(roomId)) {
         return callback({ success: false, error: 'Not a member of this room.' });
     }
@@ -118,7 +101,6 @@ function chatHandler(io, socket, activeSockets, dependencies) {
 
         const messageData = message.toPlainObject();
 
-        // Broadcast the new message to everyone in the room
         io.to(roomId).emit('newMessage', messageData);
 
         logger.info(`Message from ${sender.id} in room ${roomId}: ${text}`);
@@ -132,11 +114,8 @@ function chatHandler(io, socket, activeSockets, dependencies) {
 
   // --- Event Handler: typing indicator ---
   const handleTyping = (payload) => {
-    const { error } = typingSchema.validate(payload);
-    if(error) {
-        logger.warn(`Invalid typing payload from ${socket.user.id}: ${error.message}`);
-        return;
-    }
+    if (!validateSocketPayload(typingSchema, payload, null)) return;
+
     const { roomId, isTyping } = payload;
     socket.to(roomId).emit('typing', {
         userId: socket.user.id,

@@ -1,5 +1,4 @@
-const ApiError = require('../../../utils/ApiError');
-const httpStatusCodes = require('http-status-codes');
+const { BadRequestError, NotFoundError } = require('../../../utils/errors');
 
 class ListTournamentParticipantsUseCase {
   /**
@@ -20,12 +19,12 @@ class ListTournamentParticipantsUseCase {
    */
   async execute(tournamentId, { page = 1, limit = 10 }) {
     if (!tournamentId) {
-      throw new ApiError(httpStatusCodes.BAD_REQUEST, 'Tournament ID is required.');
+      throw new BadRequestError('Tournament ID is required.');
     }
 
     const tournament = await this.tournamentRepository.findById(tournamentId);
     if (!tournament) {
-      throw new ApiError(httpStatusCodes.NOT_FOUND, `Tournament with ID ${tournamentId} not found.`);
+      throw new NotFoundError(`Tournament with ID ${tournamentId} not found.`);
     }
 
     // The TournamentRepositoryInterface has findAllParticipants(tournamentId, options)

@@ -1,4 +1,4 @@
-// src/application/use-cases/game/getGameById.useCase.js
+const { BadRequestError, NotFoundError } = require('../../../utils/errors');
 
 class GetGameByIdUseCase {
   constructor(gameRepository) {

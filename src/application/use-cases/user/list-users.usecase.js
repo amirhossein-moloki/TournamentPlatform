@@ -1,5 +1,4 @@
-const ApiError = require('../../../utils/ApiError');
-const httpStatusCodes = require('http-status-codes');
+const { InternalServerError } = require('../../../utils/errors');
 
 class ListUsersUseCase {
   /**
@@ -23,7 +22,7 @@ class ListUsersUseCase {
    * @param {string} [options.sortOrder='DESC'] - Sort order ('ASC' or 'DESC').
    * @returns {Promise<{users: Array<object>, totalItems: number, totalPages: number, currentPage: number, pageSize: number}>}
    *          Paginated list of user public profiles.
-   * @throws {ApiError} If fetching fails.
+   * @throws {import('../../../utils/errors').InternalServerError} If fetching fails.
    */
   async execute({ page = 1, limit = 10, filters = {}, sortBy = 'createdAt', sortOrder = 'DESC' }) {
     const sanePage = Math.max(1, parseInt(page, 10) || 1);
@@ -71,8 +70,8 @@ class ListUsersUseCase {
     } catch (error) {
       // Aligning console error message with test expectation
       console.error('Error listing users:', error);
-      if (error instanceof ApiError) throw error;
-      throw new ApiError(httpStatusCodes.INTERNAL_SERVER_ERROR, 'Failed to retrieve users.');
+      if (error instanceof InternalServerError) throw error;
+      throw new InternalServerError('Failed to retrieve users.');
     }
   }
 }

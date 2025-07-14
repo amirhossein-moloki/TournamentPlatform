@@ -1,5 +1,4 @@
-const ApiError = require('../../../utils/ApiError');
-const httpStatusCodes = require('http-status-codes');
+const { BadRequestError, NotFoundError } = require('../../../utils/errors');
 
 class GetTransactionHistoryUseCase {
   /**
@@ -21,11 +20,12 @@ class GetTransactionHistoryUseCase {
    * @param {string} [options.sortBy='transactionDate'] - Field to sort by.
    * @param {string} [options.sortOrder='DESC'] - Sort order ('ASC' or 'DESC').
    * @returns {Promise<{transactions: Transaction[], total: number, page: number, limit: number}>}
-   * @throws {ApiError} If wallet not found or other errors occur.
+   * @throws {import('../../../utils/errors').BadRequestError}
+   * @throws {import('../../../utils/errors').NotFoundError}
    */
   async execute(userId, { page = 1, limit = 10, filters = {}, sortBy = 'transactionDate', sortOrder = 'DESC' }) {
     if (!userId) {
-      throw new ApiError(httpStatusCodes.BAD_REQUEST, 'User ID is required.');
+      throw new BadRequestError('User ID is required.');
     }
 
     // 1. Get user's wallet
@@ -33,7 +33,7 @@ class GetTransactionHistoryUseCase {
     if (!wallet) {
       // This case should ideally not happen if users always have wallets upon creation.
       // However, good to handle it defensively.
-      throw new ApiError(httpStatusCodes.NOT_FOUND, 'User wallet not found.');
+      throw new NotFoundError('User wallet not found.');
     }
 
     // 2. Fetch transaction history using the TransactionRepository

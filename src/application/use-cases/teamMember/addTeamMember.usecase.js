@@ -1,5 +1,4 @@
-const ApiError = require('../../../utils/ApiError');
-const httpStatus = require('http-status');
+const { NotFoundError, ForbiddenError, BadRequestError, ConflictError, InternalServerError } = require('../../../utils/errors');
 const TeamRole = require('../../../domain/team/teamRole.enums');
 
 class AddTeamMemberUseCase {
@@ -17,36 +16,36 @@ class AddTeamMemberUseCase {
     const team = await this.teamRepository.findById(teamId);
     if (!team) {
       this.logger.warn(`Team not found for ID: ${teamId} during add member attempt.`);
-      throw new ApiError(httpStatus.NOT_FOUND, 'Team not found.');
+      throw new NotFoundError('Team not found.');
     }
 
     const inviterMembership = await this.teamMemberRepository.findByTeamAndUser(teamId, invitedByUserId);
     if (!inviterMembership || (inviterMembership.role !== TeamRole.OWNER && inviterMembership.role !== TeamRole.ADMIN) || inviterMembership.status !== 'active') {
       this.logger.warn(`User ID: ${invitedByUserId} is not authorized to add members to team ID: ${teamId}. Role: ${inviterMembership?.role}, Status: ${inviterMembership?.status}`);
-      throw new ApiError(httpStatus.FORBIDDEN, 'You are not authorized to add members to this team.');
+      throw new ForbiddenError('You are not authorized to add members to this team.');
     }
 
     if (roleToAssign === TeamRole.OWNER) {
         this.logger.warn(`Attempt to assign OWNER role via AddTeamMemberUseCase by user ID: ${invitedByUserId} for team ID: ${teamId}.`);
-        throw new ApiError(httpStatus.BAD_REQUEST, 'Cannot assign OWNER role directly. Use change ownership functionality.');
+        throw new BadRequestError('Cannot assign OWNER role directly. Use change ownership functionality.');
     }
 
     // Ensure admin cannot assign admin role if inviter is also an admin (only owner can create other admins)
     if (inviterMembership.role === TeamRole.ADMIN && roleToAssign === TeamRole.ADMIN) {
         this.logger.warn(`Admin (User ID: ${invitedByUserId}) attempting to assign ADMIN role in team ID: ${teamId}. Not allowed.`);
-        throw new ApiError(httpStatus.FORBIDDEN, 'Admins cannot assign other admins. Only the team owner can.');
+        throw new ForbiddenError('Admins cannot assign other admins. Only the team owner can.');
     }
 
 
     const targetUser = await this.userRepository.findById(targetUserId);
     if (!targetUser) {
       this.logger.warn(`Target user ID: ${targetUserId} not found during add member attempt for team ID: ${teamId}.`);
-      throw new ApiError(httpStatus.NOT_FOUND, 'User to be added not found.');
+      throw new NotFoundError('User to be added not found.');
     }
 
     if (targetUserId === invitedByUserId) {
         this.logger.warn(`User ID: ${invitedByUserId} attempting to add self to team ID: ${teamId}. This is not allowed in this flow.`);
-        throw new ApiError(httpStatus.BAD_REQUEST, 'Cannot add yourself to the team using this operation.');
+        throw new BadRequestError('Cannot add yourself to the team using this operation.');
     }
 
     try {
@@ -79,10 +78,10 @@ class AddTeamMemberUseCase {
     } catch (error) {
       this.logger.error(`Error adding/inviting member UserID:${targetUserId} to TeamID:${teamId}: ${error.message}`, { error });
       if (error.message.includes('already an active member or has a pending invitation')) {
-          throw new ApiError(httpStatus.CONFLICT, error.message);
+          throw new ConflictError(error.message);
       }
       // Handle other specific errors from repository if necessary
-      throw new ApiError(httpStatus.INTERNAL_SERVER_ERROR, `Failed to add/invite member: ${error.message}`);
+      throw new InternalServerError(`Failed to add/invite member: ${error.message}`);
     }
   }
 }

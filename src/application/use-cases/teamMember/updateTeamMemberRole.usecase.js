@@ -1,5 +1,4 @@
-const ApiError = require('../../../utils/ApiError');
-const httpStatus = require('http-status');
+const { BadRequestError, NotFoundError, ForbiddenError, InternalServerError } = require('../../../utils/errors');
 const TeamRole = require('../../../domain/team/teamRole.enums');
 
 class UpdateTeamMemberRoleUseCase {
@@ -14,30 +13,30 @@ class UpdateTeamMemberRoleUseCase {
 
     if (!Object.values(TeamRole).includes(newRole)) {
         this.logger.warn(`Invalid role: ${newRole} specified for user ID: ${targetUserId} in team ID: ${teamId}.`);
-        throw new ApiError(httpStatus.BAD_REQUEST, 'Invalid role specified.');
+        throw new BadRequestError('Invalid role specified.');
     }
 
     const team = await this.teamRepository.findById(teamId);
     if (!team) {
         this.logger.warn(`Team not found for ID: ${teamId} during update member role attempt.`);
-        throw new ApiError(httpStatus.NOT_FOUND, 'Team not found.');
+        throw new NotFoundError('Team not found.');
     }
 
     const memberToUpdate = await this.teamMemberRepository.findByTeamAndUser(teamId, targetUserId);
     if (!memberToUpdate || memberToUpdate.status !== 'active') {
       this.logger.warn(`Active member (User ID: ${targetUserId}) not found or not active in team ID: ${teamId} for role update.`);
-      throw new ApiError(httpStatus.NOT_FOUND, 'Active team member not found or member is not active.');
+      throw new NotFoundError('Active team member not found or member is not active.');
     }
 
     if (newRole === TeamRole.OWNER) {
       this.logger.warn(`Attempt to assign OWNER role via UpdateTeamMemberRole by user ID: ${performingUserId}. Use ChangeTeamOwnerUseCase.`);
-      throw new ApiError(httpStatus.BAD_REQUEST, 'Cannot change role to OWNER using this operation. Use change team ownership.');
+      throw new BadRequestError('Cannot change role to OWNER using this operation. Use change team ownership.');
     }
 
     const performingUserMembership = await this.teamMemberRepository.findByTeamAndUser(teamId, performingUserId);
     if (!performingUserMembership || performingUserMembership.status !== 'active') {
         this.logger.warn(`Performing user ID: ${performingUserId} is not an active member of team ID: ${teamId}.`);
-        throw new ApiError(httpStatus.FORBIDDEN, 'You are not authorized to perform this action.');
+        throw new ForbiddenError('You are not authorized to perform this action.');
     }
 
     // Authorization:
@@ -46,14 +45,14 @@ class UpdateTeamMemberRoleUseCase {
     // Admins cannot change any roles.
     if (performingUserMembership.role !== TeamRole.OWNER) {
       this.logger.warn(`User ID: ${performingUserId} (Role: ${performingUserMembership.role}) is not authorized to change member roles in team ID: ${teamId}. Owner required.`);
-      throw new ApiError(httpStatus.FORBIDDEN, 'Only the team owner can change member roles.');
+      throw new ForbiddenError('Only the team owner can change member roles.');
     }
 
     if (memberToUpdate.role === TeamRole.OWNER) {
       // This check is defensive; newRole === TeamRole.OWNER is already blocked.
       // This ensures the owner's current role isn't changed away from OWNER by this UC.
       this.logger.warn(`Attempt to change role of current owner (User ID: ${targetUserId}) in team ID: ${teamId}. Not allowed.`);
-      throw new ApiError(httpStatus.BAD_REQUEST, "Cannot change the team owner's role using this operation.");
+      throw new BadRequestError("Cannot change the team owner's role using this operation.");
     }
 
     if (memberToUpdate.role === newRole) {
@@ -66,7 +65,7 @@ class UpdateTeamMemberRoleUseCase {
       const updatedMember = await this.teamMemberRepository.updateByTeamAndUser(teamId, targetUserId, { role: newRole });
       if (!updatedMember) {
           this.logger.error(`Failed to update role for member UserID:${targetUserId} in TeamID:${teamId}. Member not found by repo method.`);
-          throw new ApiError(httpStatus.INTERNAL_SERVER_ERROR, 'Failed to update member role.');
+          throw new InternalServerError('Failed to update member role.');
       }
       this.logger.info(`Role of user ID: ${targetUserId} in team ID: ${teamId} updated to ${newRole} by user ID: ${performingUserId}.`);
       // Optionally send notification to the user whose role changed.
@@ -74,9 +73,9 @@ class UpdateTeamMemberRoleUseCase {
     } catch (error) {
         this.logger.error(`Error updating role for UserID:${targetUserId} in TeamID:${teamId}: ${error.message}`, { error });
         if (error.message.toLowerCase().includes('cannot directly change role to owner')) {
-            throw new ApiError(httpStatus.BAD_REQUEST, error.message);
+            throw new BadRequestError(error.message);
         }
-        throw new ApiError(httpStatus.INTERNAL_SERVER_ERROR, `Failed to update role: ${error.message}`);
+        throw new InternalServerError(`Failed to update role: ${error.message}`);
     }
   }
 }

@@ -1,5 +1,4 @@
-const ApiError = require('../../../utils/ApiError');
-const httpStatus = require('http-status');
+const { NotFoundError, ForbiddenError, InternalServerError } = require('../../../utils/errors');
 const TeamRole = require('../../../domain/team/teamRole.enums');
 
 class DeleteTeamUseCase {
@@ -15,7 +14,7 @@ class DeleteTeamUseCase {
     const team = await this.teamRepository.findById(teamId);
     if (!team) {
       this.logger.warn(`Team not found for ID: ${teamId} during delete attempt.`);
-      throw new ApiError(httpStatus.NOT_FOUND, 'Team not found.');
+      throw new NotFoundError('Team not found.');
     }
 
     // Authorization: Only team owner should delete the team
@@ -23,7 +22,7 @@ class DeleteTeamUseCase {
     const memberInfo = await this.teamMemberRepository.findByTeamAndUser(teamId, requestingUserId);
     if (!memberInfo || memberInfo.role !== TeamRole.OWNER || memberInfo.status !== 'active') {
        this.logger.warn(`User ID: ${requestingUserId} is not authorized to delete team ID: ${teamId}. Expected owner. Role: ${memberInfo?.role}, Status: ${memberInfo?.status}`);
-       throw new ApiError(httpStatus.FORBIDDEN, 'You are not authorized to delete this team. Only the owner can delete.');
+       throw new ForbiddenError('You are not authorized to delete this team. Only the owner can delete.');
     }
     // An alternative or additional check: if (team.ownerId !== requestingUserId) { ... }
     // However, using TeamMember is more robust as it checks current role and status.
@@ -39,14 +38,14 @@ class DeleteTeamUseCase {
         // This case should ideally not be reached if team was found above,
         // unless there's a race condition or error in the repo delete logic.
         this.logger.error(`Failed to delete team ID: ${teamId}, repository reported 0 deleted rows.`);
-        throw new ApiError(httpStatus.INTERNAL_SERVER_ERROR, 'Failed to delete team.');
+        throw new InternalServerError('Failed to delete team.');
       }
 
       this.logger.info(`Team ID: ${teamId} deleted successfully by user ID: ${requestingUserId}.`);
       return { message: 'Team deleted successfully.' };
     } catch (error) {
       this.logger.error(`Error deleting team ID: ${teamId}: ${error.message}`, { error });
-      throw new ApiError(httpStatus.INTERNAL_SERVER_ERROR, `Failed to delete team: ${error.message}`);
+      throw new InternalServerError(`Failed to delete team: ${error.message}`);
     }
   }
 }
