@@ -27,9 +27,11 @@ class WalletRepositoryInterface {
    * Creates a new wallet.
    * @param {Wallet|object} walletData - The Wallet entity instance or data object to persist.
    *        If an object, it should contain fields like id, userId, balance, currency.
+   * @param {object} [options] - Optional parameters, e.g., for transaction.
+   * @param {object} [options.transaction] - A database transaction object.
    * @returns {Promise<Wallet>} The created Wallet entity.
    */
-  async create(walletData) {
+  async create(walletData, options = {}) {
     throw new Error('Method "create" not implemented.');
   }
 

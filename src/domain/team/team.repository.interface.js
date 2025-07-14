@@ -1,9 +1,9 @@
 class ITeamRepository {
-  async create(teamData, ownerId) { // ownerId for initial member creation
+  async create(teamData, options = {}) { // ownerId for initial member creation
     throw new Error("Method 'create()' must be implemented.");
   }
 
-  async findById(teamId) {
+  async findById(teamId, options = {}) {
     throw new Error("Method 'findById()' must be implemented.");
   }
 

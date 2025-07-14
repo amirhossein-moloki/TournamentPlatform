@@ -4,13 +4,11 @@ const ApiError = require('../utils/ApiError');
 const httpStatusCodes = require('http-status-codes');
 const { PostgresUserRepository } = require('../infrastructure/database/repositories/postgres.user.repository');
 
-const userRepository = new PostgresUserRepository();
-
 /**
  * Middleware to authenticate a JWT access token.
  * If authentication is successful, `req.user` will be populated with the token payload.
  */
-const authenticateToken = async (req, res, next) => {
+const authenticateToken = (userRepository) => async (req, res, next) => {
   const authHeader = req.headers['authorization'];
   const token = authHeader && authHeader.startsWith('Bearer ') && authHeader.split(' ')[1];
 
@@ -73,7 +71,7 @@ const authorizeRole = (allowedRoles) => {
  * @param {object} socket - The Socket.IO socket object.
  * @param {function} next - The Socket.IO next function.
  */
-const authenticateSocketToken = async (socket, next) => {
+const authenticateSocketToken = (userRepository) => async (socket, next) => {
   const token = socket.handshake.auth.token || socket.handshake.headers['x-access-token'];
 
   if (!token) {

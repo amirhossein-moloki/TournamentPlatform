@@ -23,35 +23,25 @@ class PostgresWalletRepository extends WalletRepositoryInterface {
   }
 
   async findById(id, options = {}) {
-    try {
-      const queryOptions = {
-        transaction: options.transaction,
-        lock: options.lock,
-      };
-      const walletModelInstance = await this.WalletModel.findByPk(id, queryOptions);
-      return this.WalletModel.toDomainEntity(walletModelInstance);
-    } catch (error) {
-      // console.error(`Error in PostgresWalletRepository.findById: ${error.message}`, error);
-      throw new ApiError(httpStatus.INTERNAL_SERVER_ERROR, `Database error finding wallet by ID: ${error.message}`);
-    }
+    const queryOptions = {
+      transaction: options.transaction,
+      lock: options.lock,
+    };
+    const walletModelInstance = await this.WalletModel.findByPk(id, queryOptions);
+    return this.WalletModel.toDomainEntity(walletModelInstance);
   }
 
   async findByUserId(userId, options = {}) {
-    try {
-      const queryOptions = {
-        where: { userId },
-        transaction: options.transaction,
-        lock: options.lock,
-      };
-      // if (options.includeUser && this.UserModel) {
-      //   queryOptions.include = [{ model: this.UserModel, as: 'user' }];
-      // }
-      const walletModelInstance = await this.WalletModel.findOne(queryOptions);
-      return this.WalletModel.toDomainEntity(walletModelInstance);
-    } catch (error) {
-        // console.error(`Error in PostgresWalletRepository.findByUserId: ${error.message}`, error);
-        throw new ApiError(httpStatus.INTERNAL_SERVER_ERROR, `Database error finding wallet by user ID: ${error.message}`);
-    }
+    const queryOptions = {
+      where: { userId },
+      transaction: options.transaction,
+      lock: options.lock,
+    };
+    // if (options.includeUser && this.UserModel) {
+    //   queryOptions.include = [{ model: this.UserModel, as: 'user' }];
+    // }
+    const walletModelInstance = await this.WalletModel.findOne(queryOptions);
+    return this.WalletModel.toDomainEntity(walletModelInstance);
   }
 
   async create(walletEntityOrData, options = {}) {
@@ -66,15 +56,8 @@ class PostgresWalletRepository extends WalletRepositoryInterface {
         throw new ApiError(httpStatus.BAD_REQUEST, 'Wallet balance cannot be negative.');
     }
 
-    try {
-        const createdWalletModel = await this.WalletModel.create(walletData, { transaction: options.transaction });
-        return this.WalletModel.toDomainEntity(createdWalletModel);
-    } catch (error) {
-        if (error.name === 'SequelizeUniqueConstraintError') {
-            throw new ApiError(httpStatus.CONFLICT, 'A wallet already exists for this user.');
-        }
-        throw new ApiError(httpStatus.INTERNAL_SERVER_ERROR, `Error creating wallet: ${error.message}`);
-    }
+    const createdWalletModel = await this.WalletModel.create(walletData, { transaction: options.transaction });
+    return this.WalletModel.toDomainEntity(createdWalletModel);
   }
 
   async update(id, updateData, options = {}) {

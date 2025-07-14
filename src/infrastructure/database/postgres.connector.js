@@ -99,6 +99,26 @@ module.exports = {
   authenticateDB,
   syncModels,
   closeDB,
+  /**
+   * Executes a given function within a managed Sequelize transaction.
+   *
+   * @param {Function} callback - The async function to be executed within the transaction.
+   *   It will receive the transaction object as its only argument.
+   * @returns {Promise<any>} The result of the callback function.
+   * @throws {Error} Throws an error if the transaction fails and is rolled back.
+   */
+  async withTransaction(callback) {
+    const t = await sequelize.transaction();
+    try {
+      const result = await callback(t);
+      await t.commit();
+      return result;
+    } catch (error) {
+      await t.rollback();
+      logger.error('Transaction failed, rolled back.', { error: error.message });
+      throw error; // Re-throw the original error to be handled by the caller
+    }
+  }
 };
 
 // Model definitions will typically import `sequelize` and `DataTypes` from this file.

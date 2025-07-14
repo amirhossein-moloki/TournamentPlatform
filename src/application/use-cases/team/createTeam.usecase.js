@@ -2,6 +2,7 @@ const Team = require('../../../domain/team/team.entity');
 const TeamMember = require('../../../domain/team/teamMember.entity');
 const { TeamRoles } = require('../../../domain/team/teamRole.enums');
 const { BadRequestError, NotFoundError, ConflictError } = require('../../../utils/errors');
+const { withTransaction } = require('../../../infrastructure/database/postgres.connector');
 
 class CreateTeamUseCase {
   constructor({ teamRepository, teamMemberRepository, userRepository }) {
@@ -29,20 +30,22 @@ class CreateTeamUseCase {
       throw new ConflictError('A team with this name already exists.');
     }
 
-    const team = new Team({ name, description, tag, ownerId });
-    const createdTeam = await this.teamRepository.create(team);
+    return withTransaction(async (transaction) => {
+      const team = new Team({ name, description, tag, ownerId });
+      const createdTeam = await this.teamRepository.create(team, { transaction });
 
-    const ownerMember = new TeamMember({
-      teamId: createdTeam.id,
-      userId: ownerId,
-      role: TeamRoles.OWNER,
-      status: 'active',
+      const ownerMember = new TeamMember({
+        teamId: createdTeam.id,
+        userId: ownerId,
+        role: TeamRoles.OWNER,
+        status: 'active',
+      });
+      await this.teamMemberRepository.create(ownerMember, { transaction });
+
+      // It's useful to return the created team with its owner member
+      const teamWithMembers = await this.teamRepository.findById(createdTeam.id, { includeMembers: true, transaction });
+      return teamWithMembers;
     });
-    await this.teamMemberRepository.create(ownerMember);
-
-    // It's useful to return the created team with its owner member
-    const teamWithMembers = await this.teamRepository.findById(createdTeam.id, { includeMembers: true });
-    return teamWithMembers;
   }
 }
 

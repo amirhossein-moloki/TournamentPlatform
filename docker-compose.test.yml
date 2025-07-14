@@ -1,0 +1,28 @@
+version: '3.8'
+
+services:
+  postgres_test:
+    image: postgres:14-alpine
+    container_name: tournament-platform-postgres-test
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${DB_USER:-test_user}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-test_password}
+      POSTGRES_DB: ${DB_NAME:-test_db}
+    ports:
+      - "5433:5432"
+    networks:
+      - tournament_test_network
+
+  redis_test:
+    image: redis:6-alpine
+    container_name: tournament-platform-redis-test
+    restart: unless-stopped
+    ports:
+      - "6380:6379"
+    networks:
+      - tournament_test_network
+
+networks:
+  tournament_test_network:
+    driver: bridge

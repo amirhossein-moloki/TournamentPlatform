@@ -30,8 +30,8 @@ describe('GetManagedTournamentsUseCase', () => {
 
   it('should retrieve tournaments managed by the user with default pagination', async () => {
     const tournaments = [
-      new Tournament(faker.string.uuid(), 'Tour 1', 'game1', 'description', 'rules', 'PENDING', 10, 'CASH', 100, 'CASH', 'details', 128, 0, new Date(), new Date(), null, [], [], {}, new Date(), new Date()),
-      new Tournament(faker.string.uuid(), 'Tour 2', 'game1', 'description', 'rules', 'PENDING', 10, 'CASH', 100, 'CASH', 'details', 128, 0, new Date(), new Date(), null, [], [], {}, new Date(), new Date())
+      new Tournament(faker.string.uuid(), 'Tour 1', 'game1', 'description', 'rules', 'PENDING', 10, 'FREE', 100, 'CASH', 'details', 128, 0, new Date(), new Date(), null, [], [], {}, new Date(), new Date()),
+      new Tournament(faker.string.uuid(), 'Tour 2', 'game1', 'description', 'rules', 'PENDING', 10, 'FREE', 100, 'CASH', 'details', 128, 0, new Date(), new Date(), null, [], [], {}, new Date(), new Date())
     ];
     mockTournamentRepository.findAndCountAll.mockResolvedValue({ tournaments, totalItems: 2 });
 
@@ -52,7 +52,7 @@ describe('GetManagedTournamentsUseCase', () => {
   });
 
   it('should apply pagination, filters, and sorting options', async () => {
-    const tournaments = [new Tournament(faker.string.uuid(), 'Filtered Tour', 'game-filtered')];
+    const tournaments = [new Tournament(faker.string.uuid(), 'Filtered Tour', 'game-filtered', 'description', 'rules', 'PENDING', 10, 'FREE', 100, 'CASH', 'details', 128, 0, new Date(), new Date(), null, [], [], {}, new Date(), new Date())];
     mockTournamentRepository.findAndCountAll.mockResolvedValue({ tournaments, totalItems: 1 });
     const options = {
       page: 2,

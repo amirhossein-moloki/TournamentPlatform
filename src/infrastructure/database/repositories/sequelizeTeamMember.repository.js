@@ -12,6 +12,11 @@ class SequelizeTeamMemberRepository extends ITeamMemberRepository {
     this.sequelize = sequelize; // For transactions if complex operations need them
   }
 
+  async create(memberData, options = {}) {
+    const member = await this.TeamMemberModel.create(memberData, { transaction: options.transaction });
+    return member;
+  }
+
   async add(teamId, userId, role, status = 'invited', invitedByUserId = null) {
     // invitedByUserId is for application logic/auditing, not stored in TeamMemberModel by default
     const existingMember = await this.findByTeamAndUser(teamId, userId);
