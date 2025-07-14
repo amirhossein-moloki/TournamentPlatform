@@ -1,10 +1,12 @@
 const express = require('express');
-const { authMiddleware } = require('../../middleware/auth.middleware');
+const express = require('express');
+const { authenticateToken } = require('../../middleware/auth.middleware');
 const validate = require('../../middleware/validation.middleware');
 const { getChatHistorySchema, createChatSessionSchema } = require('../validators/chat.validator');
 
-function createChatRouter(chatController) {
+function createChatRouter(chatController, userRepository) {
   const router = express.Router();
+  const authMiddleware = authenticateToken(userRepository);
 
   // Create a new chat session
   router.post(

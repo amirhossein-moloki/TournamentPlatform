@@ -9,6 +9,9 @@ const routes = require('./routes');
 const swaggerUi = require('swagger-ui-express');
 const path = require('path');
 const fs = require('fs');
+const cookieParser = require('cookie-parser');
+const csrfProtection = require('./middleware/csrf.middleware');
+const xss = require('./middleware/xss.middleware');
 
 const app = express();
 
@@ -35,6 +38,9 @@ app.use(cors({
 
 app.use(express.json({ limit: process.env.REQUEST_LIMIT || '16kb' }));
 app.use(express.urlencoded({ extended: true, limit: process.env.REQUEST_LIMIT || '16kb' }));
+app.use(cookieParser());
+app.use(xss);
+app.use(csrfProtection);
 app.use(express.static('public'));
 
 // Rate limiting to prevent brute-force attacks
