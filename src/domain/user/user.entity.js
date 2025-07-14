@@ -201,11 +201,10 @@ class User {
     return {
       id: this.id,
       username: this.username,
-      email: this.email, // Consider if email should always be public
       roles: [...this.roles], // Return a copy of the roles array
       isVerified: this.isVerified,
       lastLogin: this.lastLogin,
-      // Do NOT include passwordHash, refreshToken, verificationToken, tokenVersion
+      // Do NOT include passwordHash, refreshToken, verificationToken, tokenVersion, email
     };
   }
 }
