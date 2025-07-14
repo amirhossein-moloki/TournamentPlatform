@@ -1,5 +1,4 @@
-const ApiError = require('../../../utils/ApiError');
-const httpStatusCodes = require('http-status-codes');
+const { BadRequestError, NotFoundError } = require('../../../utils/errors');
 
 class LogoutUseCase {
     constructor(userRepository) {

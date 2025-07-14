@@ -1,7 +1,4 @@
-// src/application/use-cases/tournament/get-tournament.usecase.js
-
-const ApiError = require('../../../utils/ApiError');
-const httpStatusCodes = require('http-status-codes');
+const { BadRequestError, NotFoundError, InternalServerError } = require('../../../utils/errors');
 
 class GetTournamentUseCase {
   /**
@@ -19,11 +16,13 @@ class GetTournamentUseCase {
    * @param {string} tournamentId - The ID of the tournament to retrieve.
    * @param {object} [options] - Optional parameters for fetching (e.g., { includeGame: true, includeOrganizer: true, includeParticipants: false }).
    * @returns {Promise<import('../../../domain/tournament/tournament.entity').Tournament|null>} The tournament entity or null if not found.
-   * @throws {ApiError} If tournamentId is not provided, tournament not found, or other error occurs.
+   * @throws {import('../../../utils/errors').BadRequestError} If tournamentId is not provided.
+   * @throws {import('../../../utils/errors').NotFoundError} If tournament not found.
+   * @throws {import('../../../utils/errors').InternalServerError} If any other error occurs.
    */
   async execute(tournamentId, options = {}) {
     if (!tournamentId) {
-      throw new ApiError(httpStatusCodes.BAD_REQUEST, 'Tournament ID is required.');
+      throw new BadRequestError('Tournament ID is required.');
     }
 
     // Default options for includes, can be overridden by passed options
@@ -38,17 +37,17 @@ class GetTournamentUseCase {
       const tournament = await this.tournamentRepository.findById(tournamentId, findOptions);
 
       if (!tournament) {
-        throw new ApiError(httpStatusCodes.NOT_FOUND, `Tournament with ID ${tournamentId} not found.`);
+        throw new NotFoundError(`Tournament with ID ${tournamentId} not found.`);
       }
       return tournament;
     } catch (error) {
-      if (error instanceof ApiError) {
-        throw error; // Re-throw ApiErrors directly
+      if (error instanceof BadRequestError || error instanceof NotFoundError) {
+        throw error; // Re-throw specific errors directly
       }
       // Log the original error for server-side debugging
       console.error('Error fetching tournament by ID:', error);
       // Throw a generic error for other types of exceptions
-      throw new ApiError(httpStatusCodes.INTERNAL_SERVER_ERROR, 'Failed to retrieve tournament.');
+      throw new InternalServerError('Failed to retrieve tournament.');
     }
   }
 }

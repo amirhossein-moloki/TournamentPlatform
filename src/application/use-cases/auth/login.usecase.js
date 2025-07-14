@@ -1,8 +1,7 @@
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const { appConfig } = require('../../../../config/config');
-const ApiError = require('../../../utils/ApiError');
-const httpStatusCodes = require('http-status-codes');
+const { BadRequestError, UnauthorizedError, ForbiddenError } = require('../../../utils/errors');
 const { User } = require('../../../domain/user/user.entity'); // Assuming User entity is correctly imported
 
 class LoginUseCase {

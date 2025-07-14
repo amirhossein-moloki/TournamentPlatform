@@ -1,4 +1,4 @@
-// src/application/use-cases/game/deleteGame.useCase.js
+const { BadRequestError, NotFoundError } = require('../../../utils/errors');
 
 class DeleteGameUseCase {
   constructor(gameRepository) {
@@ -7,7 +7,7 @@ class DeleteGameUseCase {
 
   async execute(gameId) {
     if (!gameId) {
-      throw new Error('Game ID is required to delete a game.');
+      throw new BadRequestError('Game ID is required to delete a game.');
     }
 
     // Optional: Check if the game is associated with active tournaments before deleting
@@ -18,7 +18,7 @@ class DeleteGameUseCase {
     if (!success) {
       // This might mean the game was not found, or deletion failed for other reasons.
       // Depending on repository implementation, it might throw an error for not found.
-      throw new Error(`Game with ID ${gameId} not found or could not be deleted.`);
+      throw new NotFoundError(`Game with ID ${gameId} not found or could not be deleted.`);
     }
     return true; // Or return some confirmation message
   }

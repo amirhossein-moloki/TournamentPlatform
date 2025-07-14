@@ -1,5 +1,4 @@
-const ApiError = require('../../../utils/ApiError');
-const httpStatus = require('http-status');
+const { NotFoundError, ForbiddenError, ConflictError, InternalServerError } = require('../../../utils/errors');
 const TeamRole = require('../../../domain/team/teamRole.enums'); // For authorization checks
 
 class UpdateTeamUseCase {
@@ -17,7 +16,7 @@ class UpdateTeamUseCase {
     const team = await this.teamRepository.findById(teamId);
     if (!team) {
       this.logger.warn(`Team not found for ID: ${teamId} during update attempt.`);
-      throw new ApiError(httpStatus.NOT_FOUND, 'Team not found.');
+      throw new NotFoundError('Team not found.');
     }
 
     // Authorization Check: User must be owner or admin of the team
@@ -25,7 +24,7 @@ class UpdateTeamUseCase {
     const memberInfo = await this.teamMemberRepository.findByTeamAndUser(teamId, requestingUserId);
     if (!memberInfo || (memberInfo.role !== TeamRole.OWNER && memberInfo.role !== TeamRole.ADMIN) || memberInfo.status !== 'active') {
         this.logger.warn(`User ID: ${requestingUserId} is not authorized to update team ID: ${teamId}. Role: ${memberInfo?.role}, Status: ${memberInfo?.status}`);
-        throw new ApiError(httpStatus.FORBIDDEN, 'You are not authorized to update this team.');
+        throw new ForbiddenError('You are not authorized to update this team.');
     }
 
     const updateData = {};
@@ -42,7 +41,7 @@ class UpdateTeamUseCase {
         const existingTeam = await this.teamRepository.findByName(updateData.name);
         if (existingTeam && existingTeam.id !== teamId) {
           this.logger.warn(`Team name "${updateData.name}" already taken. Conflict during update of team ID: ${teamId}.`);
-          throw new ApiError(httpStatus.CONFLICT, 'Team name already taken.');
+          throw new ConflictError('Team name already taken.');
         }
     }
 
@@ -50,7 +49,7 @@ class UpdateTeamUseCase {
       const updatedTeamInstance = await this.teamRepository.update(teamId, updateData);
       if (!updatedTeamInstance) {
           this.logger.error(`Team ID: ${teamId} update returned no instance, though it should exist.`);
-          throw new ApiError(httpStatus.INTERNAL_SERVER_ERROR, 'Failed to update team, team might not have been found post-update.');
+          throw new InternalServerError('Failed to update team, team might not have been found post-update.');
       }
       this.logger.info(`Team ID: ${teamId} updated successfully by user ID: ${requestingUserId}.`);
       // The 'update' method in Sequelize repository for `returning: true, plain: true` returns the updated object.
@@ -58,9 +57,9 @@ class UpdateTeamUseCase {
     } catch (error) {
       this.logger.error(`Error updating team ID: ${teamId}: ${error.message}`, { error });
       if (error.name === 'SequelizeUniqueConstraintError') {
-         throw new ApiError(httpStatus.CONFLICT, 'Team name already exists or another unique constraint failed.');
+         throw new ConflictError('Team name already exists or another unique constraint failed.');
       }
-      throw new ApiError(httpStatus.INTERNAL_SERVER_ERROR, `Failed to update team: ${error.message}`);
+      throw new InternalServerError(`Failed to update team: ${error.message}`);
     }
   }
 }

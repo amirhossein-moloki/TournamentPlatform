@@ -1,29 +1,9 @@
 const router = require('express').Router();
-const { Joi, validate } = require('express-validation');
 const { authController } = require('../../config/dependencies');
 const { authenticateToken } = require('../../middleware/auth.middleware');
+const validate = require('../../middleware/validation.middleware');
+const { registerSchema, loginSchema, verifyEmailSchema } = require('../validators/auth.validator');
 
-// Joi validation schemas
-const registerSchema = {
-    body: Joi.object({
-        username: Joi.string().min(3).max(30).required(),
-        email: Joi.string().email().required(),
-        password: Joi.string().min(8).required(),
-    }),
-};
-
-const loginSchema = {
-    body: Joi.object({
-        email: Joi.string().email().required(),
-        password: Joi.string().required(),
-    }),
-};
-
-const verifyEmailSchema = {
-    body: Joi.object({
-        token: Joi.string().required(),
-    }),
-};
 
 // --- Routes ---
 

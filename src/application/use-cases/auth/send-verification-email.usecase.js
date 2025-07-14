@@ -1,5 +1,4 @@
-const ApiError = require('../../../utils/ApiError');
-const httpStatusCodes = require('http-status-codes');
+const { BadRequestError, NotFoundError, InternalServerError } = require('../../../utils/errors');
 const { appConfig } = require('../../../../config/config'); // For verification URL base
 
 class SendVerificationEmailUseCase {
@@ -16,11 +15,13 @@ class SendVerificationEmailUseCase {
    * Executes the send verification email use case.
    * @param {string} userEmail - The email of the user to send verification to.
    * @returns {Promise<{message: string}>}
-   * @throws {ApiError} If user not found, already verified, or email sending fails.
+   * @throws {import('../../../utils/errors').BadRequestError}
+   * @throws {import('../../../utils/errors').NotFoundError}
+   * @throws {import('../../../utils/errors').InternalServerError}
    */
   async execute(userEmail) {
     if (!userEmail) {
-      throw new ApiError(httpStatusCodes.BAD_REQUEST, 'User email is required.');
+      throw new BadRequestError('User email is required.');
     }
 
     const user = await this.userRepository.findByEmail(userEmail);
@@ -28,11 +29,11 @@ class SendVerificationEmailUseCase {
       // To prevent email enumeration, you might return a generic success message here
       // even if user doesn't exist, but log the attempt.
       // For clarity in this implementation, we'll throw an error.
-      throw new ApiError(httpStatusCodes.NOT_FOUND, 'User not found.');
+      throw new NotFoundError('User not found.');
     }
 
     if (user.isVerified) {
-      throw new ApiError(httpStatusCodes.BAD_REQUEST, 'User email is already verified.');
+      throw new BadRequestError('User email is already verified.');
     }
 
     // Generate a new verification token using the User entity method
@@ -68,7 +69,7 @@ class SendVerificationEmailUseCase {
       // Log the error but don't necessarily fail the whole operation,
       // as user might be able to try again. Or, decide if this is critical.
       console.error(`Failed to send verification email to ${user.email}:`, emailError);
-      throw new ApiError(httpStatusCodes.INTERNAL_SERVER_ERROR, 'Failed to send verification email. Please try again later.');
+      throw new InternalServerError('Failed to send verification email. Please try again later.');
     }
 
     return {

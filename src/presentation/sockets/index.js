@@ -1,12 +1,10 @@
 const { Server } = require('socket.io');
 const jwt = require('jsonwebtoken');
+const { createAdapter } = require('@socket.io/redis-adapter');
 const { appConfig } = require('../../../config/config');
 const logger = require('../../utils/logger');
 const chatHandler = require('./handlers/chat.handler');
-// const { authenticateSocketToken } = require('../../middleware/auth.middleware'); // A socket-specific auth middleware
-
-// In-memory store for active users/sockets (simple example, Redis might be better for multi-instance)
-const activeSockets = new Map(); // Map<socket.id, { userId: string, username: string, rooms: Set<string> }>
+const redisAdapter = require('../../infrastructure/cache/redis.adapter');
 
 /**
  * Initializes Socket.IO and sets up event handlers.
@@ -16,18 +14,17 @@ const activeSockets = new Map(); // Map<socket.id, { userId: string, username: s
 function initializeSocketIO(httpServer) {
   const io = new Server(httpServer, {
     cors: {
-      origin: appConfig.cors.origin.split(','), // Allow origins from config (split if multiple)
+      origin: appConfig.cors.origin.split(','),
       methods: ['GET', 'POST'],
-      // credentials: true // If you need to send cookies with socket requests (less common with token auth)
     },
-    // path: '/socket.io', // Default path, can be customized
-    // transports: ['websocket', 'polling'], // Default
   });
 
-  logger.info('Socket.IO server initialized.');
+  const pubClient = redisAdapter.getClient();
+  const subClient = pubClient.duplicate();
+  io.adapter(createAdapter(pubClient, subClient));
 
-  // --- Socket.IO Authentication Middleware ---
-  // This middleware runs for every new connection.
+  logger.info('Socket.IO server initialized with Redis adapter.');
+
   io.use(async (socket, next) => {
     const token = socket.handshake.auth.token || socket.handshake.headers['x-access-token'];
 
@@ -38,20 +35,11 @@ function initializeSocketIO(httpServer) {
 
     try {
       const decoded = jwt.verify(token, appConfig.jwt.secret);
-      // `decoded` should contain user info like id (sub), email, role.
       socket.user = {
         id: decoded.sub,
         email: decoded.email,
         role: decoded.role,
-        // username might not be in JWT, could fetch from DB if needed, or passed in handshake.auth
-        // For now, assume JWT has enough for basic identification.
       };
-      // TODO: Check against tokenVersion if implementing JWT invalidation via User entity's tokenVersion.
-      // const userRecord = await userRepository.findById(decoded.sub);
-      // if (!userRecord || userRecord.tokenVersion !== decoded.tokenVersion) {
-      //   return next(new Error('Authentication error: Invalid token (version mismatch).'));
-      // }
-
       logger.info(`Socket authenticated: User ${socket.user.id} (socket ID: ${socket.id})`);
       next();
     } catch (err) {
@@ -63,49 +51,27 @@ function initializeSocketIO(httpServer) {
     }
   });
 
-
-  // --- Main Connection Handler ---
-  io.on('connection', (socket) => {
+  io.on('connection', async (socket) => {
     logger.info(`User ${socket.user.id} connected via socket: ${socket.id}`);
-    activeSockets.set(socket.id, {
-        userId: socket.user.id,
-        username: socket.user.email, // Or actual username if fetched/in token
-        rooms: new Set(),
-    });
 
-    // Register event handlers for this socket
-    chatHandler(io, socket, activeSockets);
-    // otherHandler(io, socket, activeSockets); // e.g., for bracket updates, notifications
+    const socketData = {
+      userId: socket.user.id,
+      username: socket.user.email,
+      rooms: [],
+    };
+    await redisAdapter.setJSON(`socket:${socket.id}`, socketData, { EX: 86400 }); // 24-hour expiry
 
-    // --- Disconnect Handler ---
-    socket.on('disconnect', (reason) => {
+    chatHandler(io, socket, {}); // Pass empty object for activeSockets
+
+    socket.on('disconnect', async (reason) => {
       logger.info(`User ${socket.user.id} disconnected from socket: ${socket.id}. Reason: ${reason}`);
-      activeSockets.delete(socket.id);
-      // Handle leaving rooms, notifying others, etc.
-      // chatHandler might also have a disconnect part: chatHandler.onDisconnect(socket, activeSockets)
+      await redisAdapter.del(`socket:${socket.id}`);
     });
 
-    // --- Error Handling for Socket ---
     socket.on('error', (err) => {
         logger.error(`Socket error for user ${socket.user.id} (socket ID: ${socket.id}):`, err);
-        // Depending on the error, you might want to disconnect the socket or take other actions.
     });
-
-
-    // --- Example: Personal Notification ---
-    // This shows how to send a message directly to this user's socket.
-    // Could be triggered by other parts of the system (e.g., via a message bus event).
-    // socket.emit('notification', { type: 'welcome', message: `Welcome, ${socket.user.email || 'User'}!` });
-
   });
-
-
-  // --- Broadcasting System-Wide Messages (Example) ---
-  // function broadcastSystemMessage(message) {
-  //   io.emit('systemMessage', { text: message, timestamp: new Date() });
-  //   logger.info(`Broadcasted system message: ${message}`);
-  // }
-  // Example usage: broadcastSystemMessage('Server maintenance starting in 10 minutes.');
 
   return io;
 }

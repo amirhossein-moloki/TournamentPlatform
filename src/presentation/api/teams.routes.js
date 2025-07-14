@@ -1,37 +1,19 @@
 const router = require('express').Router();
-const { Joi, validate } = require('express-validation');
 const teamController = require('../controllers/team.controller');
 const { authenticateToken, authorizeRole } = require('../../middleware/auth.middleware');
 const { UserRoles } = require('../../domain/user/user.entity');
-const { TeamMemberRoles, TeamMemberStatus } = require('../../domain/team/teamMember.entity');
+const validate = require('../../middleware/validation.middleware');
+const {
+  teamIdParamSchema,
+  createTeamSchema,
+  updateTeamSchema,
+  listTeamsSchema,
+} = require('../validators/team.validator');
+const {
+    addMemberSchema,
+    removeMemberSchema,
+} = require('../validators/teamMember.validator');
 
-// Joi Schemas for Team
-const teamIdParamSchema = {
-    params: Joi.object({
-        id: Joi.string().uuid().required(),
-    }),
-};
-
-const userIdParamSchema = {
-    params: Joi.object({
-        userId: Joi.string().uuid().required(),
-    }),
-};
-
-const createTeamSchema = {
-    body: Joi.object({
-        name: Joi.string().min(3).max(50).required(),
-        tag: Joi.string().min(2).max(10).alphanum().optional(),
-        description: Joi.string().max(255).optional().allow('', null),
-    }),
-};
-
-const addMemberSchema = {
-    body: Joi.object({
-        userId: Joi.string().uuid().required(),
-        role: Joi.string().valid(...Object.values(TeamMemberRoles)).default(TeamMemberRoles.MEMBER),
-    }),
-};
 
 // --- Routes ---
 
@@ -47,7 +29,7 @@ router.post('/', authenticateToken, validate(createTeamSchema), teamController.c
     #swagger.responses[409] = { description: 'Team name or tag already exists.', schema: { $ref: '#/components/schemas/ErrorResponse' } }
 */
 
-router.get('/', validate({ query: Joi.object({ page: Joi.number(), limit: Joi.number() }) }), teamController.getAllTeams);
+router.get('/', validate(listTeamsSchema), teamController.getAllTeams);
 /*  #swagger.tags = ['Teams']
     #swagger.summary = 'Get a list of all teams'
     #swagger.description = 'Retrieves a paginated list of all teams.'
@@ -65,7 +47,7 @@ router.get('/:id', validate(teamIdParamSchema), teamController.getTeamById);
     #swagger.responses[404] = { $ref: '#/components/responses/NotFoundError' }
 */
 
-router.put('/:id', authenticateToken, validate(teamIdParamSchema), validate(createTeamSchema), teamController.updateTeam);
+router.put('/:id', authenticateToken, validate(updateTeamSchema), teamController.updateTeam);
 /*  #swagger.tags = ['Teams']
     #swagger.summary = 'Update a team (Owner/Admin only)'
     #swagger.description = 'Updates the details of a team. Requires the user to be the team owner or an Admin.'
@@ -92,7 +74,7 @@ router.delete('/:id', authenticateToken, validate(teamIdParamSchema), teamContro
 */
 
 // --- Team Member Management ---
-router.post('/:id/members', authenticateToken, validate(teamIdParamSchema), validate(addMemberSchema), teamController.addMember);
+router.post('/:id/members', authenticateToken, validate(addMemberSchema), teamController.addMember);
 /*  #swagger.tags = ['Teams']
     #swagger.summary = 'Add a member to a team (Owner/Captain only)'
     #swagger.description = 'Adds a new user to a team. Requires the user to be the team owner or captain.'
@@ -106,7 +88,7 @@ router.post('/:id/members', authenticateToken, validate(teamIdParamSchema), vali
     #swagger.responses[404] = { $ref: '#/components/responses/NotFoundError' } // Team or user not found
 */
 
-router.delete('/:id/members/:userId', authenticateToken, validate(teamIdParamSchema), validate(userIdParamSchema), teamController.removeMember);
+router.delete('/:id/members/:userId', authenticateToken, validate(removeMemberSchema), teamController.removeMember);
 /*  #swagger.tags = ['Teams']
     #swagger.summary = 'Remove a member from a team (Owner/Captain or self)'
     #swagger.description = 'Removes a member from a team. Requires the user to be the team owner/captain, or the member themselves.'

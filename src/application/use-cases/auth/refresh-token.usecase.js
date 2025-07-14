@@ -1,7 +1,6 @@
 const jwt = require('jsonwebtoken');
 const { appConfig } = require('../../../../config/config');
-const ApiError = require('../../../utils/ApiError');
-const httpStatusCodes = require('http-status-codes');
+const { UnauthorizedError } = require('../../../utils/errors');
 
 class RefreshTokenUseCase {
   /**
@@ -17,11 +16,11 @@ class RefreshTokenUseCase {
    * @returns {Promise<{accessToken: string, user?: any, newRefreshToken?: string}>}
    *          Returns a new access token.
    *          Optionally, user details and a new rotated refresh token can be returned.
-   * @throws {ApiError} If the refresh token is invalid, expired, or other errors occur.
+   * @throws {import('../../../utils/errors').UnauthorizedError} If the refresh token is invalid, expired, or other errors occur.
    */
   async execute(refreshToken) {
     if (!refreshToken) {
-      throw new ApiError(httpStatusCodes.UNAUTHORIZED, 'Refresh token is required.');
+      throw new UnauthorizedError('Refresh token is required.');
     }
 
     let decodedRefreshToken;
@@ -32,14 +31,14 @@ class RefreshTokenUseCase {
       decodedRefreshToken = jwt.verify(refreshToken, appConfig.jwt.secret);
     } catch (err) {
       if (err.name === 'TokenExpiredError') {
-        throw new ApiError(httpStatusCodes.UNAUTHORIZED, 'Refresh token expired.');
+        throw new UnauthorizedError('Refresh token expired.');
       }
-      throw new ApiError(httpStatusCodes.UNAUTHORIZED, 'Invalid refresh token.');
+      throw new UnauthorizedError('Invalid refresh token.');
     }
 
     const userId = decodedRefreshToken.sub;
     if (!userId) {
-      throw new ApiError(httpStatusCodes.UNAUTHORIZED, 'Invalid refresh token payload (missing sub).');
+      throw new UnauthorizedError('Invalid refresh token payload (missing sub).');
     }
 
     // Find the user associated with the refresh token
@@ -48,7 +47,7 @@ class RefreshTokenUseCase {
     if (!user) {
       // This means the token was validly signed but is not the current one for the user,
       // or the user doesn't exist. This could indicate a stolen/reused token.
-      throw new ApiError(httpStatusCodes.UNAUTHORIZED, 'Refresh token not recognized or has been invalidated.');
+      throw new UnauthorizedError('Refresh token not recognized or has been invalidated.');
     }
 
     // Optional: Check token version if implementing advanced JWT invalidation
@@ -56,7 +55,7 @@ class RefreshTokenUseCase {
     // if (decodedRefreshToken.tokenVersion !== user.tokenVersion) {
     //   // Invalidate this refresh token in DB as a security measure
     //   await this.userRepository.update(user.id, { refreshToken: null });
-    //   throw new ApiError(httpStatusCodes.UNAUTHORIZED, 'Refresh token version mismatch (session invalidated).');
+    //   throw new UnauthorizedError('Refresh token version mismatch (session invalidated).');
     // }
 
     // User is valid, and refresh token is current. Issue a new access token.

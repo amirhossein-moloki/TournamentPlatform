@@ -1,8 +1,6 @@
 const logger = require('../../../utils/logger');
-// const TournamentRepository = require('../../../infrastructure/database/repositories/postgres.tournament.repository'); // Conceptual
-// const { TournamentStatus } = require('../../../domain/tournament/tournament.entity'); // Conceptual
-
-// const tournamentRepository = new TournamentRepository(); // Conceptual
+const { validateSocketPayload } = require('../../../utils/socketValidation.util');
+const { tournamentSubscriptionSchema } = require('../../validators/tournament.socket.validator');
 
 /**
  * Registers tournament-related event handlers for a connected socket.
@@ -24,13 +22,11 @@ function registerTournamentHandlers(io, socket, activeSockets) {
    * The client would send this event after navigating to a tournament page.
    */
   socket.on('subscribeToTournamentUpdates', async (payload, callback) => {
+    if (!validateSocketPayload(tournamentSubscriptionSchema, payload, callback)) return;
+
     try {
       // Payload: { tournamentId: string }
       const { tournamentId } = payload;
-      if (!tournamentId || typeof tournamentId !== 'string') {
-        if (typeof callback === 'function') callback({ success: false, error: 'Invalid tournamentId provided.' });
-        return;
-      }
 
       // TODO: Authorization - Check if user is allowed to view this tournament or if it's public.
       // const tournament = await tournamentRepository.findById(tournamentId);
@@ -62,13 +58,11 @@ function registerTournamentHandlers(io, socket, activeSockets) {
    * Example: Client unsubscribes from tournament updates.
    */
   socket.on('unsubscribeFromTournamentUpdates', async (payload, callback) => {
+    if (!validateSocketPayload(tournamentSubscriptionSchema, payload, callback)) return;
+
     try {
       // Payload: { tournamentId: string }
       const { tournamentId } = payload;
-      if (!tournamentId || typeof tournamentId !== 'string') {
-        if (typeof callback === 'function') callback({ success: false, error: 'Invalid tournamentId provided.' });
-        return;
-      }
 
       const roomName = `tournament:${tournamentId}`;
       await socket.leave(roomName);

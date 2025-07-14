@@ -1,63 +1,17 @@
 const router = require('express').Router();
-const { Joi, validate } = require('express-validation');
 const adminController = require('../controllers/admin.controller'); // Assuming you will create this
 const { authenticateToken, authorizeRole } = require('../../middleware/auth.middleware');
 const { UserRoles } = require('../../domain/user/user.entity');
-
-// Joi Schemas
-const listDisputesSchema = {
-    query: Joi.object({
-        page: Joi.number().integer().min(1),
-        limit: Joi.number().integer().min(1).max(100),
-        status: Joi.string().valid('OPEN', 'UNDER_REVIEW', 'RESOLVED_PARTICIPANT1_WIN', 'RESOLVED_PARTICIPANT2_WIN', 'RESOLVED_REPLAY', 'CLOSED', 'CLOSED_INVALID'),
-        tournamentId: Joi.string().uuid(),
-        matchId: Joi.string().uuid(), // Was undocumented
-        moderatorId: Joi.string().uuid(), // Was undocumented
-        sortBy: Joi.string(), // e.g., 'createdAt:desc'
-    }),
-};
-
-const disputeIdParamSchema = {
-    params: Joi.object({
-        id: Joi.string().uuid().required(),
-    }),
-};
-
-const resolveDisputeSchema = {
-    body: Joi.object({
-        resolutionStatus: Joi.string().valid('RESOLVED_PARTICIPANT1_WIN', 'RESOLVED_PARTICIPANT2_WIN', 'RESOLVED_REPLAY', 'CLOSED_INVALID').required(),
-        resolutionDetails: Joi.string().min(10).max(1000).required(),
-        winningParticipantId: Joi.string().uuid().optional().allow(null), // If applicable
-    }),
-};
-
-const listWithdrawalsSchema = {
-    query: Joi.object({
-        page: Joi.number().integer().min(1),
-        limit: Joi.number().integer().min(1).max(100),
-        status: Joi.string().valid('PENDING_APPROVAL', 'APPROVED', 'REJECTED', 'PROCESSING', 'COMPLETED', 'FAILED'),
-        userId: Joi.string().uuid(),
-        sortBy: Joi.string(), // e.g., 'createdAt:desc'
-    }),
-};
-
-const withdrawalIdParamSchema = {
-    params: Joi.object({
-        id: Joi.string().uuid().required(),
-    }),
-};
-
-const approveWithdrawalSchema = {
-    body: Joi.object({
-        notes: Joi.string().max(500).optional().allow('', null),
-    }),
-};
-
-const rejectWithdrawalSchema = {
-    body: Joi.object({
-        reason: Joi.string().min(10).max(500).required(),
-    }),
-};
+const validate = require('../../middleware/validation.middleware');
+const {
+  listDisputesSchema,
+  disputeIdParamSchema,
+  resolveDisputeSchema,
+  listWithdrawalsSchema,
+  withdrawalIdParamSchema,
+  approveWithdrawalSchema,
+  rejectWithdrawalSchema,
+} = require('../validators/admin.validator');
 
 
 // --- Routes ---

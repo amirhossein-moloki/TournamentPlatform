@@ -1,5 +1,3 @@
-// src/application/use-cases/game/listActiveGames.useCase.js
-
 class ListActiveGamesUseCase {
   constructor(gameRepository) {
     this.gameRepository = gameRepository;

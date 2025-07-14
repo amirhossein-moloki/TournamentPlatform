@@ -1,7 +1,6 @@
 const bcrypt = require('bcryptjs');
 const { v4: uuidv4 } = require('uuid');
-const ApiError = require('../../../utils/ApiError');
-const httpStatusCodes = require('http-status-codes');
+const { BadRequestError, ConflictError, InternalServerError } = require('../../../utils/errors');
 const { User } = require('../../../domain/user/user.entity'); // Assuming User entity is correctly imported
 const jwt = require('jsonwebtoken');
 const { appConfig } = require('../../../../config/config');
@@ -32,26 +31,28 @@ class RegisterUserUseCase {
    * @param {string} userData.email - The user's email address.
    * @param {string} userData.password - The user's chosen password.
    * @returns {Promise<{user: UserPublicProfile, accessToken: string, refreshToken: string, message: string}>}
-   * @throws {ApiError} If registration fails (e.g., email/username taken, validation error).
+   * @throws {import('../../../utils/errors').BadRequestError}
+   * @throws {import('../../../utils/errors').ConflictError}
+   * @throws {import('../../../utils/errors').InternalServerError}
    */
   async execute({ username, email, password }) {
     // Basic validation (more comprehensive validation should be at controller/Joi level)
     if (!username || !email || !password) {
-      throw new ApiError(httpStatusCodes.BAD_REQUEST, 'Username, email, and password are required.');
+      throw new BadRequestError('Username, email, and password are required.');
     }
     if (password.length < 8) { // Example: Password policy
-      throw new ApiError(httpStatusCodes.BAD_REQUEST, 'Password must be at least 8 characters long.');
+      throw new BadRequestError('Password must be at least 8 characters long.');
     }
 
     // Check if email or username is already taken
     const existingUserByEmail = await this.userRepository.findByEmail(email);
     if (existingUserByEmail) {
-      throw new ApiError(httpStatusCodes.CONFLICT, 'Email address is already in use.');
+      throw new ConflictError('Email address is already in use.');
     }
 
     const existingUserByUsername = await this.userRepository.findByUsername(username);
     if (existingUserByUsername) {
-      throw new ApiError(httpStatusCodes.CONFLICT, 'Username is already taken.');
+      throw new ConflictError('Username is already taken.');
     }
 
     // Hash the password
@@ -95,12 +96,11 @@ class RegisterUserUseCase {
       // For now, log the error and potentially delete the created user.
       console.error(`Failed to create wallet for user ${createdUser.id}:`, walletError);
       // await this.userRepository.delete(createdUser.id); // Rollback user
-      // throw new ApiError(httpStatusCodes.INTERNAL_SERVER_ERROR, 'User registration failed during wallet creation.');
+      // throw new InternalServerError('User registration failed during wallet creation.');
       // Or, mark user as incomplete / requiring attention.
       // For this implementation, we'll proceed but acknowledge the issue.
       // A robust solution would use a transaction manager or unit of work pattern.
-      throw new ApiError(
-        httpStatusCodes.INTERNAL_SERVER_ERROR,
+      throw new InternalServerError(
         'User registered, but wallet creation failed. Please contact support.'
       );
     }

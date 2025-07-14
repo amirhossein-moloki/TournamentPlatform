@@ -1,5 +1,4 @@
-const ApiError = require('../../../utils/ApiError');
-const httpStatusCodes = require('http-status-codes');
+const { BadRequestError, NotFoundError, ForbiddenError, InternalServerError } = require('../../../utils/errors');
 const { appConfig } = require('../../../../config/config');
 // const S3Service = require('../../services/s3.service'); // Ideal - to be created/injected
 
@@ -11,24 +10,24 @@ class GetMatchUploadUrlUseCase {
 
   async execute(userId, tournamentId, matchId, fileInfo) {
     if (!userId || !tournamentId || !matchId || !fileInfo || !fileInfo.filename || !fileInfo.contentType) {
-      throw new ApiError(httpStatusCodes.BAD_REQUEST, 'User ID, tournament ID, match ID, and file information are required.');
+      throw new BadRequestError('User ID, tournament ID, match ID, and file information are required.');
     }
 
     const match = await this.tournamentRepository.findMatchById(tournamentId, matchId);
     if (!match) {
-      throw new ApiError(httpStatusCodes.NOT_FOUND, 'Match not found.');
+      throw new NotFoundError('Match not found.');
     }
 
     // Authorization: Check if user is a participant
     if (match.participant1Id !== userId && match.participant2Id !== userId && !(match.team1Participants && match.team1Participants.includes(userId)) && !(match.team2Participants && match.team2Participants.includes(userId)) ) {
-      throw new ApiError(httpStatusCodes.FORBIDDEN, 'You are not authorized to upload results for this match.');
+      throw new ForbiddenError('You are not authorized to upload results for this match.');
     }
 
     // Check match status
     // TODO: Define these statuses centrally, e.g., in MatchStatus constants/enum
     const allowedStatuses = ['IN_PROGRESS', 'AWAITING_SCORES', 'PENDING_RESULT_SUBMISSION'];
     if (!allowedStatuses.includes(match.status)) {
-      throw new ApiError(httpStatusCodes.BAD_REQUEST, `Cannot get upload URL for match with status: ${match.status}.`);
+      throw new BadRequestError(`Cannot get upload URL for match with status: ${match.status}.`);
     }
 
     // Generate file key
@@ -52,7 +51,7 @@ class GetMatchUploadUrlUseCase {
 
 
     if (!placeholderUploadUrl) {
-        throw new ApiError(httpStatusCodes.INTERNAL_SERVER_ERROR, 'Failed to generate upload URL.');
+        throw new InternalServerError('Failed to generate upload URL.');
     }
 
     return {

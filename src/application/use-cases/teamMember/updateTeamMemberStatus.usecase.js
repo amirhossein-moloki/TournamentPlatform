@@ -1,5 +1,4 @@
-const ApiError = require('../../../utils/ApiError');
-const httpStatus = require('http-status');
+const { BadRequestError, NotFoundError, UnauthorizedError, InternalServerError } = require('../../../utils/errors');
 const TeamRole = require('../../../domain/team/teamRole.enums');
 
 class UpdateTeamMemberStatusUseCase {
@@ -18,19 +17,19 @@ class UpdateTeamMemberStatusUseCase {
     const validSelfUpdateStatuses = ['active', 'rejected', 'left'];
     if (!validSelfUpdateStatuses.includes(newStatus)) {
       this.logger.warn(`Invalid status: ${newStatus} for self-update by user ID: ${performingUserId} in team ID: ${teamId}.`);
-      throw new ApiError(httpStatus.BAD_REQUEST, 'Invalid status provided for this operation.');
+      throw new BadRequestError('Invalid status provided for this operation.');
     }
 
     const team = await this.teamRepository.findById(teamId);
     if (!team) {
       this.logger.warn(`Team not found for ID: ${teamId} during member status update.`);
-      throw new ApiError(httpStatus.NOT_FOUND, 'Team not found.');
+      throw new NotFoundError('Team not found.');
     }
 
     const member = await this.teamMemberRepository.findByTeamAndUser(teamId, performingUserId);
     if (!member) {
       this.logger.warn(`Membership not found for user ID: ${performingUserId} in team ID: ${teamId}.`);
-      throw new ApiError(httpStatus.NOT_FOUND, 'Team membership not found.');
+      throw new NotFoundError('Team membership not found.');
     }
 
     // Business logic for status transitions:
@@ -39,25 +38,25 @@ class UpdateTeamMemberStatusUseCase {
       // A more robust system would use an invitation token to validate this action.
       if (member.status !== 'invited') {
         this.logger.warn(`User ID: ${performingUserId} in team ID: ${teamId} tried to set status to 'active', but current status is ${member.status}.`);
-        throw new ApiError(httpStatus.BAD_REQUEST, 'Cannot activate membership. Current status is not "invited".');
+        throw new BadRequestError('Cannot activate membership. Current status is not "invited".');
       }
       // Optional: Validate invitationToken from context if implementing token-based invites
       // if (!context.invitationToken || !this.validateInvitationToken(member, context.invitationToken)) {
-      //   throw new ApiError(httpStatus.UNAUTHORIZED, 'Invalid or expired invitation token.');
+      //   throw new UnauthorizedError('Invalid or expired invitation token.');
       // }
     } else if (newStatus === 'rejected') {
       if (member.status !== 'invited') {
         this.logger.warn(`User ID: ${performingUserId} in team ID: ${teamId} tried to reject invite, but current status is ${member.status}.`);
-        throw new ApiError(httpStatus.BAD_REQUEST, 'Cannot reject invitation. Current status is not "invited".');
+        throw new BadRequestError('Cannot reject invitation. Current status is not "invited".');
       }
     } else if (newStatus === 'left') {
       if (member.status !== 'active') {
         this.logger.warn(`User ID: ${performingUserId} in team ID: ${teamId} tried to leave, but current status is ${member.status}. Must be an active member.`);
-        throw new ApiError(httpStatus.BAD_REQUEST, 'Must be an active member to leave the team.');
+        throw new BadRequestError('Must be an active member to leave the team.');
       }
       if (member.role === TeamRole.OWNER) {
         this.logger.warn(`Owner (User ID: ${performingUserId}) attempted to leave team ID: ${teamId}. Not allowed.`);
-        throw new ApiError(httpStatus.BAD_REQUEST, 'Team owner cannot leave the team. Change ownership or delete the team.');
+        throw new BadRequestError('Team owner cannot leave the team. Change ownership or delete the team.');
       }
     }
 
@@ -70,7 +69,7 @@ class UpdateTeamMemberStatusUseCase {
       const updatedMember = await this.teamMemberRepository.updateByTeamAndUser(teamId, performingUserId, { status: newStatus });
       if (!updatedMember) {
           this.logger.error(`Failed to update status for member UserID:${performingUserId} in TeamID:${teamId}.`);
-          throw new ApiError(httpStatus.INTERNAL_SERVER_ERROR, 'Failed to update member status.');
+          throw new InternalServerError('Failed to update member status.');
       }
       this.logger.info(`Status of user ID: ${performingUserId} in team ID: ${teamId} updated to ${newStatus}.`);
 
@@ -88,9 +87,9 @@ class UpdateTeamMemberStatusUseCase {
     } catch (error) {
         this.logger.error(`Error updating status for UserID:${performingUserId} in TeamID:${teamId}: ${error.message}`, { error });
         if (error.message.toLowerCase().includes('team owner cannot leave')) {
-            throw new ApiError(httpStatus.BAD_REQUEST, error.message);
+            throw new BadRequestError(error.message);
         }
-        throw new ApiError(httpStatus.INTERNAL_SERVER_ERROR, `Failed to update status: ${error.message}`);
+        throw new InternalServerError(`Failed to update status: ${error.message}`);
     }
   }
 

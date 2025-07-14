@@ -1,5 +1,4 @@
-const ApiError = require('../../../utils/ApiError');
-const httpStatusCodes = require('http-status-codes');
+const { BadRequestError, NotFoundError, InternalServerError } = require('../../../utils/errors');
 const { TournamentStatus } = require('../../../domain/tournament/tournament.entity'); // Assuming TournamentStatus is exported
 
 class ChangeTournamentStatusUseCase {
@@ -19,20 +18,20 @@ class ChangeTournamentStatusUseCase {
    */
   async execute(tournamentId, newStatus, cancelReason = 'Tournament status changed by admin.') {
     if (!tournamentId) {
-      throw new ApiError(httpStatusCodes.BAD_REQUEST, 'Tournament ID is required.');
+      throw new BadRequestError('Tournament ID is required.');
     }
     if (!newStatus || !Object.values(TournamentStatus).includes(newStatus)) {
-      throw new ApiError(httpStatusCodes.BAD_REQUEST, `Invalid new status: ${newStatus}.`);
+      throw new BadRequestError(`Invalid new status: ${newStatus}.`);
     }
 
     const tournament = await this.tournamentRepository.findById(tournamentId);
     if (!tournament) {
-      throw new ApiError(httpStatusCodes.NOT_FOUND, `Tournament with ID ${tournamentId} not found.`);
+      throw new NotFoundError(`Tournament with ID ${tournamentId} not found.`);
     }
 
     // Explicitly block unsupported direct status changes before complex logic
     if (newStatus === TournamentStatus.PENDING && tournament.status === TournamentStatus.ONGOING) {
-      throw new ApiError(httpStatusCodes.BAD_REQUEST, `Direct change to status '${TournamentStatus.PENDING}' from '${tournament.status}' is not supported via this action. Use specific actions or ensure valid transition.`);
+      throw new BadRequestError(`Direct change to status '${TournamentStatus.PENDING}' from '${tournament.status}' is not supported via this action. Use specific actions or ensure valid transition.`);
     }
     // Add other similar critical checks here if needed.
 
@@ -77,15 +76,15 @@ class ChangeTournamentStatusUseCase {
           } else if (newStatus === TournamentStatus.UPCOMING && tournament.status === TournamentStatus.PENDING) {
              tournament.updateStatus(TournamentStatus.UPCOMING);
           } else {
-            throw new ApiError(httpStatusCodes.BAD_REQUEST, `Direct change to status '${newStatus}' from '${tournament.status}' is not supported via this action. Use specific actions or ensure valid transition.`);
+            throw new BadRequestError(`Direct change to status '${newStatus}' from '${tournament.status}' is not supported via this action. Use specific actions or ensure valid transition.`);
           }
           break;
         default:
-          throw new ApiError(httpStatusCodes.BAD_REQUEST, `Status change to '${newStatus}' is not handled.`);
+          throw new BadRequestError(`Status change to '${newStatus}' is not handled.`);
       }
     } catch (error) {
       // Catch errors from entity methods (e.g., invalid transition)
-      throw new ApiError(httpStatusCodes.BAD_REQUEST, error.message);
+      throw new BadRequestError(error.message);
     }
 
     // Persist changes
@@ -93,7 +92,7 @@ class ChangeTournamentStatusUseCase {
 
 
     if (!updatedTournament) {
-        throw new ApiError(httpStatusCodes.INTERNAL_SERVER_ERROR, 'Failed to update tournament status after validation.');
+        throw new InternalServerError('Failed to update tournament status after validation.');
     }
 
     return updatedTournament;

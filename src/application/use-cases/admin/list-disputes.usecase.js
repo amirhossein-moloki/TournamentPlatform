@@ -1,5 +1,4 @@
-const ApiError = require('../../../utils/ApiError');
-const httpStatusCodes = require('http-status-codes');
+const { InternalServerError } = require('../../../utils/errors');
 
 class ListDisputesUseCase {
   /**
@@ -18,7 +17,7 @@ class ListDisputesUseCase {
    * @param {string} [listOptions.sortBy='createdAt'] - Field to sort by.
    * @param {string} [listOptions.sortOrder='DESC'] - Sort order ('ASC' or 'DESC').
    * @returns {Promise<{disputes: Array<import('../../../domain/dispute/dispute.entity').DisputeTicket>, totalItems: number, totalPages: number, currentPage: number, pageSize: number}>}
-   * @throws {ApiError} If fetching fails.
+   * @throws {import('../../../utils/errors').InternalServerError} If fetching fails.
    */
   async execute({ page = 1, limit = 10, filters = {}, sortBy = 'createdAt', sortOrder = 'DESC' }) {
     const sanePage = Math.max(1, parseInt(page, 10) || 1);
@@ -52,8 +51,8 @@ class ListDisputesUseCase {
       };
     } catch (error) {
       console.error('Error listing disputes in use case:', error);
-      if (error instanceof ApiError) throw error;
-      throw new ApiError(httpStatusCodes.INTERNAL_SERVER_ERROR, 'Failed to retrieve disputes.');
+      if (error instanceof InternalServerError) throw error;
+      throw new InternalServerError('Failed to retrieve disputes.');
     }
   }
 }

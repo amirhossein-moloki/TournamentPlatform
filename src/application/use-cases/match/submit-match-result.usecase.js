@@ -1,5 +1,4 @@
-const ApiError = require('../../../utils/ApiError');
-const httpStatusCodes = require('http-status-codes');
+const { BadRequestError, NotFoundError, ForbiddenError, InternalServerError } = require('../../../utils/errors');
 const { appConfig } = require('../../../../config/config'); // For S3 base URL if needed
 
 class SubmitMatchResultUseCase {
@@ -24,28 +23,31 @@ class SubmitMatchResultUseCase {
    * @param {string} resultData.resultScreenshotFileKey - The S3 file key of the uploaded screenshot.
    * @param {string} [resultData.comments] - Optional comments from the submitter.
    * @returns {Promise<{match: import('../../../domain/tournament/match.entity').Match, message: string}>} Updated match entity and a success message.
-   * @throws {ApiError}
+   * @throws {import('../../../utils/errors').BadRequestError}
+   * @throws {import('../../../utils/errors').NotFoundError}
+   * @throws {import('../../../utils/errors').ForbiddenError}
+   * @throws {import('../../../utils/errors').InternalServerError}
    */
   async execute(userId, tournamentId, matchId, resultData) {
     const { winningParticipantId, scoreParticipant1, scoreParticipant2, resultScreenshotFileKey, comments } = resultData;
 
     if (!userId || !tournamentId || !matchId || !winningParticipantId || !resultScreenshotFileKey) {
-      throw new ApiError(httpStatusCodes.BAD_REQUEST, 'User ID, tournament ID, match ID, winning participant ID, and screenshot file key are required.');
+      throw new BadRequestError('User ID, tournament ID, match ID, winning participant ID, and screenshot file key are required.');
     }
 
     // 1. Fetch match
     const match = await this.tournamentRepository.findMatchById(matchId);
     if (!match) {
-      throw new ApiError(httpStatusCodes.NOT_FOUND, 'Match not found.');
+      throw new NotFoundError('Match not found.');
     }
     if (match.tournamentId !== tournamentId) {
-        throw new ApiError(httpStatusCodes.BAD_REQUEST, 'Match does not belong to the specified tournament.');
+        throw new BadRequestError('Match does not belong to the specified tournament.');
     }
 
     // 2. Authorization: User is a participant
     const isParticipant = match.participant1Id === userId || match.participant2Id === userId;
     if (!isParticipant) {
-      throw new ApiError(httpStatusCodes.FORBIDDEN, 'User is not a participant in this match.');
+      throw new ForbiddenError('User is not a participant in this match.');
     }
     // Ensure submitter is not trying to submit for the opponent if policy restricts this
     // (e.g. only loser or winner can submit, or either can) - current domain logic allows either participant to record.
@@ -53,14 +55,14 @@ class SubmitMatchResultUseCase {
     // 3. Validation: Match status, winner ID
     const allowedStatusesForResultSubmission = ['IN_PROGRESS', 'AWAITING_SCORES']; // Example
     if (!allowedStatusesForResultSubmission.includes(match.status)) {
-      throw new ApiError(httpStatusCodes.FORBIDDEN, `Cannot submit result for match with status: ${match.status}.`);
+      throw new ForbiddenError(`Cannot submit result for match with status: ${match.status}.`);
     }
 
     if (winningParticipantId !== match.participant1Id && winningParticipantId !== match.participant2Id) {
       // Allow for draws if `winningParticipantId` can be null and your system supports draws.
       // For now, assuming a winner must be one of the participants.
       if (winningParticipantId) { // Only error if a non-participant winnerId is provided. Null might mean draw.
-         throw new ApiError(httpStatusCodes.BAD_REQUEST, 'Winning participant ID is not part of this match.');
+         throw new BadRequestError('Winning participant ID is not part of this match.');
       }
     }
 
@@ -75,7 +77,7 @@ class SubmitMatchResultUseCase {
         expectedMatchId: matchId,
       });
       if (!fileIsValid) {
-        throw new ApiError(httpStatusCodes.BAD_REQUEST, 'Result screenshot is invalid, not found, or failed security scan.');
+        throw new BadRequestError('Result screenshot is invalid, not found, or failed security scan.');
       }
     }
     // If no fileValidationService, we proceed assuming the key is valid (less secure).
@@ -98,7 +100,7 @@ class SubmitMatchResultUseCase {
         // For now, comments aren't explicitly on Match entity. Could be added to metadata.
       }
     } catch (domainError) {
-      throw new ApiError(httpStatusCodes.BAD_REQUEST, domainError.message);
+      throw new BadRequestError(domainError.message);
     }
 
     // 6. Persist updated match
@@ -115,7 +117,7 @@ class SubmitMatchResultUseCase {
 
     if (!updatedMatch) {
       // This might happen if the update fails or ID is wrong, though findMatchById already checked.
-      throw new ApiError(httpStatusCodes.INTERNAL_SERVER_ERROR, 'Failed to update match result.');
+      throw new InternalServerError('Failed to update match result.');
     }
 
     // 7. Notifications/Events (Conceptual)

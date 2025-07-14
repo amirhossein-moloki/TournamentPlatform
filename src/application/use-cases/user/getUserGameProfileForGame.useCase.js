@@ -1,4 +1,4 @@
-// src/application/use-cases/user/getUserGameProfileForGame.useCase.js
+const { BadRequestError } = require('../../../utils/errors');
 
 class GetUserGameProfileForGameUseCase {
   constructor(userGameProfileRepository) {
@@ -7,7 +7,7 @@ class GetUserGameProfileForGameUseCase {
 
   async execute(userId, gameId) {
     if (!userId || !gameId) {
-      throw new Error('User ID and Game ID are required.');
+      throw new BadRequestError('User ID and Game ID are required.');
     }
 
     const profile = await this.userGameProfileRepository.findByUserIdAndGameId(userId, gameId);

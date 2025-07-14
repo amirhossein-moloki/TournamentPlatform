@@ -1,5 +1,4 @@
-const ApiError = require('../../../utils/ApiError');
-const httpStatusCodes = require('http-status-codes');
+const { BadRequestError, NotFoundError } = require('../../../utils/errors');
 
 class GetWalletDetailsUseCase {
   /**
@@ -13,17 +12,18 @@ class GetWalletDetailsUseCase {
    * Executes the use case to get wallet details for a user.
    * @param {string} userId - The ID of the user whose wallet details are to be fetched.
    * @returns {Promise<object>} The wallet details.
-   * @throws {ApiError} If the wallet is not found or other errors occur.
+   * @throws {import('../../../utils/errors').BadRequestError}
+   * @throws {import('../../../utils/errors').NotFoundError}
    */
   async execute(userId) {
     if (!userId) {
-      throw new ApiError(httpStatusCodes.BAD_REQUEST, 'User ID is required to fetch wallet details.');
+      throw new BadRequestError('User ID is required to fetch wallet details.');
     }
 
     const wallet = await this.walletRepository.findByUserId(userId);
 
     if (!wallet) {
-      throw new ApiError(httpStatusCodes.NOT_FOUND, 'Wallet not found for this user.');
+      throw new NotFoundError('Wallet not found for this user.');
     }
 
     // Return a plain object representing the wallet details.

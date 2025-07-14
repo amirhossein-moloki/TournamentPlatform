@@ -1,5 +1,4 @@
-// src/application/use-cases/game/createGame.useCase.js
-const Game = require('../../../domain/game/game.entity.js');
+const { ConflictError, InternalServerError } = require('../../../utils/errors');
 
 class CreateGameUseCase {
   constructor(gameRepository) {
@@ -21,9 +20,9 @@ class CreateGameUseCase {
     } catch (error) {
       // Handle specific errors, e.g., unique constraint violation for name/shortName
       if (error.name === 'SequelizeUniqueConstraintError') {
-        throw new ApiError(409, 'A game with this name or short name already exists.');
+        throw new ConflictError('A game with this name or short name already exists.');
       }
-      throw new ApiError(500, `Error creating game: ${error.message}`);
+      throw new InternalServerError(`Error creating game: ${error.message}`);
     }
   }
 }

@@ -1,7 +1,7 @@
-// src/presentation/api/chat.routes.js
-
 const express = require('express');
 const { authMiddleware } = require('../../middleware/auth.middleware');
+const validate = require('../../middleware/validation.middleware');
+const { getChatHistorySchema, createChatSessionSchema } = require('../validators/chat.validator');
 
 function createChatRouter(chatController) {
   const router = express.Router();
@@ -10,6 +10,7 @@ function createChatRouter(chatController) {
   router.post(
     '/',
     authMiddleware, // Protect this route
+    validate(createChatSessionSchema),
     chatController.createSession
   );
 
@@ -24,6 +25,7 @@ function createChatRouter(chatController) {
   router.get(
     '/:sessionId/messages',
     authMiddleware,
+    validate(getChatHistorySchema),
     chatController.getHistory
   );
 

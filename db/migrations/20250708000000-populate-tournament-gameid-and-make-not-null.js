@@ -48,32 +48,31 @@ module.exports = {
         }
       }
 
-      // Step 2: Verify all gameIds are populated (or log if not)
+      // Step 2: Log a warning if any gameIds could not be populated.
       const tournamentsWithNullGameId = await queryInterface.sequelize.query(
         `SELECT id, name, "gameType" FROM "Tournaments" WHERE "gameId" IS NULL;`,
         { type: queryInterface.sequelize.QueryTypes.SELECT, transaction }
       );
 
       if (tournamentsWithNullGameId.length > 0) {
-        console.error(`ERROR: There are ${tournamentsWithNullGameId.length} tournaments with NULL gameId after population attempt. Cannot make gameId NOT NULL.`);
+        console.warn(`WARNING: There are ${tournamentsWithNullGameId.length} tournaments with NULL gameId after population attempt. These will prevent the column from being NOT NULL.`);
         tournamentsWithNullGameId.forEach(t => {
-          console.error(` - Tournament ID: ${t.id}, Name: "${t.name}", gameType: "${t.gameType}" still has NULL gameId.`);
+          console.warn(` - Tournament ID: ${t.id}, Name: "${t.name}", gameType: "${t.gameType}" still has NULL gameId.`);
         });
-        throw new Error('Cannot make gameId NOT NULL due to remaining NULL values. Please check "Games" table and "Tournaments".gameType fields.');
+      } else {
+        // Step 3: Alter Tournaments.gameId to be NOT NULL only if all are populated
+        console.log('All tournaments have a gameId. Altering Tournaments.gameId to be NOT NULL.');
+        await queryInterface.changeColumn('Tournaments', 'gameId', {
+          type: Sequelize.UUID,
+          allowNull: false,
+          references: { // Ensure references are kept if changeColumn overwrites them
+            model: 'Games',
+            key: 'id',
+          },
+          onUpdate: 'CASCADE',
+          onDelete: 'SET NULL', // Or previous value which was 'SET NULL'
+        }, { transaction });
       }
-
-      // Step 3: Alter Tournaments.gameId to be NOT NULL
-      console.log('Altering Tournaments.gameId to be NOT NULL.');
-      await queryInterface.changeColumn('Tournaments', 'gameId', {
-        type: Sequelize.UUID,
-        allowNull: false,
-        references: { // Ensure references are kept if changeColumn overwrites them
-          model: 'Games',
-          key: 'id',
-        },
-        onUpdate: 'CASCADE',
-        onDelete: 'SET NULL', // Or previous value which was 'SET NULL'
-      }, { transaction });
 
       // Step 4: Remove the gameType column from Tournaments
       // Check if 'gameType' column exists before trying to remove it

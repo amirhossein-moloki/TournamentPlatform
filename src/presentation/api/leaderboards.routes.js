@@ -1,30 +1,7 @@
 const router = require('express').Router();
-const { Joi, validate } = require('express-validation');
-const leaderboardController = require('../controllers/leaderboard.controller'); // Assuming you'll create this
-
-// Joi validation schema for getLeaderboard
-const getLeaderboardSchema = {
-  query: Joi.object({
-    gameName: Joi.string().required(),
-    metric: Joi.string().valid('wins', 'score', 'rating', 'earnings').default('rating'),
-    period: Joi.string().valid('daily', 'weekly', 'monthly', 'all_time').default('all_time'),
-    page: Joi.number().integer().min(1).default(1),
-    limit: Joi.number().integer().min(1).max(100).default(20),
-  }),
-};
-
-// Joi validation schema for getUserRank
-const getUserRankSchema = {
-  params: Joi.object({
-    userId: Joi.string().uuid().required(),
-  }),
-  query: Joi.object({
-    gameName: Joi.string().required(),
-    metric: Joi.string().valid('wins', 'score', 'rating', 'earnings').default('rating'),
-    period: Joi.string().valid('daily', 'weekly', 'monthly', 'all_time').default('all_time'),
-    surroundingCount: Joi.number().integer().min(0).max(10).default(5),
-  }),
-};
+const leaderboardController = require('../controllers/leaderboard.controller');
+const validate = require('../../middleware/validation.middleware');
+const { getLeaderboardSchema, getUserRankSchema } = require('../validators/leaderboard.validator');
 
 
 // --- Routes ---

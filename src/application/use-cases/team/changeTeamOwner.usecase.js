@@ -1,5 +1,4 @@
-const ApiError = require('../../../utils/ApiError');
-const httpStatus = require('http-status');
+const { NotFoundError, ForbiddenError, BadRequestError, InternalServerError } = require('../../../utils/errors');
 const TeamRole = require('../../../domain/team/teamRole.enums');
 
 class ChangeTeamOwnerUseCase {
@@ -16,7 +15,7 @@ class ChangeTeamOwnerUseCase {
     const team = await this.teamRepository.findById(teamId);
     if (!team) {
       this.logger.warn(`Team not found for ID: ${teamId} during ownership change.`);
-      throw new ApiError(httpStatus.NOT_FOUND, 'Team not found.');
+      throw new NotFoundError('Team not found.');
     }
 
     // Authorization: Only current owner can change ownership
@@ -24,18 +23,18 @@ class ChangeTeamOwnerUseCase {
     const currentOwnerMemberInfo = await this.teamMemberRepository.findByTeamAndUser(teamId, currentUserId);
     if (team.ownerId !== currentUserId || !currentOwnerMemberInfo || currentOwnerMemberInfo.role !== TeamRole.OWNER || currentOwnerMemberInfo.status !== 'active') {
       this.logger.warn(`User ID: ${currentUserId} is not authorized to change ownership for team ID: ${teamId}. Expected current owner. Team's ownerId: ${team.ownerId}, User's role: ${currentOwnerMemberInfo?.role}`);
-      throw new ApiError(httpStatus.FORBIDDEN, 'Only the current team owner can change ownership.');
+      throw new ForbiddenError('Only the current team owner can change ownership.');
     }
 
     if (team.ownerId === newOwnerId) {
       this.logger.info(`New owner ID: ${newOwnerId} is the same as the current owner for team ID: ${teamId}. No change needed.`);
-      throw new ApiError(httpStatus.BAD_REQUEST, 'New owner is the same as the current owner.');
+      throw new BadRequestError('New owner is the same as the current owner.');
     }
 
     const newOwnerUser = await this.userRepository.findById(newOwnerId);
     if (!newOwnerUser) {
       this.logger.warn(`Prospective new owner (User ID: ${newOwnerId}) not found.`);
-      throw new ApiError(httpStatus.NOT_FOUND, 'New owner (User) not found.');
+      throw new NotFoundError('New owner (User) not found.');
     }
 
     try {
@@ -50,7 +49,7 @@ class ChangeTeamOwnerUseCase {
     } catch (error) {
       this.logger.error(`Error changing ownership for team ID: ${teamId} to new owner ID: ${newOwnerId}: ${error.message}`, { error });
       // Specific errors like 'New owner not a member and failed to add' could be handled in repo or here
-      throw new ApiError(httpStatus.INTERNAL_SERVER_ERROR, `Failed to change team ownership: ${error.message}`);
+      throw new InternalServerError(`Failed to change team ownership: ${error.message}`);
     }
   }
 }

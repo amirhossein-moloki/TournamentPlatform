@@ -1,8 +1,7 @@
 const Team = require('../../../domain/team/team.entity');
 const TeamMember = require('../../../domain/team/teamMember.entity');
 const { TeamRoles } = require('../../../domain/team/teamRole.enums');
-const ApiError = require('../../../utils/ApiError');
-const httpStatusCodes = require('http-status-codes');
+const { BadRequestError, NotFoundError, ConflictError } = require('../../../utils/errors');
 
 class CreateTeamUseCase {
   constructor({ teamRepository, teamMemberRepository, userRepository }) {
@@ -17,17 +16,17 @@ class CreateTeamUseCase {
 
   async execute({ name, description, tag, ownerId }) {
     if (!name || !ownerId) {
-      throw new ApiError(httpStatusCodes.BAD_REQUEST, 'Team name and owner ID are required.');
+      throw new BadRequestError('Team name and owner ID are required.');
     }
 
     const owner = await this.userRepository.findById(ownerId);
     if (!owner) {
-      throw new ApiError(httpStatusCodes.NOT_FOUND, 'Owner not found.');
+      throw new NotFoundError('Owner not found.');
     }
 
     const existingTeam = await this.teamRepository.findByName(name);
     if (existingTeam) {
-      throw new ApiError(httpStatusCodes.CONFLICT, 'A team with this name already exists.');
+      throw new ConflictError('A team with this name already exists.');
     }
 
     const team = new Team({ name, description, tag, ownerId });
