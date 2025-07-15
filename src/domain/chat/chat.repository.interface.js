@@ -22,6 +22,14 @@ class ChatRepositoryInterface {
   async findMessagesBySessionId(sessionId, limit = 50, offset = 0) {
     throw new Error('Not implemented');
   }
+
+  async findMessageById(messageId) {
+    throw new Error('Not implemented');
+  }
+
+  async updateMessage(message) {
+    throw new Error('Not implemented');
+  }
 }
 
 module.exports = ChatRepositoryInterface;

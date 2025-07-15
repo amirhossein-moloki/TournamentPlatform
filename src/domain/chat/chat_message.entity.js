@@ -25,6 +25,8 @@ class ChatMessage {
     isRead = false, // This might be more complex in a multi-participant chat; true if recipient has read.
                      // For user-support chat, indicates if the other party has read it.
     metadata = null,
+    editedAt = null,
+    isDeleted = false,
   }) {
     if (!sessionId) throw new Error('Session ID is required for a chat message.');
     if (!senderId) throw new Error('Sender ID is required for a chat message.');
@@ -50,6 +52,8 @@ class ChatMessage {
     this.timestamp = timestamp;
     this.isRead = isRead;
     this.metadata = metadata;
+    this.editedAt = editedAt;
+    this.isDeleted = isDeleted;
   }
 
   static SenderType = Object.freeze({
@@ -74,6 +78,20 @@ class ChatMessage {
     }
   }
 
+  edit(newContent) {
+    if (this.isDeleted) {
+      throw new Error('Cannot edit a deleted message.');
+    }
+    this.messageContent = newContent;
+    this.editedAt = new Date();
+  }
+
+  delete() {
+    this.isDeleted = true;
+    this.messageContent = 'This message has been deleted.';
+    this.editedAt = new Date();
+  }
+
   static fromPersistence(data) {
     if (!data) return null;
     return new ChatMessage({
@@ -86,6 +104,8 @@ class ChatMessage {
       timestamp: data.timestamp ? new Date(data.timestamp) : new Date(),
       isRead: data.is_read === undefined ? data.isRead : data.is_read, // Handle both snake_case and camelCase
       metadata: data.metadata,
+      editedAt: data.edited_at ? new Date(data.edited_at) : null,
+      isDeleted: data.is_deleted || false,
     });
   }
 
@@ -100,6 +120,8 @@ class ChatMessage {
       timestamp: this.timestamp,
       isRead: this.isRead,
       metadata: this.metadata,
+      editedAt: this.editedAt,
+      isDeleted: this.isDeleted,
     };
   }
 }

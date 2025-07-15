@@ -32,12 +32,27 @@ const deleteUserById = (req, res, next) => {
   res.status(httpStatusCodes.OK).json(new ApiResponse(httpStatusCodes.OK, {}, 'User deleted successfully.'));
 };
 
-const assignRole = (req, res, next) => {
-  res.status(httpStatusCodes.OK).json(new ApiResponse(httpStatusCodes.OK, {}, 'Role assigned successfully.'));
+const { assignRoleUseCase, removeRoleUseCase } = require('../../config/dependencies');
+
+const assignRole = async (req, res, next) => {
+  try {
+    const { id: userId } = req.params;
+    const { role } = req.body;
+    const updatedUser = await assignRoleUseCase.execute({ userId, role });
+    res.status(httpStatusCodes.OK).json(updatedUser);
+  } catch (error) {
+    next(error);
+  }
 };
 
-const removeRole = (req, res, next) => {
-  res.status(httpStatusCodes.OK).json(new ApiResponse(httpStatusCodes.OK, {}, 'Role removed successfully.'));
+const removeRole = async (req, res, next) => {
+  try {
+    const { id: userId, role } = req.params;
+    const updatedUser = await removeRoleUseCase.execute({ userId, role });
+    res.status(httpStatusCodes.OK).json(updatedUser);
+  } catch (error) {
+    next(error);
+  }
 };
 
 module.exports = {

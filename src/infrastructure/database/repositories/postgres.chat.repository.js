@@ -34,6 +34,11 @@ class PostgresChatRepository extends ChatRepositoryInterface {
     return ChatMessage.fromPersistence(messageData);
   }
 
+  async findMessageById(messageId) {
+    const messageData = await this.ChatMessageModel.findByPk(messageId);
+    return messageData ? ChatMessage.fromPersistence(messageData) : null;
+  }
+
   async findMessagesBySessionId(sessionId, limit = 50, offset = 0) {
     const messagesData = await this.ChatMessageModel.findAll({
       where: { sessionId },
@@ -42,6 +47,11 @@ class PostgresChatRepository extends ChatRepositoryInterface {
       order: [['timestamp', 'DESC']],
     });
     return messagesData.map(ChatMessage.fromPersistence);
+  }
+
+  async updateMessage(message) {
+    await this.ChatMessageModel.update(message.toPlainObject(), { where: { id: message.id } });
+    return message;
   }
 }
 

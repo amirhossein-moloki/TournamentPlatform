@@ -4,7 +4,14 @@ const { Tournament, TournamentStatus, BracketType } = require('../../../domain/t
 
 class TournamentModel extends Model {
   toDomainEntity() {
-    return Tournament.fromPersistence(this.toJSON());
+    const tournamentJson = this.toJSON();
+    const tournament = Tournament.fromPersistence(tournamentJson);
+
+    if (tournamentJson.participants) {
+      tournament.participants = tournamentJson.participants.map(p => p.toDomainEntity());
+    }
+
+    return tournament;
   }
 
   static associate(models) {
@@ -27,10 +34,10 @@ class TournamentModel extends Model {
     });
 
     // Add other associations if needed, e.g., with TournamentParticipant
-    // this.hasMany(models.TournamentParticipant, {
-    //   foreignKey: 'tournamentId',
-    //   as: 'participants',
-    // });
+    this.hasMany(models.TournamentParticipantModel, {
+      foreignKey: 'tournamentId',
+      as: 'participants',
+    });
   }
 }
 
