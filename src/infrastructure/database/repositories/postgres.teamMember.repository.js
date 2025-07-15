@@ -3,7 +3,7 @@ const ITeamMemberRepository = require('../../../domain/team/teamMember.repositor
 const TeamRole = require('../../../domain/team/teamRole.enums');
 const { Op } = require('sequelize');
 
-class SequelizeTeamMemberRepository extends ITeamMemberRepository {
+class PostgresTeamMemberRepository extends ITeamMemberRepository {
   constructor({ TeamMemberModel, UserModel, TeamModel, sequelize }) {
     super();
     this.TeamMemberModel = TeamMemberModel;
@@ -190,4 +190,4 @@ class SequelizeTeamMemberRepository extends ITeamMemberRepository {
   }
 }
 
-module.exports = SequelizeTeamMemberRepository;
+module.exports = { PostgresTeamMemberRepository };
