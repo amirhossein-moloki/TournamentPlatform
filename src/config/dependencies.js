@@ -87,7 +87,12 @@ const matchRepository = new PostgresMatchRepository({
     TournamentModel: db.TournamentModel,
     GameModel: db.GameModel
 });
-const teamRepository = new PostgresTeamRepository(db.TeamModel);
+const teamRepository = new PostgresTeamRepository({
+    TeamModel: db.TeamModel,
+    TeamMemberModel: db.TeamMemberModel,
+    UserModel: db.UserModel,
+    sequelize: db.sequelize,
+});
 const teamMemberRepository = new PostgresTeamMemberRepository(db.TeamMemberModel);
 const chatRepository = new PostgresChatRepository({
     ChatSessionModel: db.ChatSessionModel,
