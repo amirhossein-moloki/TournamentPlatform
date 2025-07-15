@@ -93,21 +93,29 @@ const teamRepository = new PostgresTeamRepository({
     UserModel: db.UserModel,
     sequelize: db.sequelize,
 });
-const teamMemberRepository = new PostgresTeamMemberRepository(db.TeamMemberModel);
+const teamMemberRepository = new PostgresTeamMemberRepository({
+    TeamMemberModel: db.TeamMemberModel,
+    UserModel: db.UserModel,
+    TeamModel: db.TeamModel,
+    sequelize: db.sequelize,
+});
 const chatRepository = new PostgresChatRepository({
     ChatSessionModel: db.ChatSessionModel,
     ChatMessageModel: db.ChatMessageModel,
 });
 const LeaderboardRedisRepository = require('../infrastructure/database/repositories/leaderboard.redis.repository');
-const leaderboardRepository = new LeaderboardRedisRepository(); // Assumes redis client is available via adapter
+let leaderboardRepository; // Will be initialized after redis connection
+
+function initializeDependencies(redisClient) {
+    leaderboardRepository = new LeaderboardRedisRepository(redisClient);
 
 
-// Instantiate Game Use Cases
-const createGameUseCase = new CreateGameUseCase(gameRepository);
-const getGameByIdUseCase = new GetGameByIdUseCase(gameRepository);
-const listActiveGamesUseCase = new ListActiveGamesUseCase(gameRepository);
-const updateGameUseCase = new UpdateGameUseCase(gameRepository);
-const deleteGameUseCase = new DeleteGameUseCase(gameRepository);
+    // Instantiate Game Use Cases
+    const createGameUseCase = new CreateGameUseCase(gameRepository);
+    const getGameByIdUseCase = new GetGameByIdUseCase(gameRepository);
+    const listActiveGamesUseCase = new ListActiveGamesUseCase(gameRepository);
+    const updateGameUseCase = new UpdateGameUseCase(gameRepository);
+    const deleteGameUseCase = new DeleteGameUseCase(gameRepository);
 
 // Instantiate Auth Use Cases
 const registerUserUseCase = new RegisterUserUseCase(userRepository);
@@ -304,4 +312,63 @@ module.exports = {
     getUserRankUseCase,
     updateScoreUseCase,
   }
+};
+}
+
+module.exports = {
+    initializeDependencies,
+    dependencies: () => ({
+        authController,
+        gameController,
+        userGameProfileController,
+        tournamentController,
+        teamController,
+        chatController,
+        uploadController,
+        gameRepository,
+        userRepository,
+        userGameProfileRepository,
+        tournamentRepository,
+        matchRepository,
+        tournamentParticipantRepository,
+        leaderboardRepository,
+        chatRepository,
+        createGameUseCase,
+        getGameByIdUseCase,
+        listActiveGamesUseCase,
+        updateGameUseCase,
+        deleteGameUseCase,
+        getUserProfileUseCase,
+        updateUserProfileUseCase,
+        listUsersUseCase,
+        adminUpdateUserUseCase,
+        adminDeleteUserUseCase,
+        assignRoleUseCase,
+        removeRoleUseCase,
+        upsertUserGameProfileUseCase,
+        getUserGameProfilesUseCase,
+        getUserGameProfileForGameUseCase,
+        createTeamUseCase,
+        getTeamByIdUseCase,
+        getAllTeamsUseCase,
+        updateTeamUseCase,
+        deleteTeamUseCase,
+        addTeamMemberUseCase,
+        removeTeamMemberUseCase,
+        createTournamentUseCase,
+        listTournamentsUseCase,
+        registerForTournamentUseCase,
+        getTournamentUseCase,
+        getMatchUseCase,
+        getMatchUploadUrlUseCase,
+        submitMatchResultUseCase,
+        getLeaderboardUseCase,
+        getUserRankUseCase,
+        updateScoreUseCase,
+        leaderboardService: {
+            getLeaderboardUseCase,
+            getUserRankUseCase,
+            updateScoreUseCase,
+        }
+    })
 };

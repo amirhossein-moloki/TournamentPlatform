@@ -1,30 +1,29 @@
-const router = require('express').Router();
+module.exports = (dependencies) => {
+    const router = require('express').Router();
 
-const adminRoutes = require('./presentation/api/admin.routes');
-const adminUserRoutes = require('./presentation/api/admin/users.routes');
-const authRoutes = require('./presentation/api/auth.routes');
-const gamesRoutes = require('./presentation/api/games.routes');
-const leaderboardsRoutes = require('./presentation/api/leaderboards.routes');
-const matchesRoutes = require('./presentation/api/matches.routes');
-const teamsRoutes = require('./presentation/api/teams.routes');
-const tournamentsRoutes = require('./presentation/api/tournaments.routes');
-const walletRoutes = require('./presentation/api/wallet.routes');
-const chatRoutes = require('./presentation/api/chat.routes');
-const uploadRoutes = require('./presentation/api/upload.routes');
-const { chatController, postgresUserRepository } = require('./config/dependencies');
+    const adminRoutes = require('./presentation/api/admin.routes');
+    const adminUserRoutes = require('./presentation/api/admin/users.routes');
+    const authRoutes = require('./presentation/api/auth.routes');
+    const gamesRoutes = require('./presentation/api/games.routes');
+    const leaderboardsRoutes = require('./presentation/api/leaderboards.routes');
+    const matchesRoutes = require('./presentation/api/matches.routes');
+    const teamsRoutes = require('./presentation/api/teams.routes');
+    const tournamentsRoutes = require('./presentation/api/tournaments.routes');
+    const walletRoutes = require('./presentation/api/wallet.routes');
+    const chatRoutes = require('./presentation/api/chat.routes');
+    const uploadRoutes = require('./presentation/api/upload.routes');
 
+    router.use('/admin', adminRoutes);
+    router.use('/admin/users', adminUserRoutes);
+    router.use('/auth', authRoutes);
+    router.use('/games', gamesRoutes);
+    router.use('/leaderboards', leaderboardsRoutes);
+    router.use('/matches', matchesRoutes);
+    router.use('/teams', teamsRoutes);
+    router.use('/tournaments', tournamentsRoutes);
+    router.use('/wallet', walletRoutes);
+    router.use('/chats', chatRoutes(dependencies.chatController, dependencies.userRepository));
+    router.use('/upload', uploadRoutes);
 
-router.use('/admin', adminRoutes);
-router.use('/admin/users', adminUserRoutes);
-router.use('/auth', authRoutes);
-router.use('/games', gamesRoutes);
-router.use('/leaderboards', leaderboardsRoutes);
-router.use('/matches', matchesRoutes);
-router.use('/teams', teamsRoutes);
-router.use('/tournaments', tournamentsRoutes);
-router.use('/wallet', walletRoutes);
-router.use('/chats', chatRoutes(chatController, postgresUserRepository));
-router.use('/upload', uploadRoutes);
-
-
-module.exports = router;
+    return router;
+};

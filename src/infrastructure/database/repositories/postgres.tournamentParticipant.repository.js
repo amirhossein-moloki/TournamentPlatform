@@ -6,11 +6,11 @@
 // Placeholder for a potential interface
 // class ITournamentParticipantRepository {
 //   async create(data, options = {}) { throw new Error('Not implemented'); }
-//   async findById(id, options = {}) { throw new Error('Not implemented'); }
-//   async findByTournamentAndParticipant(tournamentId, participantId, participantType, options = {}) { throw new Error('Not implemented'); }
-//   async findAllByTournamentId(tournamentId, options = {}) { throw new Error('Not implemented'); }
-//   async update(id, data, options = {}) { throw new Error('Not implemented'); }
-//   async delete(id, options = {}) { throw new Error('Not implemented'); }
+//   async findById(id, options = {}) { throw Error('Not implemented'); }
+//   async findByTournamentAndParticipant(tournamentId, participantId, participantType, options = {}) { throw Error('Not implemented'); }
+//   async findAllByTournamentId(tournamentId, options = {}) { throw Error('Not implemented'); }
+//   async update(id, data, options = {}) { throw Error('Not implemented'); }
+//   async delete(id, options = {}) { throw Error('Not implemented'); }
 // }
 
 class PostgresTournamentParticipantRepository /* extends ITournamentParticipantRepository */ {
