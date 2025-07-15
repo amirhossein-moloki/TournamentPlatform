@@ -9,6 +9,7 @@ const teamsRoutes = require('./presentation/api/teams.routes');
 const tournamentsRoutes = require('./presentation/api/tournaments.routes');
 const walletRoutes = require('./presentation/api/wallet.routes');
 const chatRoutes = require('./presentation/api/chat.routes');
+const uploadRoutes = require('./presentation/api/upload.routes');
 const { chatController, postgresUserRepository } = require('./config/dependencies');
 
 
@@ -21,6 +22,7 @@ router.use('/teams', teamsRoutes);
 router.use('/tournaments', tournamentsRoutes);
 router.use('/wallet', walletRoutes);
 router.use('/chats', chatRoutes(chatController, postgresUserRepository));
+router.use('/upload', uploadRoutes);
 
 
 module.exports = router;

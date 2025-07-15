@@ -6,7 +6,9 @@ const {
   SendMessageUseCase,
   GetChatHistoryUseCase,
   AssignSupportToChatUseCase,
-} = require('../../../application/use-cases/chat'); // Assuming a barrel export
+  EditMessageUseCase,
+  DeleteMessageUseCase,
+} = require('../../../config/dependencies');
 const { validateSocketPayload } = require('../../../utils/socketValidation.util');
 const redisAdapter = require('../../../infrastructure/cache/redis.adapter');
 
@@ -18,7 +20,17 @@ const joinRoomSchema = Joi.object({
 
 const sendMessageSchema = Joi.object({
   roomId: Joi.string().required(),
-  text: Joi.string().min(1).max(1000).required(),
+  text: Joi.string().min(1).max(1000),
+  fileUrl: Joi.string().uri(),
+}).or('text', 'fileUrl');
+
+const editMessageSchema = Joi.object({
+  messageId: Joi.string().required(),
+  newContent: Joi.string().min(1).max(1000).required(),
+});
+
+const deleteMessageSchema = Joi.object({
+  messageId: Joi.string().required(),
 });
 
 const typingSchema = Joi.object({
@@ -33,7 +45,7 @@ const typingSchema = Joi.object({
  * @param {object} dependencies - Injected dependencies (use cases, etc.).
  */
 function chatHandler(io, socket, dependencies) {
-  const { sendMessageUseCase, getChatHistoryUseCase } = dependencies;
+  const { sendMessageUseCase, getChatHistoryUseCase, editMessageUseCase, deleteMessageUseCase } = dependencies;
 
   // --- Event Handler: joinRoom ---
   const handleJoinRoom = async (payload, callback) => {
@@ -84,7 +96,7 @@ function chatHandler(io, socket, dependencies) {
   const handleSendMessage = async (payload, callback) => {
     if (!validateSocketPayload(sendMessageSchema, payload, callback)) return;
 
-    const { roomId, text } = payload;
+    const { roomId, text, fileUrl } = payload;
     const sender = socket.user;
 
     if (!socket.rooms.has(roomId)) {
@@ -92,16 +104,37 @@ function chatHandler(io, socket, dependencies) {
     }
 
     try {
+        const messageType = fileUrl ? (fileUrl.match(/\.(jpeg|jpg|gif|png)$/) ? 'IMAGE_URL' : 'FILE_URL') : 'TEXT';
+        const messageContent = fileUrl || text;
+
         const message = await sendMessageUseCase.execute({
             sessionId: roomId,
             senderId: sender.id,
             senderType: 'USER', // Or determine based on user role
-            messageContent: text
+            messageContent: messageContent,
+            messageType: messageType,
         });
 
         const messageData = message.toPlainObject();
 
         io.to(roomId).emit('newMessage', messageData);
+
+        // Notify users who are not in the room
+        const room = io.sockets.adapter.rooms.get(roomId);
+        if (room) {
+          const socketsInRoom = Array.from(room);
+          const activeSocketInfo = Array.from(io.sockets.sockets.values());
+
+          activeSocketInfo.forEach(socketInfo => {
+            if (socketInfo.user && !socketsInRoom.includes(socketInfo.id)) {
+              io.to(socketInfo.id).emit('notification', {
+                type: 'new_message',
+                message: `You have a new message from ${sender.email}`,
+                roomId: roomId,
+              });
+            }
+          });
+        }
 
         logger.info(`Message from ${sender.id} in room ${roomId}: ${text}`);
         callback({ success: true, messageId: message.id });
@@ -125,10 +158,57 @@ function chatHandler(io, socket, dependencies) {
   };
 
 
+  // --- Event Handler: editMessage ---
+  const handleEditMessage = async (payload, callback) => {
+    if (!validateSocketPayload(editMessageSchema, payload, callback)) return;
+
+    const { messageId, newContent } = payload;
+    const user = socket.user;
+
+    try {
+      const updatedMessage = await editMessageUseCase.execute({
+        messageId,
+        newContent,
+        userId: user.id,
+      });
+
+      io.to(updatedMessage.sessionId).emit('messageEdited', updatedMessage.toPlainObject());
+
+      callback({ success: true, message: updatedMessage.toPlainObject() });
+    } catch (err) {
+      logger.error(`Error editing message ${messageId} for user ${user.id}:`, err);
+      callback({ success: false, error: err.message || 'Failed to edit message.' });
+    }
+  };
+
+  // --- Event Handler: deleteMessage ---
+  const handleDeleteMessage = async (payload, callback) => {
+    if (!validateSocketPayload(deleteMessageSchema, payload, callback)) return;
+
+    const { messageId } = payload;
+    const user = socket.user;
+
+    try {
+      const deletedMessage = await deleteMessageUseCase.execute({
+        messageId,
+        userId: user.id,
+      });
+
+      io.to(deletedMessage.sessionId).emit('messageDeleted', { id: deletedMessage.id, sessionId: deletedMessage.sessionId });
+
+      callback({ success: true, messageId: deletedMessage.id });
+    } catch (err) {
+      logger.error(`Error deleting message ${messageId} for user ${user.id}:`, err);
+      callback({ success: false, error: err.message || 'Failed to delete message.' });
+    }
+  };
+
   // Register all handlers for this socket
   socket.on('joinRoom', handleJoinRoom);
   socket.on('leaveRoom', handleLeaveRoom);
   socket.on('sendMessage', handleSendMessage);
+  socket.on('editMessage', handleEditMessage);
+  socket.on('deleteMessage', handleDeleteMessage);
   socket.on('typing', handleTyping);
 }
 

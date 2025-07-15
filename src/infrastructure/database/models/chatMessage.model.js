@@ -57,6 +57,15 @@ module.exports = (sequelize) => {
         type: DataTypes.JSONB,
         allowNull: true,
       },
+      edited_at: {
+        type: DataTypes.DATE,
+        allowNull: true,
+      },
+      is_deleted: {
+        type: DataTypes.BOOLEAN,
+        defaultValue: false,
+        allowNull: false,
+      },
     },
     {
       sequelize,

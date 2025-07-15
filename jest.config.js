@@ -41,9 +41,9 @@ module.exports = {
   //   }
   // },
   // A path to a module which exports an async function that is triggered once before all test suites
-  globalSetup: '<rootDir>/tests/jest.globalSetup.js',
+  // globalSetup: '<rootDir>/tests/jest.globalSetup.js',
   // A path to a module which exports an async function that is triggered once after all test suites
-  globalTeardown: '<rootDir>/tests/jest.globalTeardown.js',
+  // globalTeardown: '<rootDir>/tests/jest.globalTeardown.js',
   // A set of global variables that need to be available in all test environments
   // globals: {},
   // The maximum number of workers used to run your tests. Can be specified as % or a number. E.g. maxWorkers: 10% will use 10% of your CPU amount + 1 as the max worker number. maxWorkers: 2 will use a maximum of 2 workers.

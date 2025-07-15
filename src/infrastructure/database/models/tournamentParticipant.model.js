@@ -3,9 +3,8 @@ const { DataTypes, Model } = require('sequelize');
 const { TournamentParticipant } = require('../../../domain/tournament/tournamentParticipant.entity');
 
 class TournamentParticipantModel extends Model {
-  static toDomainEntity(modelInstance) {
-    if (!modelInstance) return null;
-    return TournamentParticipant.fromPersistence(modelInstance.get({ plain: true }));
+  toDomainEntity() {
+    return TournamentParticipant.fromPersistence(this.get({ plain: true }));
   }
 
   static associate(models) {

@@ -104,7 +104,7 @@ class Tournament {
     this.bracketType = bracketType;
     this.settings = settings;
 
-    // this._participants = participants; // Store as internal, manage via methods
+    this.participants = []; // Initialized as empty, populated from persistence
     // this._matches = matches;           // Store as internal, manage via methods
   }
 

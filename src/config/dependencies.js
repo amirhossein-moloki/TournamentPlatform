@@ -67,6 +67,8 @@ const UpdateUserProfileUseCase = require('../application/use-cases/user/update-u
 const ListUsersUseCase = require('../application/use-cases/user/list-users.usecase');
 const AdminUpdateUserUseCase = require('../application/use-cases/user/admin-update-user.usecase');
 const AdminDeleteUserUseCase = require('../application/use-cases/user/admin-delete-user.usecase');
+const AssignRoleUseCase = require('../application/use-cases/user/assign-role.usecase');
+const RemoveRoleUseCase = require('../application/use-cases/user/remove-role.usecase');
 
 
 // Instantiate Repositories
@@ -116,6 +118,8 @@ const updateUserProfileUseCase = new UpdateUserProfileUseCase(userRepository);
 const listUsersUseCase = new ListUsersUseCase(userRepository);
 const adminUpdateUserUseCase = new AdminUpdateUserUseCase(userRepository);
 const adminDeleteUserUseCase = new AdminDeleteUserUseCase(userRepository);
+const assignRoleUseCase = new AssignRoleUseCase(userRepository);
+const removeRoleUseCase = new RemoveRoleUseCase(userRepository);
 
 // Instantiate UserGameProfile Use Cases
 const upsertUserGameProfileUseCase = new UpsertUserGameProfileUseCase(userGameProfileRepository, gameRepository);
@@ -156,15 +160,31 @@ const ChatController = require('../presentation/controllers/chat.controller.js')
 const CreateChatSessionUseCase = require('../application/use-cases/chat/createChatSession.usecase.js');
 const GetUserChatSessionsUseCase = require('../application/use-cases/chat/getUserChatSessions.usecase.js');
 const GetChatHistoryUseCase = require('../application/use-cases/chat/getChatHistory.usecase.js');
+const EditMessageUseCase = require('../application/use-cases/chat/edit-message.usecase.js');
+const DeleteMessageUseCase = require('../application/use-cases/chat/delete-message.usecase.js');
+const UploadFileUseCase = require('../application/use-cases/upload/upload-file.usecase.js');
+const LocalFileUploader = require('../infrastructure/file-upload/local.file-uploader.js');
 
 const createChatSessionUseCase = new CreateChatSessionUseCase({ chatRepository, userRepository });
 const getUserChatSessionsUseCase = new GetUserChatSessionsUseCase({ chatRepository });
 const getChatHistoryUseCase = new GetChatHistoryUseCase({ chatRepository });
+const editMessageUseCase = new EditMessageUseCase(chatRepository);
+const deleteMessageUseCase = new DeleteMessageUseCase(chatRepository);
+const localFileUploader = new LocalFileUploader();
+const uploadFileUseCase = new UploadFileUseCase(localFileUploader);
 
 const chatController = new ChatController({
     createChatSessionUseCase,
     getUserChatSessionsUseCase,
     getChatHistoryUseCase,
+    editMessageUseCase,
+    deleteMessageUseCase,
+});
+
+const UploadController = require('../presentation/controllers/upload.controller.js');
+
+const uploadController = new UploadController({
+    uploadFileUseCase,
 });
 
 // Instantiate Controllers
@@ -224,6 +244,7 @@ module.exports = {
   tournamentController,
   teamController,
   chatController,
+  uploadController,
   // Repositories
   gameRepository,
   userRepository,
@@ -245,6 +266,8 @@ module.exports = {
   listUsersUseCase,
   adminUpdateUserUseCase,
   adminDeleteUserUseCase,
+  assignRoleUseCase,
+  removeRoleUseCase,
   // UserGameProfile Use Cases
   upsertUserGameProfileUseCase,
   getUserGameProfilesUseCase,
