@@ -1,32 +1,32 @@
-# Testing Plan
+# برنامه تست
 
-This document outlines the testing plan for the tournament platform.
+این سند برنامه تست برای پلتفرم مسابقات را تشریح می‌کند.
 
-## 1. Unit Tests
+## ۱. تست‌های واحد (Unit Tests)
 
-I will write unit tests for all the use cases and domain entities. This will ensure that the business logic is working correctly.
+من تست‌های واحد را برای تمام موارد استفاده (use cases) و موجودیت‌های دامنه (domain entities) خواهم نوشت. این کار اطمینان حاصل می‌کند که منطق کسب‌وکار به درستی کار می‌کند.
 
-*   **Tournaments:**
+*   **مسابقات (Tournaments):**
     *   `CreateTournamentUseCase`
     *   `GetTournamentUseCase`
     *   `ListTournamentsUseCase`
     *   `RegisterForTournamentUseCase`
     *   `TournamentEntity`
     *   `TournamentParticipantEntity`
-*   **Users:**
+*   **کاربران (Users):**
     *   `AssignRoleUseCase`
     *   `RemoveRoleUseCase`
     *   `UserEntity`
-*   **Chat:**
+*   **چت (Chat):**
     *   `EditMessageUseCase`
     *   `DeleteMessageUseCase`
     *   `ChatMessageEntity`
-*   **Upload:**
+*   **آپلود (Upload):**
     *   `UploadFileUseCase`
 
-## 2. Integration Tests
+## ۲. تست‌های یکپارچه‌سازی (Integration Tests)
 
-I will write integration tests for the API endpoints and the Socket.IO handlers. This will ensure that the different parts of the system are working together correctly.
+من تست‌های یکپارچه‌سازی را برای Endpointهای API و کنترل‌کننده‌های Socket.IO خواهم نوشت. این کار اطمینان حاصل می‌کند که بخش‌های مختلف سیستم به درستی با یکدیگر کار می‌کنند.
 
 *   **API:**
     *   `GET /tournaments/:id`
@@ -37,19 +37,19 @@ I will write integration tests for the API endpoints and the Socket.IO handlers.
     *   `editMessage`
     *   `deleteMessage`
 
-## 3. End-to-End Tests
+## ۳. تست‌های سرتاسری (End-to-End Tests)
 
-I will write end-to-end tests to simulate user workflows. This will ensure that the application is working as expected from the user's perspective.
+من تست‌های سرتاسری را برای شبیه‌سازی گردش کار کاربر خواهم نوشت. این کار اطمینان حاصل می‌کند که برنامه از دیدگاه کاربر به درستی کار می‌کند.
 
-*   **Tournament Creation:**
-    *   Create a new tournament.
-    *   Register for the tournament.
-    *   View the tournament participants.
-*   **Chat:**
-    *   Send a message.
-    *   Edit the message.
-    *   Delete the message.
-    *   Send a file.
-*   **Admin:**
-    *   Assign a role to a user.
-    *   Remove a role from a user.
+*   **ایجاد مسابقه:**
+    *   ایجاد یک مسابقه جدید.
+    *   ثبت‌نام در مسابقه.
+    *   مشاهده شرکت‌کنندگان مسابقه.
+*   **چت:**
+    *   ارسال یک پیام.
+    *   ویرایش پیام.
+    *   حذف پیام.
+    *   ارسال یک فایل.
+*   **ادمین:**
+    *   اختصاص یک نقش به یک کاربر.
+    *   حذف یک نقش از یک کاربر.

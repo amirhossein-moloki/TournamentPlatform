@@ -1,405 +1,405 @@
-# API Documentation
+# مستندات API
 
-This document provides a detailed description of the REST API for the Tournament Platform.
+این سند توضیحات دقیقی از REST API پلتفرم مسابقات ارائه می‌دهد.
 
-## Table of Contents
+## فهرست مطالب
 
-- [General Information](#general-information)
-  - [Base URL](#base-url)
-  - [Authentication](#authentication)
-  - [Common Responses](#common-responses)
-- [API Endpoints](#api-endpoints)
-  - [Auth](#auth)
-  - [Users](#users)
-  - [Admin](#admin)
-  - [Games](#games)
-  - [Tournaments](#tournaments)
-  - [Matches](#matches)
-  - [Leaderboards](#leaderboards)
-  - [Wallet](#wallet)
-  - [Chat](#chat)
-
----
-
-## General Information
-
-### Base URL
-
-All API endpoints are prefixed with `/api/v1`.
-- **Development Server**: `http://localhost:3000/api/v1`
-
-### Authentication
-
-Most endpoints require a `Bearer` token for authentication. The token should be included in the `Authorization` header.
-
-- **Header**: `Authorization: Bearer <YOUR_JWT_ACCESS_TOKEN>`
-
-Some endpoints, like `/auth/refresh`, rely on an `HttpOnly` cookie (`jid`) containing the refresh token.
-
-### Common Responses
-
-- **`400 Bad Request`**: The request was malformed, often due to validation errors. The response body will contain details.
-- **`401 Unauthorized`**: Authentication is required and has failed or has not been provided.
-- **`403 Forbidden`**: The authenticated user does not have the necessary permissions to perform the action.
-- **`404 Not Found`**: The requested resource could not be found.
-- **`409 Conflict`**: The request could not be completed because of a conflict with the current state of the resource (e.g., duplicate entry).
-- **`500 Internal Server Error`**: An unexpected error occurred on the server.
+- [اطلاعات عمومی](#اطلاعات-عمومی)
+  - [URL پایه](#url-پایه)
+  - [احراز هویت](#احراز-هویت)
+  - [پاسخ‌های رایج](#پاسخهای-رایج)
+- [Endpointهای API](#endpointهای-api)
+  - [احراز هویت (Auth)](#احراز-هویت-auth)
+  - [کاربران (Users)](#کاربران-users)
+  - [ادمین (Admin)](#ادمین-admin)
+  - [بازی‌ها (Games)](#بازیها-games)
+  - [مسابقات (Tournaments)](#مسابقات-tournaments)
+  - [مسابقات (Matches)](#مسابقات-matches)
+  - [لیدربوردها (Leaderboards)](#لیدربوردها-leaderboards)
+  - [کیف پول (Wallet)](#کیف-پول-wallet)
+  - [چت (Chat)](#چت-chat)
 
 ---
 
-## API Endpoints
+## اطلاعات عمومی
 
-### Auth
+### URL پایه
 
-Endpoints for user registration, login, and token management.
+تمام Endpointهای API با پیشوند `/api/v1` شروع می‌شوند.
+- **سرور توسعه**: `http://localhost:3000/api/v1`
+
+### احراز هویت
+
+بیشتر Endpointها برای احراز هویت به یک توکن `Bearer` نیاز دارند. توکن باید در هدر `Authorization` گنجانده شود.
+
+- **هدر**: `Authorization: Bearer <YOUR_JWT_ACCESS_TOKEN>`
+
+برخی از Endpointها، مانند `/auth/refresh`، به یک کوکی `HttpOnly` به نام `jid` که حاوی توکن تازه‌سازی است، متکی هستند.
+
+### پاسخ‌های رایج
+
+- **`400 Bad Request`**: درخواست ناقص است، که اغلب به دلیل خطاهای اعتبارسنجی رخ می‌دهد. بدنه پاسخ شامل جزئیات خواهد بود.
+- **`401 Unauthorized`**: احراز هویت مورد نیاز است و ناموفق بوده یا ارائه نشده است.
+- **`403 Forbidden`**: کاربر احراز هویت شده مجوزهای لازم برای انجام این عمل را ندارد.
+- **`404 Not Found`**: منبع درخواستی یافت نشد.
+- **`409 Conflict`**: درخواست به دلیل تداخل با وضعیت فعلی منبع (مثلاً ورودی تکراری) قابل تکمیل نیست.
+- **`500 Internal Server Error`**: یک خطای غیرمنتظره در سرور رخ داده است.
+
+---
+
+## Endpointهای API
+
+### احراز هویت (Auth)
+
+Endpointهای مربوط به ثبت‌نام کاربر، ورود و مدیریت توکن.
 
 #### `POST /auth/register`
-- **Summary**: Register a new user.
-- **Description**: Registers a new user, logs them in, provides an access token in the response body, and sets a refresh token in an HttpOnly cookie.
-- **Request Body**:
-  - `username` (string, required): Desired username.
-  - `email` (string, required): User's email address.
-  - `password` (string, required): User's password (min 8 characters).
-- **Responses**:
-  - `201 Created`: Returns an `AuthResponse` object containing the `user` profile and `accessToken`. Sets the refresh token cookie.
+- **خلاصه**: ثبت‌نام یک کاربر جدید.
+- **توضیحات**: یک کاربر جدید را ثبت‌نام می‌کند، او را وارد سیستم می‌کند، یک توکن دسترسی در بدنه پاسخ ارائه می‌دهد و یک توکن تازه‌سازی را در کوکی HttpOnly تنظیم می‌کند.
+- **بدنه درخواست**:
+  - `username` (رشته، الزامی): نام کاربری مورد نظر.
+  - `email` (رشته، الزامی): آدرس ایمیل کاربر.
+  - `password` (رشته، الزامی): رمز عبور کاربر (حداقل ۸ کاراکتر).
+- **پاسخ‌ها**:
+  - `201 Created`: یک شیء `AuthResponse` حاوی پروفایل `user` و `accessToken` را برمی‌گرداند. کوکی توکن تازه‌سازی را تنظیم می‌کند.
   - `400 Bad Request`, `409 Conflict`, `500 Internal Server Error`.
 
 #### `POST /auth/login`
-- **Summary**: Log in an existing user.
-- **Request Body**:
-  - `email` (string, required): User's email.
-  - `password` (string, required): User's password.
-- **Responses**:
-  - `200 OK`: Returns an `AuthResponse` object. Sets the refresh token cookie.
+- **خلاصه**: ورود یک کاربر موجود.
+- **بدنه درخواست**:
+  - `email` (رشته، الزامی): ایمیل کاربر.
+  - `password` (رشته، الزامی): رمز عبور کاربر.
+- **پاسخ‌ها**:
+  - `200 OK`: یک شیء `AuthResponse` را برمی‌گرداند. کوکی توکن تازه‌سازی را تنظیم می‌کند.
   - `400 Bad Request`, `401 Unauthorized`, `500 Internal Server Error`.
 
 #### `POST /auth/refresh`
-- **Summary**: Refresh an access token.
-- **Description**: Uses the `HttpOnly` refresh token cookie (`jid`) to generate a new access token.
-- **Responses**:
-  - `200 OK`: Returns a `RefreshTokenResponse` object containing the new `accessToken`. May also set a new refresh token cookie if rotation is enabled.
+- **خلاصه**: تازه‌سازی یک توکن دسترسی.
+- **توضیحات**: از کوکی توکن تازه‌سازی `HttpOnly` (`jid`) برای تولید یک توکن دسترسی جدید استفاده می‌کند.
+- **پاسخ‌ها**:
+  - `200 OK`: یک شیء `RefreshTokenResponse` حاوی `accessToken` جدید را برمی‌گرداند. همچنین ممکن است در صورت فعال بودن چرخش، یک کوکی توکن تازه‌سازی جدید تنظیم کند.
   - `401 Unauthorized`, `500 Internal Server Error`.
 
 #### `POST /auth/logout`
-- **Summary**: Log out the current user.
-- **Security**: `bearerAuth` required.
-- **Responses**:
-  - `200 OK`: Returns a success message. Clears the refresh token cookie.
+- **خلاصه**: خروج کاربر فعلی.
+- **امنیت**: `bearerAuth` الزامی است.
+- **پاسخ‌ها**:
+  - `200 OK`: یک پیام موفقیت‌آمیز را برمی‌گرداند. کوکی توکن تازه‌سازی را پاک می‌کند.
   - `401 Unauthorized`, `500 Internal Server Error`.
 
 #### `POST /auth/request-verification-email`
-- **Summary**: Request a new email verification link.
-- **Security**: `bearerAuth` required.
-- **Responses**:
-  - `200 OK`: Returns a `RequestVerificationEmailResponse` object with a confirmation message.
+- **خلاصه**: درخواست یک لینک تأیید ایمیل جدید.
+- **امنیت**: `bearerAuth` الزامی است.
+- **پاسخ‌ها**:
+  - `200 OK`: یک شیء `RequestVerificationEmailResponse` با یک پیام تأیید را برمی‌گرداند.
   - `401 Unauthorized`, `404 Not Found`, `500 Internal Server Error`.
 
 #### `POST /auth/verify-email`
-- **Summary**: Verify user's email using a token.
-- **Request Body**:
-  - `token` (string, required): The verification token from the email.
-- **Responses**:
-  - `200 OK`: Returns a `VerifyEmailResponse` object with a success message and the `userId`.
+- **خلاصه**: تأیید ایمیل کاربر با استفاده از یک توکن.
+- **بدنه درخواست**:
+  - `token` (رشته، الزامی): توکن تأیید از ایمیل.
+- **پاسخ‌ها**:
+  - `200 OK`: یک شیء `VerifyEmailResponse` با یک پیام موفقیت‌آمیز و `userId` را برمی‌گرداند.
   - `400 Bad Request`, `500 Internal Server Error`.
 
-### Users
+### کاربران (Users)
 
-Endpoints for managing user profiles.
+Endpointهای مربوط به مدیریت پروفایل‌های کاربری.
 
 #### `GET /users/me`
-- **Summary**: Get current user's profile.
-- **Security**: `bearerAuth` required.
-- **Responses**:
-  - `200 OK`: Returns a `UserPublicProfile` object.
+- **خلاصه**: دریافت پروفایل کاربر فعلی.
+- **امنیت**: `bearerAuth` الزامی است.
+- **پاسخ‌ها**:
+  - `200 OK`: یک شیء `UserPublicProfile` را برمی‌گرداند.
   - `401 Unauthorized`, `404 Not Found`.
 
 #### `PUT /users/me`
-- **Summary**: Update current user's profile.
-- **Security**: `bearerAuth` required.
-- **Request Body**:
-  - `username` (string, optional): New username.
-- **Responses**:
-  - `200 OK`: Returns the updated `UserPublicProfile` object.
+- **خلاصه**: به‌روزرسانی پروفایل کاربر فعلی.
+- **امنیت**: `bearerAuth` الزامی است.
+- **بدنه درخواست**:
+  - `username` (رشته، اختیاری): نام کاربری جدید.
+- **پاسخ‌ها**:
+  - `200 OK`: شیء `UserPublicProfile` به‌روزرسانی شده را برمی‌گرداند.
   - `400 Bad Request`, `401 Unauthorized`.
 
-### Admin
+### ادمین (Admin)
 
-Admin-only endpoints for managing the platform.
+Endpointهای فقط برای ادمین برای مدیریت پلتفرم.
 
 #### `GET /users`
-- **Summary**: Get a list of all users (Admin only).
-- **Security**: `bearerAuth` and `Admin` role required.
-- **Query Parameters**:
-  - `page` (integer, optional)
-  - `limit` (integer, optional)
-  - `role` (string, optional): Filter by user role.
-  - `isVerified` (boolean, optional): Filter by verification status.
-- **Responses**:
-  - `200 OK`: Returns a paginated list of `UserPublicProfile` objects.
+- **خلاصه**: دریافت لیست همه کاربران (فقط ادمین).
+- **امنیت**: `bearerAuth` و نقش `Admin` الزامی است.
+- **پارامترهای کوئری**:
+  - `page` (عدد صحیح، اختیاری)
+  - `limit` (عدد صحیح، اختیاری)
+  - `role` (رشته، اختیاری): فیلتر بر اساس نقش کاربر.
+  - `isVerified` (بولی، اختیاری): فیلتر بر اساس وضعیت تأیید.
+- **پاسخ‌ها**:
+  - `200 OK`: یک لیست صفحه‌بندی شده از اشیاء `UserPublicProfile` را برمی‌گرداند.
   - `401 Unauthorized`, `403 Forbidden`.
 
 #### `GET /users/{id}`
-- **Summary**: Get a specific user by ID (Admin only).
-- **Security**: `bearerAuth` and `Admin` role required.
-- **Path Parameters**:
-  - `id` (string, required): The user's ID.
-- **Responses**:
-  - `200 OK`: Returns a `UserPublicProfile` object.
+- **خلاصه**: دریافت یک کاربر خاص با شناسه (فقط ادمین).
+- **امنیت**: `bearerAuth` و نقش `Admin` الزامی است.
+- **پارامترهای مسیر**:
+  - `id` (رشته، الزامی): شناسه کاربر.
+- **پاسخ‌ها**:
+  - `200 OK`: یک شیء `UserPublicProfile` را برمی‌گرداند.
   - `401 Unauthorized`, `403 Forbidden`, `404 Not Found`.
 
 #### `PUT /users/{id}`
-- **Summary**: Update a user by ID (Admin only).
-- **Security**: `bearerAuth` and `Admin` role required.
-- **Path Parameters**:
-  - `id` (string, required): The user's ID.
-- **Request Body**:
-  - `username` (string, optional)
-  - `email` (string, optional)
-  - `roles` (array of strings, optional)
-  - `isVerified` (boolean, optional)
-- **Responses**:
-  - `200 OK`: Returns the updated `UserPublicProfile` object.
+- **خلاصه**: به‌روزرسانی یک کاربر با شناسه (فقط ادمین).
+- **امنیت**: `bearerAuth` و نقش `Admin` الزامی است.
+- **پارامترهای مسیر**:
+  - `id` (رشته، الزامی): شناسه کاربر.
+- **بدنه درخواست**:
+  - `username` (رشته، اختیاری)
+  - `email` (رشته، اختیاری)
+  - `roles` (آرایه‌ای از رشته‌ها، اختیاری)
+  - `isVerified` (بولی، اختیاری)
+- **پاسخ‌ها**:
+  - `200 OK`: شیء `UserPublicProfile` به‌روزرسانی شده را برمی‌گرداند.
   - `401 Unauthorized`, `403 Forbidden`, `404 Not Found`.
 
 #### `DELETE /users/{id}`
-- **Summary**: Delete a user by ID (Admin only).
-- **Security**: `bearerAuth` and `Admin` role required.
-- **Path Parameters**:
-  - `id` (string, required): The user's ID.
-- **Responses**:
-  - `200 OK`: Returns a success message.
+- **خلاصه**: حذف یک کاربر با شناسه (فقط ادمین).
+- **امنیت**: `bearerAuth` و نقش `Admin` الزامی است.
+- **پارامترهای مسیر**:
+  - `id` (رشته، الزامی): شناسه کاربر.
+- **پاسخ‌ها**:
+  - `200 OK`: یک پیام موفقیت‌آمیز را برمی‌گرداند.
   - `401 Unauthorized`, `403 Forbidden`, `404 Not Found`.
 
 #### `POST /users/{id}/roles`
-- **Summary**: Assign a role to a user (Admin only).
-- **Security**: `bearerAuth` and `Admin` role required.
-- **Path Parameters**:
-  - `id` (string, required): The user's ID.
-- **Request Body**:
-  - `role` (string, required): The role to assign.
-- **Responses**:
-  - `200 OK`: Returns the updated `UserPublicProfile` object.
+- **خلاصه**: اختصاص یک نقش به یک کاربر (فقط ادمین).
+- **امنیت**: `bearerAuth` و نقش `Admin` الزامی است.
+- **پارامترهای مسیر**:
+  - `id` (رشته، الزامی): شناسه کاربر.
+- **بدنه درخواست**:
+  - `role` (رشته، الزامی): نقشی که باید اختصاص داده شود.
+- **پاسخ‌ها**:
+  - `200 OK`: شیء `UserPublicProfile` به‌روزرسانی شده را برمی‌گرداند.
   - `400 Bad Request`, `401 Unauthorized`, `403 Forbidden`, `404 Not Found`.
 
 #### `DELETE /users/{id}/roles/{role}`
-- **Summary**: Remove a role from a user (Admin only).
-- **Security**: `bearerAuth` and `Admin` role required.
-- **Path Parameters**:
-  - `id` (string, required): The user's ID.
-  - `role` (string, required): The role to remove.
-- **Responses**:
-  - `200 OK`: Returns the updated `UserPublicProfile` object.
+- **خلاصه**: حذف یک نقش از یک کاربر (فقط ادمین).
+- **امنیت**: `bearerAuth` و نقش `Admin` الزامی است.
+- **پارامترهای مسیر**:
+  - `id` (رشته، الزامی): شناسه کاربر.
+  - `role` (رشته، الزامی): نقشی که باید حذف شود.
+- **پاسخ‌ها**:
+  - `200 OK`: شیء `UserPublicProfile` به‌روزرسانی شده را برمی‌گرداند.
   - `400 Bad Request`, `401 Unauthorized`, `403 Forbidden`, `404 Not Found`.
 
-### Games
+### بازی‌ها (Games)
 
-Endpoints for managing games, typically restricted to Admins.
+Endpointهای مربوط به مدیریت بازی‌ها، معمولاً محدود به ادمین‌ها.
 
 #### `POST /games`
-- **Summary**: Create a new game (Admin only).
-- **Security**: `bearerAuth` and `Admin` role required.
-- **Request Body**: A `Game` object. See schemas section for details.
-- **Responses**:
-  - `201 Created`: Returns the newly created `Game` object.
+- **خلاصه**: ایجاد یک بازی جدید (فقط ادمین).
+- **امنیت**: `bearerAuth` و نقش `Admin` الزامی است.
+- **بدنه درخواست**: یک شیء `Game`. برای جزئیات به بخش اسکیماها مراجعه کنید.
+- **پاسخ‌ها**:
+  - `201 Created`: شیء `Game` تازه ایجاد شده را برمی‌گرداند.
   - `400 Bad Request`, `401 Unauthorized`, `403 Forbidden`.
 
 #### `GET /games`
-- **Summary**: Get a list of games.
-- **Query Parameters**:
-  - `page` (integer, optional)
-  - `limit` (integer, optional)
-  - `isActive` (boolean, optional): Filter by active status.
-- **Responses**:
-  - `200 OK`: Returns a paginated list of `Game` objects.
+- **خلاصه**: دریافت لیست بازی‌ها.
+- **پارامترهای کوئری**:
+  - `page` (عدد صحیح، اختیاری)
+  - `limit` (عدد صحیح، اختیاری)
+  - `isActive` (بولی، اختیاری): فیلتر بر اساس وضعیت فعال بودن.
+- **پاسخ‌ها**:
+  - `200 OK`: یک لیست صفحه‌بندی شده از اشیاء `Game` را برمی‌گرداند.
   - `400 Bad Request`.
 
 #### `GET /games/{id}`
-- **Summary**: Get game details by ID.
-- **Path Parameters**:
-  - `id` (string, required): The game's ID.
-- **Responses**:
-  - `200 OK`: Returns the `Game` object.
+- **خلاصه**: دریافت جزئیات بازی با شناسه.
+- **پارامترهای مسیر**:
+  - `id` (رشته، الزامی): شناسه بازی.
+- **پاسخ‌ها**:
+  - `200 OK`: شیء `Game` را برمی‌گرداند.
   - `404 Not Found`.
 
 #### `PUT /games/{id}`
-- **Summary**: Update a game by ID (Admin only).
-- **Security**: `bearerAuth` and `Admin` role required.
-- **Path Parameters**:
-  - `id` (string, required): The game's ID.
-- **Request Body**: A `Game` object with fields to update.
-- **Responses**:
-  - `200 OK`: Returns the updated `Game` object.
+- **خلاصه**: به‌روزرسانی یک بازی با شناسه (فقط ادمین).
+- **امنیت**: `bearerAuth` و نقش `Admin` الزامی است.
+- **پارامترهای مسیر**:
+  - `id` (رشته، الزامی): شناسه بازی.
+- **بدنه درخواست**: یک شیء `Game` با فیلدهایی برای به‌روزرسانی.
+- **پاسخ‌ها**:
+  - `200 OK`: شیء `Game` به‌روزرسانی شده را برمی‌گرداند.
   - `400 Bad Request`, `401 Unauthorized`, `403 Forbidden`, `404 Not Found`.
 
 #### `DELETE /games/{id}`
-- **Summary**: Delete a game by ID (Admin only).
-- **Security**: `bearerAuth` and `Admin` role required.
-- **Path Parameters**:
-  - `id` (string, required): The game's ID.
-- **Responses**:
-  - `200 OK`: Returns a success message.
+- **خلاصه**: حذف یک بازی با شناسه (فقط ادمین).
+- **امنیت**: `bearerAuth` و نقش `Admin` الزامی است.
+- **پارامترهای مسیر**:
+  - `id` (رشته، الزامی): شناسه بازی.
+- **پاسخ‌ها**:
+  - `200 OK`: یک پیام موفقیت‌آمیز را برمی‌گرداند.
   - `401 Unauthorized`, `403 Forbidden`, `404 Not Found`.
 
-### Tournaments
+### مسابقات (Tournaments)
 
-Endpoints for creating, viewing, and interacting with tournaments.
+Endpointهای مربوط به ایجاد، مشاهده و تعامل با مسابقات.
 
 #### `POST /tournaments`
-- **Summary**: Create a new tournament (Admin only).
-- **Security**: `bearerAuth` and `Admin` role required.
-- **Request Body**: A `TournamentCreationRequest` object.
-- **Responses**:
-  - `201 Created`: Returns the full `TournamentDetails` object.
-  - `400 Bad Request`, `401 Unauthorized`, `403 Forbidden`, `404 Not Found` (if gameId doesn't exist).
+- **خلاصه**: ایجاد یک مسابقه جدید (فقط ادمین).
+- **امنیت**: `bearerAuth` و نقش `Admin` الزامی است.
+- **بدنه درخواست**: یک شیء `TournamentCreationRequest`.
+- **پاسخ‌ها**:
+  - `201 Created`: شیء کامل `TournamentDetails` را برمی‌گرداند.
+  - `400 Bad Request`, `401 Unauthorized`, `403 Forbidden`, `404 Not Found` (اگر gameId وجود نداشته باشد).
 
 #### `GET /tournaments`
-- **Summary**: Get a list of tournaments.
-- **Query Parameters**:
-  - `page` (integer, optional)
-  - `limit` (integer, optional)
-  - `status` (string, optional): Filter by status (e.g., `REGISTRATION_OPEN`, `ONGOING`).
-  - `gameName` (string, optional): Filter by game name.
-  - `sortBy` (string, optional): Field to sort by (e.g., `startDate`, `name`).
-  - `sortOrder` (string, optional): `ASC` or `DESC`.
-- **Responses**:
-  - `200 OK`: Returns a `PaginatedTournaments` object.
+- **خلاصه**: دریافت لیست مسابقات.
+- **پارامترهای کوئری**:
+  - `page` (عدد صحیح، اختیاری)
+  - `limit` (عدد صحیح، اختیاری)
+  - `status` (رشته، اختیاری): فیلتر بر اساس وضعیت (مثلاً `REGISTRATION_OPEN`, `ONGOING`).
+  - `gameName` (رشته، اختیاری): فیلتر بر اساس نام بازی.
+  - `sortBy` (رشته، اختیاری): فیلدی برای مرتب‌سازی (مثلاً `startDate`, `name`).
+  - `sortOrder` (رشته، اختیاری): `ASC` یا `DESC`.
+- **پاسخ‌ها**:
+  - `200 OK`: یک شیء `PaginatedTournaments` را برمی‌گرداند.
   - `400 Bad Request`.
 
 #### `GET /tournaments/{id}`
-- **Summary**: Get tournament details by ID.
-- **Path Parameters**:
-  - `id` (string, required): The tournament's ID.
-- **Query Parameters**:
-  - `include` (string, optional): Comma-separated list of relations to include (e.g., "participants,matches").
-- **Responses**:
-  - `200 OK`: Returns the `TournamentDetails` object.
+- **خلاصه**: دریافت جزئیات مسابقه با شناسه.
+- **پارامترهای مسیر**:
+  - `id` (رشته، الزامی): شناسه مسابقه.
+- **پارامترهای کوئری**:
+  - `include` (رشته، اختیاری): لیستی از روابط برای شامل شدن با کاما جدا شده (مثلاً "participants,matches").
+- **پاسخ‌ها**:
+  - `200 OK`: شیء `TournamentDetails` را برمی‌گرداند.
   - `404 Not Found`.
 
 #### `POST /tournaments/{id}/register`
-- **Summary**: Register for a tournament.
-- **Security**: `bearerAuth` required.
-- **Path Parameters**:
-  - `id` (string, required): The tournament's ID.
-- **Responses**:
-  - `200 OK`: Returns a `TournamentRegistrationResponse` object.
-  - `400 Bad Request` (e.g., registration closed), `401 Unauthorized`, `403 Forbidden`, `404 Not Found`.
+- **خلاصه**: ثبت‌نام در یک مسابقه.
+- **امنیت**: `bearerAuth` الزامی است.
+- **پارامترهای مسیر**:
+  - `id` (رشته، الزامی): شناسه مسابقه.
+- **پاسخ‌ها**:
+  - `200 OK`: یک شیء `TournamentRegistrationResponse` را برمی‌گرداند.
+  - `400 Bad Request` (مثلاً ثبت‌نام بسته است), `401 Unauthorized`, `403 Forbidden`, `404 Not Found`.
 
-### Matches
+### مسابقات (Matches)
 
-Endpoints for managing match details and results.
+Endpointهای مربوط به مدیریت جزئیات و نتایج مسابقات.
 
 #### `GET /matches/{id}`
-- **Summary**: Get match details by ID.
-- **Security**: `bearerAuth` required.
-- **Path Parameters**:
-  - `id` (string, required): The match ID.
-- **Responses**:
-  - `200 OK`: Returns a `Match` object.
+- **خلاصه**: دریافت جزئیات مسابقه با شناسه.
+- **امنیت**: `bearerAuth` الزامی است.
+- **پارامترهای مسیر**:
+  - `id` (رشته، الزامی): شناسه مسابقه.
+- **پاسخ‌ها**:
+  - `200 OK`: یک شیء `Match` را برمی‌گرداند.
   - `401 Unauthorized`, `404 Not Found`, `500 Internal Server Error`.
 
 #### `POST /matches/{id}/results/upload-url`
-- **Summary**: Get pre-signed URL for match result screenshot.
-- **Security**: `bearerAuth` required.
-- **Path Parameters**:
-  - `id` (string, required): The match ID.
-- **Request Body**:
-  - `filename` (string, required): e.g., "result.jpg". Must be png, jpg, jpeg, or gif.
-  - `contentType` (string, required): e.g., "image/jpeg".
-- **Responses**:
-  - `200 OK`: Returns an `UploadUrlResponse` object with `uploadUrl` and `fileKey`.
+- **خلاصه**: دریافت URL از پیش امضا شده برای اسکرین‌شات نتیجه مسابقه.
+- **امنیت**: `bearerAuth` الزامی است.
+- **پارامترهای مسیر**:
+  - `id` (رشته، الزامی): شناسه مسابقه.
+- **بدنه درخواست**:
+  - `filename` (رشته، الزامی): مثلاً "result.jpg". باید png، jpg، jpeg یا gif باشد.
+  - `contentType` (رشته، الزامی): مثلاً "image/jpeg".
+- **پاسخ‌ها**:
+  - `200 OK`: یک شیء `UploadUrlResponse` با `uploadUrl` و `fileKey` را برمی‌گرداند.
   - `400 Bad Request`, `401 Unauthorized`, `403 Forbidden`, `404 Not Found`, `500 Internal Server Error`.
 
 #### `POST /matches/{id}/results`
-- **Summary**: Submit match result.
-- **Security**: `bearerAuth` required.
-- **Path Parameters**:
-  - `id` (string, required): The match ID.
-- **Request Body**:
-  - `winningParticipantId` (string, required, uuid): ID of the winner.
-  - `scoreParticipant1` (integer, optional)
-  - `scoreParticipant2` (integer, optional)
-  - `resultScreenshotFileKey` (string, required): S3 file key from the upload step.
-  - `comments` (string, optional)
-- **Responses**:
-  - `200 OK`: Returns the updated `Match` object.
+- **خلاصه**: ارسال نتیجه مسابقه.
+- **امنیت**: `bearerAuth` الزامی است.
+- **پارامترهای مسیر**:
+  - `id` (رشته، الزامی): شناسه مسابقه.
+- **بدنه درخواست**:
+  - `winningParticipantId` (رشته، الزامی، uuid): شناسه برنده.
+  - `scoreParticipant1` (عدد صحیح، اختیاری)
+  - `scoreParticipant2` (عدد صحیح، اختیاری)
+  - `resultScreenshotFileKey` (رشته، الزامی): کلید فایل S3 از مرحله آپلود.
+  - `comments` (رشته، اختیاری)
+- **پاسخ‌ها**:
+  - `200 OK`: شیء `Match` به‌روزرسانی شده را برمی‌گرداند.
   - `400 Bad Request`, `401 Unauthorized`, `403 Forbidden`, `404 Not Found`, `500 Internal Server Error`.
 
-### Leaderboards
+### لیدربوردها (Leaderboards)
 
-Endpoints for retrieving leaderboard information.
+Endpointهای مربوط به بازیابی اطلاعات لیدربورد.
 
 #### `GET /leaderboards`
-- **Summary**: Get a leaderboard.
-- **Query Parameters**:
-  - `gameName` (string, required)
-  - `metric` (string, optional, enum: `wins`, `score`, `rating`, `earnings`, default: `rating`)
-  - `period` (string, optional, enum: `daily`, `weekly`, `monthly`, `all_time`, default: `all_time`)
-  - `page` (integer, optional)
-  - `limit` (integer, optional)
-- **Responses**:
-  - `200 OK`: Returns a `LeaderboardResponse` object containing the leaderboard entries and pagination details.
+- **خلاصه**: دریافت یک لیدربورد.
+- **پارامترهای کوئری**:
+  - `gameName` (رشته، الزامی)
+  - `metric` (رشته، اختیاری، enum: `wins`, `score`, `rating`, `earnings`, پیش‌فرض: `rating`)
+  - `period` (رشته، اختیاری، enum: `daily`, `weekly`, `monthly`, `all_time`, پیش‌فرض: `all_time`)
+  - `page` (عدد صحیح، اختیاری)
+  - `limit` (عدد صحیح، اختیاری)
+- **پاسخ‌ها**:
+  - `200 OK`: یک شیء `LeaderboardResponse` حاوی ورودی‌های لیدربورد و جزئیات صفحه‌بندی را برمی‌گرداند.
   - `400 Bad Request`, `500 Internal Server Error`.
 
 #### `GET /leaderboards/user/{userId}`
-- **Summary**: Get user's rank on leaderboards.
-- **Path Parameters**:
-  - `userId` (string, required, uuid)
-- **Query Parameters**:
-  - `gameName` (string, required)
-  - `metric` (string, optional, enum: `wins`, `score`, `rating`, `earnings`, default: `rating`)
-  - `period` (string, optional, enum: `daily`, `weekly`, `monthly`, `all_time`, default: `all_time`)
-  - `surroundingCount` (integer, optional, default: 5): Number of entries to show above and below the user.
-- **Responses**:
-  - `200 OK`: Returns a `UserRankDetail` object.
+- **خلاصه**: دریافت رتبه کاربر در لیدربوردها.
+- **پارامترهای مسیر**:
+  - `userId` (رشته، الزامی، uuid)
+- **پارامترهای کوئری**:
+  - `gameName` (رشته، الزامی)
+  - `metric` (رشته، اختیاری، enum: `wins`, `score`, `rating`, `earnings`, پیش‌فرض: `rating`)
+  - `period` (رشته، اختیاری، enum: `daily`, `weekly`, `monthly`, `all_time`, پیش‌فرض: `all_time`)
+  - `surroundingCount` (عدد صحیح، اختیاری، پیش‌فرض: ۵): تعداد ورودی‌هایی که باید بالا و پایین کاربر نمایش داده شوند.
+- **پاسخ‌ها**:
+  - `200 OK`: یک شیء `UserRankDetail` را برمی‌گرداند.
   - `400 Bad Request`, `404 Not Found`, `500 Internal Server Error`.
 
-### Wallet
+### کیف پول (Wallet)
 
-Endpoints for managing user wallets and transactions.
+Endpointهای مربوط به مدیریت کیف پول کاربران و تراکنش‌ها.
 
 #### `GET /wallet`
-- **Summary**: Get user's wallet details.
-- **Security**: `bearerAuth` required.
-- **Responses**:
-  - `200 OK`: Returns `WalletDetailsResponse` object.
+- **خلاصه**: دریافت جزئیات کیف پول کاربر.
+- **امنیت**: `bearerAuth` الزامی است.
+- **پاسخ‌ها**:
+  - `200 OK`: شیء `WalletDetailsResponse` را برمی‌گرداند.
   - `401 Unauthorized`, `404 Not Found`.
 
 #### `POST /wallet/deposit/initialize`
-- **Summary**: Initialize a deposit.
-- **Security**: `bearerAuth` required.
-- **Headers**:
-  - `X-Idempotency-Key` (string, required, uuid)
-- **Request Body**:
-  - `amount` (number, required, positive)
-  - `currency` (string, required, e.g., "IRR", "USD")
-- **Responses**:
-  - `200 OK`: Returns `InitializeDepositResponse` object with `paymentGatewayUrl` and `transactionId`.
+- **خلاصه**: شروع یک واریز.
+- **امنیت**: `bearerAuth` الزامی است.
+- **هدرها**:
+  - `X-Idempotency-Key` (رشته، الزامی، uuid)
+- **بدنه درخواست**:
+  - `amount` (عدد، الزامی، مثبت)
+  - `currency` (رشته، الزامی، مثلاً "IRR", "USD")
+- **پاسخ‌ها**:
+  - `200 OK`: شیء `InitializeDepositResponse` با `paymentGatewayUrl` و `transactionId` را برمی‌گرداند.
   - `400 Bad Request`, `401 Unauthorized`, `409 Conflict` (idempotency).
 
 #### `GET /wallet/history`
-- **Summary**: Get user's transaction history.
-- **Security**: `bearerAuth` required.
-- **Query Parameters**:
-  - `page` (integer, optional)
-  - `limit` (integer, optional)
-  - `type` (string, optional, enum: `DEPOSIT`, `WITHDRAWAL`, etc.)
-  - `status` (string, optional, enum: `PENDING`, `COMPLETED`, etc.)
-  - `sortBy` (string, optional, enum: `transactionDate`, `amount`)
-  - `sortOrder` (string, optional, enum: `ASC`, `DESC`)
-- **Responses**:
-  - `200 OK`: Returns `PaginatedTransactionHistoryResponse` object.
+- **خلاصه**: دریافت تاریخچه تراکنش‌های کاربر.
+- **امنیت**: `bearerAuth` الزامی است.
+- **پارامترهای کوئری**:
+  - `page` (عدد صحیح، اختیاری)
+  - `limit` (عدد صحیح، اختیاری)
+  - `type` (رشته، اختیاری، enum: `DEPOSIT`, `WITHDRAWAL`, و غیره)
+  - `status` (رشته، اختیاری، enum: `PENDING`, `COMPLETED`, و غیره)
+  - `sortBy` (رشته، اختیاری، enum: `transactionDate`, `amount`)
+  - `sortOrder` (رشته، اختیاری، enum: `ASC`, `DESC`)
+- **پاسخ‌ها**:
+  - `200 OK`: شیء `PaginatedTransactionHistoryResponse` را برمی‌گرداند.
   - `401 Unauthorized`.
 
 #### `POST /wallet/withdrawals`
-- **Summary**: Request a withdrawal.
-- **Security**: `bearerAuth` required.
-- **Headers**:
-  - `X-Idempotency-Key` (string, required, uuid)
-- **Request Body**:
-  - `amount` (number, required, positive)
-  - `currency` (string, required)
-  - `withdrawalMethodDetails` (object, required): Details specific to the chosen method (e.g., PayPal email, bank account info).
-- **Responses**:
-  - `202 Accepted`: Withdrawal request accepted. Returns `RequestWithdrawalResponse`.
-  - `200 OK`: Idempotent replay. Returns `RequestWithdrawalResponse`.
-  - `400 Bad Request` (e.g., insufficient funds), `401 Unauthorized`, `409 Conflict`.
+- **خلاصه**: درخواست برداشت وجه.
+- **امنیت**: `bearerAuth` الزامی است.
+- **هدرها**:
+  - `X-Idempotency-Key` (رشته، الزامی، uuid)
+- **بدنه درخواست**:
+  - `amount` (عدد، الزامی، مثبت)
+  - `currency` (رشته، الزامی)
+  - `withdrawalMethodDetails` (شیء، الزامی): جزئیات مربوط به روش برداشت انتخابی (مثلاً ایمیل PayPal، اطلاعات حساب بانکی).
+- **پاسخ‌ها**:
+  - `202 Accepted`: درخواست برداشت پذیرفته شد. `RequestWithdrawalResponse` را برمی‌گرداند.
+  - `200 OK`: پخش مجدد Idempotent. `RequestWithdrawalResponse` را برمی‌گرداند.
+  - `400 Bad Request` (مثلاً موجودی ناکافی), `401 Unauthorized`, `409 Conflict`.

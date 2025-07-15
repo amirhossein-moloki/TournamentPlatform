@@ -1,110 +1,110 @@
-# Project Review
+# بازبینی پروژه
 
-This document provides a review of the Tournament Platform project, highlighting its strengths and areas for improvement.
+این سند به بازبینی پروژه پلتفرم مسابقات می‌پردازد و نقاط قوت و زمینه‌های بهبود آن را برجسته می‌کند.
 
-## 1. API Specification (OpenAPI)
+## ۱. مشخصات API (OpenAPI)
 
-The API specification, located at `docs/swagger-generated.json` (previously referred to as `docs/openapi.yml` in earlier audit discussions), is auto-generated using `swagger-autogen` based on JSDoc comments in the route files and schema definitions in `swagger.js`.
+مشخصات API، که در `docs/swagger-generated.json` قرار دارد (قبلاً در بحث‌های ممیزی به عنوان `docs/openapi.yml` به آن اشاره می‌شد)، به طور خودکار با استفاده از `swagger-autogen` بر اساس کامنت‌های JSDoc در فایل‌های مسیر و تعاریف اسکیما در `swagger.js` تولید می‌شود.
 
-An audit (`OPENAPI-AUDIT.RMD`) was performed against the codebase and a previous version of the API specification. Based on that audit and recent feature additions (new data models, roles, Tournament Manager logic), significant updates have been made to:
-1.  The base schemas defined in `swagger.js`.
-2.  The JSDoc comments within the route handler files (`src/presentation/api/*.routes.js`).
+یک ممیزی (`OPENAPI-AUDIT.RMD`) بر روی کدبیس و نسخه قبلی مشخصات API انجام شد. بر اساس آن ممیزی و افزودن ویژگی‌های اخیر (مدل‌های داده جدید، نقش‌ها، منطق مدیر مسابقات)، به‌روزرسانی‌های قابل توجهی در موارد زیر انجام شده است:
+۱. اسکیمای پایه تعریف شده در `swagger.js`.
+۲. کامنت‌های JSDoc در فایل‌های کنترلر مسیر (`src/presentation/api/*.routes.js`).
 
-The `docs/swagger-generated.json` file has since been regenerated using `npm run swagger-gen`. This process aims to address many of the previously identified discrepancies, such as:
+فایل `docs/swagger-generated.json` از آن زمان با استفاده از `npm run swagger-gen` دوباره تولید شده است. این فرآیند با هدف رفع بسیاری از ناهماهنگی‌های شناسایی شده قبلی انجام شده است، مانند:
 
-### 1.1. Undocumented Endpoints
-Newly implemented endpoints (e.g., for Admin role management, Tournament Manager actions, Leaderboards, Game CRUD) and previously missed Auth endpoints have been documented via JSDoc comments in their respective route files.
+### ۱.۱. Endpointهای مستند نشده
+Endpointهای جدید پیاده‌سازی شده (مثلاً برای مدیریت نقش ادمین، اقدامات مدیر مسابقات، لیدر بوردها، CRUD بازی) و Endpointهای Auth که قبلاً از قلم افتاده بودند، از طریق کامنت‌های JSDoc در فایل‌های مسیر مربوطه مستند شده‌اند.
 
-**Examples:**
+**مثال‌ها:**
 *   `POST /api/v1/auth/request-verification-email`
 *   `POST /api/v1/auth/verify-email`
-*   `GET /api/v1/leaderboards` and `GET /api/v1/leaderboards/user/:userId`
+*   `GET /api/v1/leaderboards` و `GET /api/v1/leaderboards/user/:userId`
 *   `GET /api/v1/matches/:id`
-*   All Team Endpoints (`/api/v1/teams/*`)
+*   تمام Endpointهای تیم (`/api/v1/teams/*`)
 *   `POST /api/v1/tournaments`
 
-### 1.2. Path Mismatches
-There are inconsistencies in paths between the code and `openapi.yml`, particularly for admin-related user routes.
+### ۱.۲. عدم تطابق مسیرها
+ناهماهنگی‌هایی در مسیرها بین کد و `openapi.yml` وجود دارد، به ویژه برای مسیرهای کاربری مرتبط با ادمین.
 
-**Example:**
-*   Admin User Routes: Code uses `/api/v1/users/*` while OpenAPI specifies `/api/v1/admin/users/*`.
+**مثال:**
+*   مسیرهای کاربری ادمین: کد از `/api/v1/users/*` استفاده می‌کند در حالی که OpenAPI مسیر `/api/v1/admin/users/*` را مشخص کرده است.
 
-### 1.3. Undocumented Parameters
-Several routes have query parameters implemented in the code (and validated via Joi schemas) that are not documented in `openapi.yml`.
+### ۱.۳. پارامترهای مستند نشده
+چندین مسیر دارای پارامترهای کوئری هستند که در کد پیاده‌سازی شده‌اند (و از طریق اسکیمای Joi اعتبارسنجی می‌شوند) اما در `openapi.yml` مستند نشده‌اند.
 
-**Examples:**
+**مثال‌ها:**
 *   `GET /api/v1/admin/disputes`: `matchId`, `moderatorId`.
 *   `GET /api/v1/tournaments`: `sortBy`, `sortOrder`.
 *   `GET /api/v1/tournaments/:id`: `include`.
-*   Admin `GET /api/v1/users`: `role`, `isVerified`.
+*   ادمین `GET /api/v1/users`: `role`, `isVerified`.
 
-### 1.4. Schema Mismatches & Inconsistencies
-There are differences between the data structures (schemas) defined in `openapi.yml` and what the API actually accepts or returns.
+### ۱.۴. عدم تطابق و ناهماهنگی اسکیما
+تفاوت‌هایی بین ساختارهای داده (اسکیما) تعریف شده در `openapi.yml` و آنچه API واقعاً می‌پذیرد یا برمی‌گرداند وجود دارد.
 
-**Examples:**
-*   `GET /api/v1/admin/disputes`: Mismatch in `status` enum for query parameter and response schema.
-*   `POST /api/v1/admin/disputes/:id/resolve`: Response structure in OpenAPI (`Dispute`) differs from actual code response (`{ dispute, match }`).
-*   `POST /api/v1/matches/:id/results`: OpenAPI response schema `MatchResultResponse` is not the full match object returned by code.
+**مثال‌ها:**
+*   `GET /api/v1/admin/disputes`: عدم تطابق در `enum` وضعیت برای پارامتر کوئری و اسکیمای پاسخ.
+*   `POST /api/v1/admin/disputes/:id/resolve`: ساختار پاسخ در OpenAPI (`Dispute`) با پاسخ واقعی کد (`{ dispute, match }`) متفاوت است.
+*   `POST /api/v1/matches/:id/results`: اسکیمای پاسخ OpenAPI `MatchResultResponse` شیء کامل مسابقه که توسط کد برگردانده می‌شود، نیست.
 *   `POST /api/v1/wallet/withdrawals`:
-    *   `withdrawalMethodDetails` in request body is more generic in code (Joi) than in OpenAPI (`oneOf` specific types).
-    *   Response body in code includes a `status` field not in OpenAPI's `WithdrawalResponse`.
+    *   `withdrawalMethodDetails` در بدنه درخواست در کد (Joi) عمومی‌تر از OpenAPI (انواع خاص `oneOf`) است.
+    *   بدنه پاسخ در کد شامل یک فیلد `status` است که در `WithdrawalResponse` OpenAPI وجود ندارد.
 
-**Recommendation Status (Post-Update):**
-*   The primary mechanism for keeping the API specification (`docs/swagger-generated.json`) accurate is now through diligent JSDoc commenting in the route files and maintaining the base schemas in `swagger.js`. The `swagger-autogen` tool handles the generation.
-*   The process addresses the need to reduce drift between code and documentation. Ongoing vigilance in updating JSDoc comments with code changes is crucial.
+**وضعیت توصیه (پس از به‌روزرسانی):**
+*   مکانیسم اصلی برای دقیق نگه داشتن مشخصات API (`docs/swagger-generated.json`) اکنون از طریق کامنت‌گذاری دقیق JSDoc در فایل‌های مسیر و نگهداری اسکیمای پایه در `swagger.js` است. ابزار `swagger-autogen` تولید را بر عهده دارد.
+*   این فرآیند نیاز به کاهش فاصله بین کد و مستندات را برطرف می‌کند. هوشیاری مداوم در به‌روزرسانی کامنت‌های JSDoc با تغییرات کد بسیار مهم است.
 
-## 2. Other Project Aspects
+## ۲. سایر جنبه‌های پروژه
 
-### 2.1. Testing
-*   **Strengths**: The project has a well-defined testing setup using Jest, with scripts in `package.json` for running all tests, unit tests, and integration tests. Test coverage generation is enabled (`jest --coverage`).
-*   **Areas for Attention**: While the setup is good, the actual test coverage percentage and the quality/comprehensiveness of tests should be regularly reviewed. Ensure critical paths and business logic are thoroughly tested.
+### ۲.۱. تست
+*   **نقاط قوت**: پروژه دارای یک راه‌اندازی تست به خوبی تعریف شده با استفاده از Jest است، با اسکریپت‌هایی در `package.json` برای اجرای همه تست‌ها، تست‌های واحد و تست‌های یکپارچه‌سازی. تولید پوشش تست فعال است (`jest --coverage`).
+*   **زمینه‌های نیازمند توجه**: در حالی که راه‌اندازی خوب است، درصد پوشش تست واقعی و کیفیت/جامعیت تست‌ها باید به طور منظم بررسی شود. اطمینان حاصل کنید که مسیرهای حیاتی و منطق کسب‌وکار به طور کامل تست شده‌اند.
 
-### 2.2. Code Quality & Conventions
-*   **Strengths**: The use of ESLint for linting and Prettier for code formatting (configured in `package.json`) helps maintain consistent code style and quality across the project. The project structure follows Clean Architecture principles as stated in `README.md`.
-*   **Areas for Attention**: Continue to enforce linting and formatting rules. Regularly review code for adherence to architectural principles and identify any potential code smells or areas for refactoring.
+### ۲.۲. کیفیت و قراردادهای کد
+*   **نقاط قوت**: استفاده از ESLint برای لینتینگ و Prettier برای قالب‌بندی کد (پیکربندی شده در `package.json`) به حفظ سبک و کیفیت کد ثابت در سراسر پروژه کمک می‌کند. ساختار پروژه از اصول معماری پاک همانطور که در `README.md` ذکر شده، پیروی می‌کند.
+*   **زمینه‌های نیازمند توجه**: به اجرای قوانین لینتینگ و قالب‌بندی ادامه دهید. کد را به طور منظم برای پایبندی به اصول معماری بررسی کرده و هرگونه بوی بد کد یا زمینه‌هایی برای بازسازی را شناسایی کنید.
 
-### 2.3. Security
-*   **Strengths**: The `README.md` outlines numerous security considerations. JWT-based authentication and authorization mechanisms (role-based access control) are implemented. Input validation (Joi) is used. Security-related dependencies like `helmet` are present.
-*   **Areas for Attention**:
-    *   The discrepancies found in `OPENAPI-AUDIT.RMD` (e.g., undocumented admin paths if they are indeed live) could have security implications if not properly managed.
-    *   Regularly conduct security audits, including penetration testing and dependency vulnerability scanning.
-    *   Ensure all sensitive operations are protected by appropriate authorization checks.
+### ۲.۳. امنیت
+*   **نقاط قوت**: `README.md` ملاحظات امنیتی متعددی را مشخص می‌کند. احراز هویت مبتنی بر JWT و مکانیزم‌های مجوزدهی (کنترل دسترسی مبتنی بر نقش) پیاده‌سازی شده‌اند. اعتبارسنجی ورودی (Joi) استفاده می‌شود. وابستگی‌های مرتبط با امنیت مانند `helmet` وجود دارند.
+*   **زمینه‌های نیازمند توجه**:
+    *   ناهماهنگی‌های یافت شده در `OPENAPI-AUDIT.RMD` (مثلاً مسیرهای ادمین مستند نشده اگر واقعاً فعال باشند) در صورت عدم مدیریت صحیح می‌تواند پیامدهای امنیتی داشته باشد.
+    *   به طور منظم ممیزی‌های امنیتی، از جمله تست نفوذ و اسکن آسیب‌پذیری وابستگی‌ها را انجام دهید.
+    *   اطمینان حاصل کنید که تمام عملیات حساس توسط بررسی‌های مجوزدهی مناسب محافظت می‌شوند.
 
-### 2.4. Dependencies
-*   **Strengths**: Dependencies are managed via `package.json`.
-*   **Areas for Attention**: Regularly review dependencies for outdated versions or known vulnerabilities. Use tools like `npm audit` (or GitHub's Dependabot) to automate this process.
+### ۲.۴. وابستگی‌ها
+*   **نقاط قوت**: وابستگی‌ها از طریق `package.json` مدیریت می‌شوند.
+*   **زمینه‌های نیازمند توجه**: وابستگی‌ها را به طور منظم برای نسخه‌های قدیمی یا آسیب‌پذیری‌های شناخته شده بررسی کنید. از ابزارهایی مانند `npm audit` (یا Dependabot گیت‌هاب) برای خودکارسازی این فرآیند استفاده کنید.
 
-### 2.5. Configuration Management
-*   **Strengths**: The project uses `.env` files for environment-specific configuration, with `.env.example` provided as a template. This is a standard and effective practice.
-*   **Areas for Attention**: Ensure no sensitive default values are present in `.env.example` and that all configurable parameters are clearly documented.
+### ۲.۵. مدیریت پیکربندی
+*   **نقاط قوت**: پروژه از فایل‌های `.env` برای پیکربندی خاص محیط استفاده می‌کند، و `.env.example` به عنوان یک الگو ارائه شده است. این یک عمل استاندارد و مؤثر است.
+*   **زمینه‌های نیازمند توجه**: اطمینان حاصل کنید که هیچ مقدار پیش‌فرض حساسی در `.env.example` وجود ندارد و تمام پارامترهای قابل پیکربندی به وضوح مستند شده‌اند.
 
-### 2.6. Error Handling
-*   **Strengths**: The API uses standard HTTP status codes for errors. The `OPENAPI-AUDIT.RMD` mentions common error responses. Custom error classes (`ApiError`) are present.
-*   **Areas for Attention**: Ensure error handling is consistent across the entire application (not just the API layer). Logs should capture sufficient detail for debugging errors. Sensitive error details should not be exposed to clients.
+### ۲.۶. مدیریت خطا
+*   **نقاط قوت**: API از کدهای وضعیت HTTP استاندارد برای خطاها استفاده می‌کند. `OPENAPI-AUDIT.RMD` به پاسخ‌های خطای رایج اشاره می‌کند. کلاس‌های خطای سفارشی (`ApiError`) وجود دارند.
+*   **زمینه‌های نیازمند توجه**: اطمینان حاصل کنید که مدیریت خطا در سراسر برنامه (نه فقط لایه API) سازگار است. لاگ‌ها باید جزئیات کافی برای اشکال‌زدایی خطاها را ثبت کنند. جزئیات خطای حساس نباید به کلاینت‌ها نمایش داده شود.
 
-### 2.7. Documentation
-*   **Strengths**:
-    *   `README.md`: Provides a good overview of the project, setup, and architecture. (Updated for new features).
-    *   `SOCKET_IO_DOCUMENTATION.md`: Offers detailed insights into the WebSocket implementation. (Updated for new entities and roles).
-    *   `docs/swagger-generated.json`: Serves as the auto-generated API specification from source code comments. (Regenerated after updates).
-    *   `OPENAPI-AUDIT.RMD`: This audit highlighted areas for API spec improvement, many of which have been addressed by updating the source code annotations for `swagger-autogen`.
-*   **Areas for Attention**:
-    *   The primary concern of synchronizing the API specification with the codebase is now addressed by using `swagger-autogen`. The focus shifts to maintaining the accuracy of JSDoc comments in the route files and base schemas in `swagger.js`.
-    *   In-code documentation (JSDoc comments) for API endpoints has been significantly improved as part of this process.
-    *   Ensure all major features and architectural decisions continue to be documented.
+### ۲.۷. مستندات
+*   **نقاط قوت**:
+    *   `README.md`: یک نمای کلی خوب از پروژه، راه‌اندازی و معماری ارائه می‌دهد. (برای ویژگی‌های جدید به‌روز شده است).
+    *   `SOCKET_IO_DOCUMENTATION.md`: بینش‌های دقیقی در مورد پیاده‌سازی WebSocket ارائه می‌دهد. (برای موجودیت‌ها و نقش‌های جدید به‌روز شده است).
+    *   `docs/swagger-generated.json`: به عنوان مشخصات API تولید شده خودکار از کامنت‌های کد منبع عمل می‌کند. (پس از به‌روزرسانی‌ها دوباره تولید شده است).
+    *   `OPENAPI-AUDIT.RMD`: این ممیزی زمینه‌هایی برای بهبود مشخصات API را برجسته کرد، که بسیاری از آنها با به‌روزرسانی حاشیه‌نویسی‌های کد منبع برای `swagger-autogen` برطرف شده‌اند.
+*   **زمینه‌های نیازمند توجه**:
+    *   نگرانی اصلی همگام‌سازی مشخصات API با کدبیس اکنون با استفاده از `swagger-autogen` برطرف شده است. تمرکز به حفظ دقت کامنت‌های JSDoc در فایل‌های مسیر و اسکیمای پایه در `swagger.js` تغییر می‌کند.
+    *   مستندات درون کد (کامنت‌های JSDoc) برای Endpointهای API به عنوان بخشی از این فرآیند به طور قابل توجهی بهبود یافته است.
+    *   اطمینان حاصل کنید که تمام ویژگی‌های اصلی و تصمیمات معماری همچنان مستند می‌شوند.
 
-## 3. Conclusion and Recommendations
+## ۳. نتیجه‌گیری و توصیه‌ها
 
-The Tournament Platform project is well-structured, utilizing modern technologies and good development practices. Recent efforts have focused on aligning the API documentation with the codebase using `swagger-autogen`.
+پروژه پلتفرم مسابقات به خوبی ساختار یافته است و از فناوری‌های مدرن و شیوه‌های توسعه خوب استفاده می‌کند. تلاش‌های اخیر بر هماهنگ‌سازی مستندات API با کدبیس با استفاده از `swagger-autogen` متمرکز شده است.
 
-The synchronization of the API specification (`docs/swagger-generated.json`) with the actual API implementation is now managed through JSDoc comments in the source code and the `swagger.js` configuration file. Many discrepancies identified in `OPENAPI-AUDIT.RMD` have been addressed through this process.
+همگام‌سازی مشخصات API (`docs/swagger-generated.json`) با پیاده‌سازی واقعی API اکنون از طریق کامنت‌های JSDoc در کد منبع و فایل پیکربندی `swagger.js` مدیریت می‌شود. بسیاری از ناهماهنگی‌های شناسایی شده در `OPENAPI-AUDIT.RMD` از طریق این فرآیند برطرف شده‌اند.
 
-**Key Recommendations (Updated):**
+**توصیه‌های کلیدی (به‌روز شده):**
 
-1.  **Maintain JSDoc Accuracy**: Ensure JSDoc comments in route files and schemas in `swagger.js` are kept up-to-date as the API evolves. This is crucial for the accuracy of the auto-generated `docs/swagger-generated.json`.
-2.  **Regularly Regenerate API Spec**: Run `npm run swagger-gen` as part of the development workflow when API-related changes are made.
-3.  **Review Test Coverage**: Analyze the test coverage report to identify untested parts of the application and improve test suites accordingly.
-4.  **Regular Dependency & Security Reviews**: Schedule periodic reviews of dependencies for vulnerabilities and conduct security health checks.
-5.  **Address Minor Discrepancies**: Systematically go through the points raised in `OPENAPI-AUDIT.RMD` and this review to fix smaller inconsistencies.
+۱.  **حفظ دقت JSDoc**: اطمینان حاصل کنید که کامنت‌های JSDoc در فایل‌های مسیر و اسکیماها در `swagger.js` با تکامل API به‌روز نگه داشته می‌شوند. این برای دقت `docs/swagger-generated.json` تولید شده خودکار حیاتی است.
+۲.  **تولید مجدد منظم مشخصات API**: `npm run swagger-gen` را به عنوان بخشی از گردش کار توسعه هنگام ایجاد تغییرات مرتبط با API اجرا کنید.
+۳.  **بررسی پوشش تست**: گزارش پوشش تست را برای شناسایی بخش‌های تست نشده برنامه تجزیه و تحلیل کرده و مجموعه تست‌ها را بر این اساس بهبود دهید.
+۴.  **بررسی‌های منظم وابستگی و امنیت**: بررسی‌های دوره‌ای وابستگی‌ها برای آسیب‌پذیری‌ها و بررسی‌های سلامت امنیتی را برنامه‌ریزی کنید.
+۵.  **رفع ناهماهنگی‌های جزئی**: به طور سیستماتیک نکات مطرح شده در `OPENAPI-AUDIT.RMD` و این بازبینی را برای رفع ناهماهنگی‌های کوچکتر مرور کنید.
 
-By addressing these areas, the project can enhance its maintainability, improve the developer experience for API consumers, and ensure its continued robustness and security.
+با پرداختن به این زمینه‌ها، پروژه می‌تواند قابلیت نگهداری خود را افزایش دهد، تجربه توسعه‌دهنده را برای مصرف‌کنندگان API بهبود بخشد و از استحکام و امنیت مداوم خود اطمینان حاصل کند.
