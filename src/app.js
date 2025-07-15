@@ -10,8 +10,12 @@ const swaggerUi = require('swagger-ui-express');
 const path = require('path');
 const fs = require('fs');
 const cookieParser = require('cookie-parser');
-const csrfProtection = require('./middleware/csrf.middleware');
-const xss = require('./middleware/xss.middleware');
+const xss = require('./middleware/xss.middleware.js');
+const csrfMiddleware = require('./middleware/csrf.middleware');
+// --- تغییر اصلی اینجا است ---
+// ما آبجکتی که از csrf.middleware.js اکسپورت شده (یعنی csrfProtection) را ایمپورت می‌کنیم
+// و نام آن را به 'csrfMiddleware' تغییر دادیم تا با نام 'csrfSync' از کتابخانه اصلی اشتباه نشود.
+// --- پایان تغییر اصلی ---
 
 const app = express();
 
@@ -38,9 +42,16 @@ app.use(cors({
 
 app.use(express.json({ limit: process.env.REQUEST_LIMIT || '16kb' }));
 app.use(express.urlencoded({ extended: true, limit: process.env.REQUEST_LIMIT || '16kb' }));
-app.use(cookieParser());
-app.use(xss);
-app.use(csrfProtection);
+app.use(cookieParser()); // Cookie parser should be used before CSRF middleware
+
+app.use(xss); // Your custom XSS protection middleware
+
+// --- استفاده صحیح از میان‌افزارهای CSRF ---
+// حالا از خصوصیات tokenProviderMiddleware و csrfSynchronizerMiddleware از آبجکت ایمپورت شده استفاده می‌کنیم.
+app.use(csrfMiddleware.tokenProviderMiddleware);
+app.use(csrfMiddleware.csrfSynchronizerMiddleware);
+// --- پایان استفاده صحیح ---
+
 app.use(express.static('public'));
 
 // Rate limiting to prevent brute-force attacks
@@ -67,10 +78,12 @@ app.get('/ping', (req, res) => {
     res.status(200).send('pong');
 });
 
+// If no route handles the request, return a 404 error
 app.use((req, res, next) => {
     next(new ApiError(404, 'Not Found - The requested resource does not exist on this server.'));
 });
 
+// Centralized error handling middleware
 app.use(errorHandler);
 
 module.exports = app;
