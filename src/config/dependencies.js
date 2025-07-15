@@ -93,7 +93,12 @@ const teamRepository = new PostgresTeamRepository({
     UserModel: db.UserModel,
     sequelize: db.sequelize,
 });
-const teamMemberRepository = new PostgresTeamMemberRepository(db.TeamMemberModel);
+const teamMemberRepository = new PostgresTeamMemberRepository({
+    TeamMemberModel: db.TeamMemberModel,
+    UserModel: db.UserModel,
+    TeamModel: db.TeamModel,
+    sequelize: db.sequelize,
+});
 const chatRepository = new PostgresChatRepository({
     ChatSessionModel: db.ChatSessionModel,
     ChatMessageModel: db.ChatMessageModel,
