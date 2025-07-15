@@ -1,6 +1,6 @@
 const router = require('express').Router();
 const userController = require('../controllers/user.controller');
-const { authenticateToken, authorizeRole } = require('../../middleware/auth.middleware');
+const { authenticateToken } = require('../../middleware/auth.middleware');
 const validate = require('../../middleware/validation.middleware');
 const { updateUserProfileSchema } = require('../validators/user.validator');
 
