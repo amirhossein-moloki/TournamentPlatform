@@ -124,7 +124,4 @@ router.post('/withdrawals/:id/reject', authenticateToken, authorizeRole([UserRol
     #swagger.responses[404] = { $ref: '#/components/responses/NotFoundError' }
 */
 
-const adminUserRoutes = require('./admin/users.routes');
-router.use('/users', adminUserRoutes);
-
 module.exports = router;

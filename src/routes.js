@@ -1,6 +1,7 @@
 const router = require('express').Router();
 
 const adminRoutes = require('./presentation/api/admin.routes');
+const adminUserRoutes = require('./presentation/api/admin/users.routes');
 const authRoutes = require('./presentation/api/auth.routes');
 const gamesRoutes = require('./presentation/api/games.routes');
 const leaderboardsRoutes = require('./presentation/api/leaderboards.routes');
@@ -14,6 +15,7 @@ const { chatController, postgresUserRepository } = require('./config/dependencie
 
 
 router.use('/admin', adminRoutes);
+router.use('/admin/users', adminUserRoutes);
 router.use('/auth', authRoutes);
 router.use('/games', gamesRoutes);
 router.use('/leaderboards', leaderboardsRoutes);

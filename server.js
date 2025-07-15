@@ -15,6 +15,8 @@ const PORT = process.env.PORT || 3000;
 
 // Swagger setup
 const swaggerFilePath = path.join(__dirname, 'docs/swagger-generated.json');
+const expressOasGenerator = require('express-oas-generator');
+expressOasGenerator.init(app, {});
 const swaggerFile = fs.readFileSync(swaggerFilePath, 'utf8');
 const swaggerDocument = JSON.parse(swaggerFile);
 app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerDocument));

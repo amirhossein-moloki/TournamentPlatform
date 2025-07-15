@@ -1,0 +1,1104 @@
+openapi: 3.0.3
+info:
+  title: Tournament Platform API
+  description: API documentation for the Tournament Platform project.
+  version: 1.0.0
+  contact:
+    name: API Support
+    email: support@example.com
+  license:
+    name: MIT
+    url: https://opensource.org/licenses/MIT
+servers:
+  - url: http://localhost:3000/api/v1
+    description: Development server
+tags:
+  - name: Admin
+    description: Admin specific operations
+  - name: Admin - Users
+    description: User management by Admins
+  - name: Authentication
+    description: Authentication related endpoints (login, register, refresh, logout, email verification)
+  - name: Games
+    description: Game management endpoints
+  - name: Leaderboards
+    description: Leaderboard information
+  - name: Matches
+    description: Match management and result submission
+  - name: Teams
+    description: Team creation, management, and membership
+  - name: Tournaments
+    description: Tournament management, participation, and progression
+  - name: Users
+    description: User profile management (self-service)
+  - name: User Game Profiles
+    description: Management of user profiles for specific games
+  - name: Wallet
+    description: User wallet and transaction management
+  - name: Webhooks
+    description: Webhook endpoints for external services (e.g., payment gateways)
+paths:
+  /admin/disputes:
+    get:
+      tags:
+        - Admin
+      summary: List dispute tickets (Admin/Moderator)
+      description: Retrieves a paginated list of dispute tickets, with optional filters.
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/PageParam'
+        - $ref: '#/components/parameters/LimitParam'
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum:
+              - OPEN
+              - UNDER_REVIEW
+              - RESOLVED_PARTICIPANT1_WIN
+              - RESOLVED_PARTICIPANT2_WIN
+              - RESOLVED_REPLAY
+              - CLOSED
+              - CLOSED_INVALID
+          description: Filter by dispute status.
+        - name: tournamentId
+          in: query
+          schema:
+            type: string
+            format: uuid
+          description: Filter by tournament ID.
+        - name: matchId
+          in: query
+          schema:
+            type: string
+            format: uuid
+          description: Filter by match ID.
+        - name: moderatorId
+          in: query
+          schema:
+            type: string
+            format: uuid
+          description: Filter by moderator ID.
+      responses:
+        '200':
+          description: A list of dispute tickets.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedDisputesResponse'
+        '400':
+          $ref: '#/components/responses/BadRequestError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+  /admin/disputes/{id}/resolve:
+    post:
+      tags:
+        - Admin
+      summary: Resolve a dispute ticket (Admin/Moderator)
+      description: Allows an Admin or Dispute Moderator to resolve a dispute ticket and update the related match if necessary.
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/DisputeIdPath'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ResolveDisputeRequest'
+      responses:
+        '200':
+          description: Dispute resolved successfully. Returns the updated dispute and match.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  dispute:
+                    $ref: '#/components/schemas/DisputeTicketResponse'
+                  match:
+                    $ref: '#/components/schemas/MatchDetailsResponse'
+        '400':
+          $ref: '#/components/responses/BadRequestError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+  /admin/users:
+    get:
+      tags:
+        - Admin - Users
+      summary: Get a list of all users (Admin only)
+      description: Retrieves a paginated list of all users. Can be filtered by role and verification status.
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/PageParam'
+        - $ref: '#/components/parameters/LimitParam'
+        - name: role
+          in: query
+          schema:
+            type: string
+          description: Filter users by role.
+        - name: isVerified
+          in: query
+          schema:
+            type: boolean
+          description: Filter users by verification status.
+      responses:
+        '200':
+          description: A list of users.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedUsersResponse'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+  /admin/users/{id}:
+    get:
+      tags:
+        - Admin - Users
+      summary: Get a specific user by ID (Admin only)
+      description: Retrieves the profile of a specific user by their ID.
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/UserIdPath'
+      responses:
+        '200':
+          description: User profile retrieved successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserPublicProfile'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+    put:
+      tags:
+        - Admin - Users
+      summary: Update a user by ID (Admin only)
+      description: Allows an Admin to update a user's profile information (username, email, roles, verification status).
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/UserIdPath'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AdminUpdateUserRequest'
+      responses:
+        '200':
+          description: User updated successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserPublicProfile'
+        '400':
+          $ref: '#/components/responses/BadRequestError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+    delete:
+      tags:
+        - Admin - Users
+      summary: Delete a user by ID (Admin only)
+      description: Allows an Admin to delete a user. An admin cannot delete their own account via this endpoint.
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/UserIdPath'
+      responses:
+        '200':
+          description: User deleted successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+        '400':
+          $ref: '#/components/responses/BadRequestError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+  /admin/users/{id}/roles:
+    post:
+      tags:
+        - Admin - Users
+      summary: Assign a role to a user (Admin only)
+      description: Adds a new role to a user's role list.
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/UserIdPath'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - role
+              properties:
+                role:
+                  type: string
+                  enum:
+                    - PLAYER
+                    - ADMIN
+                    - TOURNAMENT_MANAGER
+                    - TOURNAMENT_SUPPORT
+                    - GENERAL_SUPPORT
+      responses:
+        '200':
+          description: Role assigned successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserPublicProfile'
+        '400':
+          $ref: '#/components/responses/BadRequestError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+  /admin/users/{id}/roles/{role}:
+    delete:
+      tags:
+        - Admin - Users
+      summary: Remove a role from a user (Admin only)
+      description: Removes a role from a user's role list.
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/UserIdPath'
+        - name: role
+          in: path
+          required: true
+          description: The role to remove.
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Role removed successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserPublicProfile'
+        '400':
+          $ref: '#/components/responses/BadRequestError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+  /admin/withdrawals:
+    get:
+      tags:
+        - Admin
+      summary: List withdrawal requests (Admin/Finance Manager)
+      description: Retrieves a paginated list of withdrawal requests, with optional filters.
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/PageParam'
+        - $ref: '#/components/parameters/LimitParam'
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum:
+              - PENDING_APPROVAL
+              - APPROVED
+              - REJECTED
+              - PROCESSING
+              - COMPLETED
+              - FAILED
+          description: Filter by withdrawal status.
+        - name: userId
+          in: query
+          schema:
+            type: string
+            format: uuid
+          description: Filter by user ID.
+      responses:
+        '200':
+          description: A list of withdrawal requests.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedWithdrawalsAdminResponse'
+        '400':
+          $ref: '#/components/responses/BadRequestError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+  /admin/withdrawals/{id}/approve:
+    post:
+      tags:
+        - Admin
+      summary: Approve a withdrawal request (Admin/Finance Manager)
+      description: Marks a withdrawal request as approved.
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/WithdrawalIdPath'
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ApproveWithdrawalRequest'
+      responses:
+        '200':
+          description: Withdrawal request approved successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WithdrawalRequestAdminView'
+        '400':
+          $ref: '#/components/responses/BadRequestError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+  /admin/withdrawals/{id}/reject:
+    post:
+      tags:
+        - Admin
+      summary: Reject a withdrawal request (Admin/Finance Manager)
+      description: Marks a withdrawal request as rejected.
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/WithdrawalIdPath'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RejectWithdrawalRequest'
+      responses:
+        '200':
+          description: Withdrawal request rejected successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WithdrawalRequestAdminView'
+        '400':
+          $ref: '#/components/responses/BadRequestError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+  /auth/register:
+    post:
+      tags:
+        - Authentication
+      summary: Register a new user
+      description: Registers a new user, logs them in, provides an access token in the response body, and sets a refresh token in an HttpOnly cookie.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UserRegistrationRequest'
+      responses:
+        '201':
+          description: User registered successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthResponse'
+          headers:
+            Set-Cookie:
+              description: Refresh token cookie.
+              schema:
+                type: string
+                example: jid=yourRefreshToken; Path=/api/v1/auth; HttpOnly; Secure; SameSite=Strict
+        '400':
+          $ref: '#/components/responses/BadRequestError'
+        '409':
+          $ref: '#/components/responses/ConflictError'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+  /auth/login:
+    post:
+      tags:
+        - Authentication
+      summary: Log in an existing user
+      description: Logs in an existing user, provides an access token in the response body, and sets a refresh token in an HttpOnly cookie.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UserLoginRequest'
+      responses:
+        '200':
+          description: Login successful.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthResponse'
+          headers:
+            Set-Cookie:
+              description: Refresh token cookie.
+              schema:
+                type: string
+                example: jid=yourRefreshToken; Path=/api/v1/auth; HttpOnly; Secure; SameSite=Strict
+        '400':
+          $ref: '#/components/responses/BadRequestError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+  /auth/refresh:
+    post:
+      tags:
+        - Authentication
+      summary: Refresh an access token
+      description: Requires a valid Refresh Token sent via an HttpOnly cookie (`jid`). If rotation is enabled and a new refresh token is issued, it will also be set in an HttpOnly cookie.
+      security:
+        - refreshTokenCookie: []
+      responses:
+        '200':
+          description: New access token generated.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RefreshTokenResponse'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+  /auth/logout:
+    post:
+      tags:
+        - Authentication
+      summary: Log out the current user
+      description: Invalidates the Refresh Token and clears the refresh token cookie.
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Logout successful.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LogoutResponse'
+          headers:
+            Set-Cookie:
+              description: Refresh token cookie cleared.
+              schema:
+                type: string
+                example: jid=; Path=/api/v1/auth; HttpOnly; Expires=Thu, 01 Jan 1970 00:00:00 GMT
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+  /auth/request-verification-email:
+    post:
+      tags:
+        - Authentication
+      summary: Request a new email verification link
+      description: User must be authenticated. The verification email is sent to the user's registered email address.
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Verification email sent.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RequestVerificationEmailResponse'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+  /auth/verify-email:
+    post:
+      tags:
+        - Authentication
+      summary: "Verify user's email using a token"
+      description: Submits the token received via email to verify the user's email address.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/VerifyEmailRequest'
+      responses:
+        '200':
+          description: Email verified successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/VerifyEmailResponse'
+        '400':
+          $ref: '#/components/responses/BadRequestError'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+  /games:
+    post:
+      tags:
+        - Games
+      summary: Create a new game (Admin only)
+      description: Allows an Admin to create a new game.
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Game'
+      responses:
+        '201':
+          description: Game created successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Game'
+        '400':
+          $ref: '#/components/responses/BadRequestError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+    get:
+      tags:
+        - Games
+      summary: Get a list of all games
+      description: Retrieves a paginated list of all games.
+      parameters:
+        - $ref: '#/components/parameters/PageParam'
+        - $ref: '#/components/parameters/LimitParam'
+      responses:
+        '200':
+          description: A list of games.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedGamesResponse'
+  /games/{id}:
+    get:
+      tags:
+        - Games
+      summary: Get game details by ID
+      description: Retrieves detailed information for a specific game.
+      parameters:
+        - $ref: '#/components/parameters/GameIdPath'
+      responses:
+        '200':
+          description: Game details.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Game'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+    put:
+      tags:
+        - Games
+      summary: Update a game (Admin only)
+      description: Updates the details of a game. Requires the user to be an Admin.
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/GameIdPath'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Game'
+      responses:
+        '200':
+          description: Game updated successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Game'
+        '400':
+          $ref: '#/components/responses/BadRequestError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+    delete:
+      tags:
+        - Games
+      summary: Delete a game (Admin only)
+      description: Deletes a game. Requires the user to be an Admin.
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/GameIdPath'
+      responses:
+        '200':
+          description: Game deleted successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+components:
+  parameters:
+    PageParam:
+      in: query
+      name: page
+      schema:
+        type: integer
+        default: 1
+      description: Page number for pagination.
+    LimitParam:
+      in: query
+      name: limit
+      schema:
+        type: integer
+        default: 10
+      description: Number of items per page.
+    UserIdPath:
+      in: path
+      name: id
+      required: true
+      schema:
+        type: string
+        format: uuid
+      description: The ID of the user.
+    TeamIdPath:
+      in: path
+      name: id
+      required: true
+      schema:
+        type: string
+        format: uuid
+      description: The ID of the team.
+    TournamentIdPath:
+      in: path
+      name: id
+      required: true
+      schema:
+        type: string
+        format: uuid
+      description: The ID of the tournament.
+    MatchIdPath:
+      in: path
+      name: id
+      required: true
+      schema:
+        type: string
+        format: uuid
+      description: The ID of the match.
+  responses:
+    BadRequestError:
+      description: Bad Request - The server cannot or will not process the request due to something that is perceived to be a client error.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    UnauthorizedError:
+      description: Unauthorized - The client must authenticate itself to get the requested response.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    ForbiddenError:
+      description: Forbidden - The client does not have access rights to the content.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    NotFoundError:
+      description: Not Found - The server can not find the requested resource.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    ConflictError:
+      description: Conflict - The request could not be completed due to a conflict with the current state of the resource.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    InternalServerError:
+      description: Internal Server Error - The server has encountered a situation it doesn't know how to handle.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+  schemas:
+    DisputeTicketResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        matchId:
+          type: string
+          format: uuid
+        tournamentId:
+          type: string
+          format: uuid
+          nullable: true
+        reportedByUserId:
+          type: string
+          format: uuid
+        reason:
+          type: string
+        status:
+          type: string
+          enum:
+            - OPEN
+            - UNDER_REVIEW
+            - RESOLVED_PARTICIPANT1_WIN
+            - RESOLVED_PARTICIPANT2_WIN
+            - RESOLVED_REPLAY
+            - CLOSED_INVALID
+        resolutionDetails:
+          type: string
+          nullable: true
+        moderatorId:
+          type: string
+          format: uuid
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+    PaginatedDisputesResponse:
+      allOf:
+        - $ref: '#/components/schemas/PaginatedResponse'
+        - type: object
+          properties:
+            items:
+              type: array
+              items:
+                $ref: '#/components/schemas/DisputeTicketResponse'
+    ResolveDisputeRequest:
+      type: object
+      properties:
+        resolutionStatus:
+          type: string
+          enum:
+            - RESOLVED_PARTICIPANT1_WIN
+            - RESOLVED_PARTICIPANT2_WIN
+            - RESOLVED_REPLAY
+            - CLOSED_INVALID
+          description: The final status to resolve the dispute.
+        resolutionDetails:
+          type: string
+          minLength: 10
+          maxLength: 1000
+          description: Detailed explanation of the resolution.
+      required:
+        - resolutionStatus
+        - resolutionDetails
+    WithdrawalRequestAdminView:
+      allOf:
+        - $ref: '#/components/schemas/TransactionHistoryItem'
+        - type: object
+          properties:
+            userId:
+              type: string
+              format: uuid
+              description: ID of the user who requested withdrawal.
+            userUsername:
+              type: string
+              description: Username of the user.
+              example: user123
+            withdrawalMethodDetails:
+              $ref: '#/components/schemas/WithdrawalMethodDetails'
+            adminNotes:
+              type: string
+              nullable: true
+              description: Notes added by admin during approval/rejection.
+    PaginatedWithdrawalsAdminResponse:
+      allOf:
+        - $ref: '#/components/schemas/PaginatedResponse'
+        - type: object
+          properties:
+            items:
+              type: array
+              items:
+                $ref: '#/components/schemas/WithdrawalRequestAdminView'
+    ApproveWithdrawalRequest:
+      type: object
+      properties:
+        notes:
+          type: string
+          maxLength: 500
+          nullable: true
+          description: Optional notes by the admin approving the request.
+    RejectWithdrawalRequest:
+      type: object
+      properties:
+        reason:
+          type: string
+          minLength: 10
+          maxLength: 500
+          description: Reason for rejecting the withdrawal request.
+      required:
+        - reason
+    UserPublicProfile:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          description: User's unique identifier
+        username:
+          type: string
+          description: User's username
+        email:
+          type: string
+          format: email
+        roles:
+          type: array
+          items:
+            type: string
+            enum:
+              - PLAYER
+              - ADMIN
+              - TOURNAMENT_MANAGER
+              - TOURNAMENT_SUPPORT
+              - GENERAL_SUPPORT
+          description: List of roles assigned to the user.
+        isVerified:
+          type: boolean
+          description: Indicates if the user's email is verified
+          example: true
+    PaginatedUsersResponse:
+      allOf:
+        - $ref: '#/components/schemas/PaginatedResponse'
+        - type: object
+          properties:
+            items:
+              type: array
+              items:
+                $ref: '#/components/schemas/UserPublicProfile'
+    AdminUpdateUserRequest:
+      type: object
+      properties:
+        username:
+          type: string
+          minLength: 3
+          description: New username for the user
+          example: updated_user
+        email:
+          type: string
+          format: email
+          description: New email for the user
+          example: updated_user@example.com
+        roles:
+          type: array
+          items:
+            type: string
+            enum:
+              - PLAYER
+              - ADMIN
+              - TOURNAMENT_MANAGER
+              - TOURNAMENT_SUPPORT
+              - GENERAL_SUPPORT
+          description: Array of roles to assign to the user.
+        isVerified:
+          type: boolean
+          description: Set email verification status
+          example: true
+      minProperties: 1
+    UserRegistrationRequest:
+      type: object
+      properties:
+        username:
+          type: string
+          minLength: 3
+          maxLength: 30
+          description: User's desired username
+          example: newuser
+        email:
+          type: string
+          format: email
+          description: User's email address
+          example: user@example.com
+        password:
+          type: string
+          minLength: 8
+          description: User's password
+          example: password123
+      required:
+        - username
+        - email
+        - password
+    UserLoginRequest:
+      type: object
+      properties:
+        email:
+          type: string
+          format: email
+          description: User's email address
+          example: user@example.com
+        password:
+          type: string
+          description: User's password
+          example: password123
+      required:
+        - email
+        - password
+    AuthResponse:
+      type: object
+      properties:
+        message:
+          type: string
+          description: Success message
+          example: Login successful
+        accessToken:
+          type: string
+          format: jwt
+          description: JWT Access Token
+        user:
+          $ref: '#/components/schemas/UserPublicProfile'
+      required:
+        - message
+        - accessToken
+        - user
+    RefreshTokenResponse:
+      type: object
+      properties:
+        accessToken:
+          type: string
+          format: jwt
+          description: New JWT Access Token
+      required:
+        - accessToken
+    LogoutResponse:
+      type: object
+      properties:
+        message:
+          type: string
+          example: Logout successful
+      required:
+        - message
+    RequestVerificationEmailResponse:
+      type: object
+      properties:
+        message:
+          type: string
+          description: Confirmation message
+          example: Verification email sent.
+      required:
+        - message
+    VerifyEmailRequest:
+      type: object
+      properties:
+        token:
+          type: string
+          description: The verification token received by email.
+      required:
+        - token
+    VerifyEmailResponse:
+      type: object
+      properties:
+        message:
+          type: string
+          description: Success message
+          example: Email verified successfully.
+        userId:
+          type: string
+          format: uuid
+          description: User ID of the verified user
+      required:
+        - message
+        - userId
+    ErrorResponse:
+      type: object
+      properties:
+        statusCode:
+          type: integer
+          description: HTTP status code
+          example: 400
+        message:
+          type: string
+          description: General error message
+          example: Validation Error
+        errors:
+          type: array
+          items:
+            type: string
+          description: Optional array of specific error messages
+          example:
+            - "'email' is required"
+        stack:
+          type: string
+          description: Optional stack trace (in development)
+          example: "Error: ... at ..."
+      required:
+        - statusCode
+        - message
+    SuccessResponse:
+      type: object
+      properties:
+        message:
+          type: string
+          description: Success message
+      required:
+        - message
+    PaginatedResponse:
+      type: object
+      properties:
+        page:
+          type: integer
+          description: Current page number
+          example: 1
+        limit:
+          type: integer
+          description: Items per page
+          example: 10
+        totalPages:
+          type: integer
+          description: Total number of pages
+          example: 5
+        totalItems:
+          type: integer
+          description: Total number of items
+          example: 48
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
