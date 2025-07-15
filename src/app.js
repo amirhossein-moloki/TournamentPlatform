@@ -48,8 +48,7 @@ app.use(xss); // Your custom XSS protection middleware
 
 // --- استفاده صحیح از میان‌افزارهای CSRF ---
 // حالا از خصوصیات tokenProviderMiddleware و csrfSynchronizerMiddleware از آبجکت ایمپورت شده استفاده می‌کنیم.
-app.use(csrfMiddleware.tokenProviderMiddleware);
-app.use(csrfMiddleware.csrfSynchronizerMiddleware);
+app.use(csrfMiddleware);
 // --- پایان استفاده صحیح ---
 
 app.use(express.static('public'));
