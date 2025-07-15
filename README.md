@@ -1,84 +1,84 @@
-# Tournament Platform
+# پلتفرم مسابقات
 
-A comprehensive, secure, and scalable tournament platform built with Node.js, Express, PostgreSQL, Redis, RabbitMQ, and Socket.io. This platform supports user registration, wallet management, tournament creation and participation, real-time match updates, and secure result reporting.
+یک پلتفرم مسابقات جامع، امن و مقیاس‌پذیر که با Node.js، Express، PostgreSQL، Redis، RabbitMQ و Socket.io ساخته شده است. این پلتفرم از ثبت‌نام کاربر، مدیریت کیف پول، ایجاد و شرکت در مسابقات، به‌روزرسانی آنی مسابقات و گزارش‌دهی امن نتایج پشتیبانی می‌کند.
 
-## Table of Contents
+## فهرست مطالب
 
-- [Features](#features)
-- [Architectural Principles](#architectural-principles)
-- [Technology Stack](#technology-stack)
-- [Project Structure](#project-structure)
-- [Prerequisites](#prerequisites)
-- [Getting Started](#getting-started)
-  - [Installation](#installation)
-  - [Environment Configuration](#environment-configuration)
-  - [Database Setup](#database-setup)
-  - [Running the Application](#running-the-application)
-- [API Endpoints](#api-endpoints)
-- [WebSocket Events](#websocket-events)
-- [Scripts](#scripts)
+- [ویژگی‌ها](#ویژگیها)
+- [اصول معماری](#اصول-معماری)
+- [پشته فناوری](#پشته-فناوری)
+- [ساختار پروژه](#ساختار-پروژه)
+- [پیش‌نیازها](#پیشنیازها)
+- [شروع به کار](#شروع-به-کار)
+  - [نصب](#نصب)
+  - [پیکربندی محیط](#پیکربندی-محیط)
+  - [راه‌اندازی پایگاه داده](#راهاندازی-پایگاه-داده)
+  - [اجرای برنامه](#اجرای-برنامه)
+- [Endpointهای API](#endpointهای-api)
+- [رویدادهای WebSocket](#رویدادهای-websocket)
+- [اسکریپت‌ها](#اسکریپتها)
 - [CI/CD](#cicd)
-- [Security Considerations](#security-considerations)
-- [Contributing](#contributing)
-- [License](#license)
+- [ملاحظات امنیتی](#ملاحظات-امنیتی)
+- [مشارکت](#مشارکت)
+- [مجوز](#مجوز)
 
-## Features
+## ویژگی‌ها
 
-- **Secure Registration and Authentication**: JWT-based (Access & Refresh Tokens in HttpOnly cookies).
-- **Wallet System**: Top-up with idempotency, transaction history, secure withdrawal requests.
-- **Tournament Management**: Create, list, view details, register for, and manage tournaments. Tournament Managers can manage tournaments for games they are assigned to.
-- **Advanced Role Management**: Supports roles like `PLAYER`, `ADMIN`, `TOURNAMENT_MANAGER`, `TOURNAMENT_SUPPORT`, `GENERAL_SUPPORT` for granular access control.
-- **Flexible Tournament Types**: Supports various entry fees (free, paid cash, paid in-game currency) and prize types (cash, physical items, in-game items).
-- **Team Formation & Coordination**: (Conceptual - basic structure for rooms).
-- **Real-time Match Updates & Chat**: Live bracket updates via Socket.io. Groundwork for a comprehensive real-time chat system between users and support staff (Tournament Support, General Support) is in place with new ChatSession and ChatMessage entities.
-- **Secure Result Reporting**: Signed URLs for screenshot uploads, asynchronous malware scanning.
-- **Dispute Resolution**: Admin panel for moderators.
-- **Prize Payouts**: Asynchronous processing via message queue.
-- **Leaderboards**: Served from a read-optimized database (e.g., Redis).
-- **Admin Panel**: Role-based access for managing users, roles, disputes, and withdrawals.
+- **ثبت‌نام و احراز هویت امن**: مبتنی بر JWT (توکن‌های دسترسی و تازه‌سازی در کوکی‌های HttpOnly).
+- **سیستم کیف پول**: شارژ با قابلیت idempotency، تاریخچه تراکنش‌ها، درخواست‌های برداشت امن.
+- **مدیریت مسابقات**: ایجاد، لیست کردن، مشاهده جزئیات، ثبت‌نام و مدیریت مسابقات. مدیران مسابقات می‌توانند مسابقات مربوط به بازی‌هایی که به آنها اختصاص داده شده‌اند را مدیریت کنند.
+- **مدیریت نقش پیشرفته**: پشتیبانی از نقش‌هایی مانند `PLAYER`, `ADMIN`, `TOURNAMENT_MANAGER`, `TOURNAMENT_SUPPORT`, `GENERAL_SUPPORT` برای کنترل دسترسی دقیق.
+- **انواع مسابقات انعطاف‌پذیر**: پشتیبانی از انواع هزینه‌های ورودی (رایگان، نقدی، ارز درون بازی) و انواع جوایز (نقدی، فیزیکی، آیتم‌های درون بازی).
+- **تشکیل و هماهنگی تیم**: (مفهومی - ساختار اولیه برای اتاق‌ها).
+- **به‌روزرسانی آنی مسابقات و چت**: به‌روزرسانی زنده براکت از طریق Socket.io. زیرساخت برای یک سیستم چت جامع آنی بین کاربران و کارکنان پشتیبانی (پشتیبانی مسابقات، پشتیبانی عمومی) با موجودیت‌های جدید ChatSession و ChatMessage فراهم شده است.
+- **گزارش‌دهی امن نتایج**: URLهای امضا شده برای آپلود اسکرین‌شات، اسکن ناهمزمان بدافزار.
+- **حل اختلاف**: پنل ادمین برای مدیران.
+- **پرداخت جوایز**: پردازش ناهمزمان از طریق صف پیام.
+- **لیدر بوردها**: ارائه شده از یک پایگاه داده بهینه‌سازی شده برای خواندن (مانند Redis).
+- **پنل ادمین**: دسترسی مبتنی بر نقش برای مدیریت کاربران، نقش‌ها، اختلافات و برداشت‌ها.
 
-## Architectural Principles
+## اصول معماری
 
-- **Event-Driven Choreography**: Decoupled services using a Message Bus (RabbitMQ).
-- **Clean Architecture**: Separation of Domain, Application, and Infrastructure layers.
-- **Secure by Design**: Security integrated at all stages of development.
+- **هماهنگی رویداد محور**: سرویس‌های جدا شده با استفاده از یک باس پیام (RabbitMQ).
+- **معماری پاک**: جداسازی لایه‌های دامنه، برنامه و زیرساخت.
+- **امنیت در طراحی**: امنیت در تمام مراحل توسعه یکپارچه شده است.
 
-## Technology Stack
+## پشته فناوری
 
-- **Backend**: Node.js, Express.js
-- **Database**: PostgreSQL (with Sequelize ORM)
-- **Caching**: Redis
-- **Message Queue**: RabbitMQ (amqplib)
-- **WebSockets**: Socket.io
-- **Authentication**: JSON Web Tokens (jsonwebtoken), bcryptjs
-- **Validation**: Joi
-- **Logging**: Winston
-- **Containerization**: Docker, Docker Compose
+- **بک‌اند**: Node.js, Express.js
+- **پایگاه داده**: PostgreSQL (با Sequelize ORM)
+- **کش**: Redis
+- **صف پیام**: RabbitMQ (amqplib)
+- **وب‌سوکت**: Socket.io
+- **احراز هویت**: JSON Web Tokens (jsonwebtoken), bcryptjs
+- **اعتبارسنجی**: Joi
+- **لاگ‌گیری**: Winston
+- **کانتینرسازی**: Docker, Docker Compose
 - **CI/CD**: GitHub Actions
-- **Testing**: Jest, Supertest
-- **Linters/Formatters**: ESLint, Prettier
+- **تست**: Jest, Supertest
+- **لینتر/فرمتتر**: ESLint, Prettier
 
-## Project Structure
+## ساختار پروژه
 
-The project follows a Clean Architecture pattern:
+پروژه از الگوی معماری پاک پیروی می‌کند:
 
 ```
 /tournament-platform
-├── config/         # Environment and application configurations
-├── db/             # Database migrations and seeders
-├── docs/           # API documentation (e.g., OpenAPI specs)
+├── config/         # پیکربندی‌های محیط و برنامه
+├── db/             # مایگریشن‌ها و سیدرهای پایگاه داده
+├── docs/           # مستندات API (مانند مشخصات OpenAPI)
 ├── src/
-│   ├── application/  # Use cases, application-specific logic
-│   ├── domain/       # Core business logic, entities, repository interfaces
-│   │   └── chat/     # Entities for the chat system (ChatSession, ChatMessage)
-│   ├── infrastructure/ # Database connectors, external service adapters (cache, messaging)
-│   ├── presentation/   # API routes, WebSocket handlers, webhook controllers
-│   ├── middleware/   # Express middleware (auth, error handling, RBAC)
-│   ├── workers/      # Background job processors (RabbitMQ consumers)
-│   ├── utils/        # Shared utilities (logger, API response/error classes)
-│   └── app.js        # Express application setup
-├── tests/          # Unit, integration, e2e, contract, performance tests
-├── .github/        # GitHub Actions workflows
+│   ├── application/  # موارد استفاده، منطق خاص برنامه
+│   ├── domain/       # منطق کسب‌وکار اصلی، موجودیت‌ها، رابط‌های ریپازیتوری
+│   │   └── chat/     # موجودیت‌های سیستم چت (ChatSession, ChatMessage)
+│   ├── infrastructure/ # اتصالات پایگاه داده، آداپتورهای سرویس خارجی (کش، پیام‌رسانی)
+│   ├── presentation/   # مسیرهای API، کنترل‌کننده‌های WebSocket، کنترل‌کننده‌های وب‌هوک
+│   ├── middleware/   # میان‌افزارهای Express (احراز هویت، مدیریت خطا، RBAC)
+│   ├── workers/      # پردازنده‌های کارهای پس‌زمینه (مصرف‌کنندگان RabbitMQ)
+│   ├── utils/        # ابزارهای مشترک (لاگر، کلاس‌های پاسخ/خطای API)
+│   └── app.js        # راه‌اندازی برنامه Express
+├── tests/          # تست‌های واحد، یکپارچه‌سازی، e2e، قرارداد، عملکرد
+├── .github/        # گردش‌های کاری GitHub Actions
 ├── .dockerignore
 ├── .env.example
 ├── .eslintrc.js
@@ -88,243 +88,243 @@ The project follows a Clean Architecture pattern:
 ├── Dockerfile
 ├── jsconfig.json
 ├── package.json
-└── server.js       # Main application entry point
+└── server.js       # نقطه ورود اصلی برنامه
 ```
 
-## Prerequisites
+## پیش‌نیازها
 
-- [Node.js](https://nodejs.org/) (version specified in `package.json` engines)
-- [npm](https://www.npmjs.com/) or [Yarn](https://yarnpkg.com/)
-- [Docker](https://www.docker.com/get-started) and [Docker Compose](https://docs.docker.com/compose/install/) (for containerized setup)
-- [PostgreSQL](https://www.postgresql.org/download/) (if running locally without Docker)
-- [Redis](https://redis.io/download) (if running locally without Docker)
-- [RabbitMQ](https://www.rabbitmq.com/download.html) (if running locally without Docker)
+- [Node.js](https://nodejs.org/) (نسخه مشخص شده در `package.json` engines)
+- [npm](https://www.npmjs.com/) یا [Yarn](https://yarnpkg.com/)
+- [Docker](https://www.docker.com/get-started) و [Docker Compose](https://docs.docker.com/compose/install/) (برای راه‌اندازی کانتینری)
+- [PostgreSQL](https://www.postgresql.org/download/) (در صورت اجرا به صورت محلی بدون Docker)
+- [Redis](https://redis.io/download) (در صورت اجرا به صورت محلی بدون Docker)
+- [RabbitMQ](https://www.rabbitmq.com/download.html) (در صورت اجرا به صورت محلی بدون Docker)
 
-## Getting Started
+## شروع به کار
 
-### Installation
+### نصب
 
-1.  **Clone the repository:**
+۱.  **کلون کردن ریپازیتوری:**
     ```bash
     git clone <repository-url>
     cd tournament-platform
     ```
 
-2.  **Install dependencies:**
+۲.  **نصب وابستگی‌ها:**
     ```bash
     npm install
-    # or
+    # یا
     # yarn install
     ```
 
-### Environment Configuration
+### پیکربندی محیط
 
-1.  **Create a `.env` file** by copying the example:
+۱.  **ایجاد یک فایل `.env`** با کپی کردن از نمونه:
     ```bash
     cp .env.example .env
     ```
-2.  **Update the `.env` file** with your specific configurations for:
-    - Application (PORT, API_BASE_URL)
-    - Database (DB_HOST, DB_PORT, DB_USER, DB_PASSWORD, DB_NAME)
-    - JWT (JWT_SECRET, token expirations)
+۲.  **به‌روزرسانی فایل `.env`** با پیکربندی‌های خاص خود برای:
+    - برنامه (PORT, API_BASE_URL)
+    - پایگاه داده (DB_HOST, DB_PORT, DB_USER, DB_PASSWORD, DB_NAME)
+    - JWT (JWT_SECRET, انقضای توکن)
     - Redis (REDIS_HOST, REDIS_PORT, REDIS_PASSWORD)
-    - RabbitMQ (RABBITMQ_URL, queue names)
-    - Payment Gateway (API_KEY, WEBHOOK_SECRET) - Note: This might be for a generic gateway.
-    - **Zarinpal Payment Gateway**:
-        - `ZARINPAL_MERCHANT_ID`: Your Zarinpal merchant ID.
-        - `ZARINPAL_ACCESS_TOKEN` (Optional): Your Zarinpal access token, if using features like refunds.
+    - RabbitMQ (RABBITMQ_URL, نام صف‌ها)
+    - درگاه پرداخت (API_KEY, WEBHOOK_SECRET) - توجه: این ممکن است برای یک درگاه عمومی باشد.
+    - **درگاه پرداخت زرین‌پال**:
+        - `ZARINPAL_MERCHANT_ID`: کد مرچنت زرین‌پال شما.
+        - `ZARINPAL_ACCESS_TOKEN` (اختیاری): توکن دسترسی زرین‌پال شما، در صورت استفاده از ویژگی‌هایی مانند بازپرداخت.
     - AWS S3 (ACCESS_KEY_ID, SECRET_ACCESS_KEY, REGION, BUCKET_NAME)
-    - Logging (LOG_LEVEL, file paths)
-    - Admin User Seeder (ADMIN_EMAIL, ADMIN_PASSWORD)
+    - لاگ‌گیری (LOG_LEVEL, مسیرهای فایل)
+    - سیدر کاربر ادمین (ADMIN_EMAIL, ADMIN_PASSWORD)
 
-### Database Setup
+### راه‌اندازی پایگاه داده
 
-**Using Docker (Recommended):**
-The `docker-compose up` command will automatically set up PostgreSQL, Redis, and RabbitMQ services.
+**با استفاده از Docker (توصیه می‌شود):**
+دستور `docker-compose up` به طور خودکار سرویس‌های PostgreSQL، Redis و RabbitMQ را راه‌اندازی می‌کند.
 
-**Running Locally (without Docker):**
-Ensure you have PostgreSQL, Redis, and RabbitMQ instances running and configured in your `.env` file.
+**اجرا به صورت محلی (بدون Docker):**
+اطمینان حاصل کنید که نمونه‌های PostgreSQL، Redis و RabbitMQ در حال اجرا و در فایل `.env` شما پیکربندی شده‌اند.
 
-**Migrations and Seeding:**
-Once the database service is running (either via Docker or locally and configured):
+**مایگریشن‌ها و سیدینگ:**
+هنگامی که سرویس پایگاه داده در حال اجرا است (از طریق Docker یا به صورت محلی و پیکربندی شده):
 
-1.  **Run database migrations:**
+۱.  **اجرای مایگریشن‌های پایگاه داده:**
     ```bash
     npm run db:migrate
     ```
-2.  **Run database seeders (e.g., to create an admin user):**
+۲.  **اجرای سیدرهای پایگاه داده (مثلاً برای ایجاد یک کاربر ادمین):**
     ```bash
     npm run db:seed
     ```
 
-### Running the Application
+### اجرای برنامه
 
-**Using Docker (Recommended):**
+**با استفاده از Docker (توصیه می‌شود):**
 
-1.  **Build and start containers:**
+۱.  **ساخت و شروع کانتینرها:**
     ```bash
-    npm run docker:build # (if not already built or changes were made to Dockerfile)
+    npm run docker:build # (اگر قبلاً ساخته نشده یا تغییراتی در Dockerfile ایجاد شده است)
     npm run docker:run
     ```
-    The application will be accessible at `http://localhost:<PORT>` (e.g., `http://localhost:3000`).
+    برنامه در `http://localhost:<PORT>` (مثلاً `http://localhost:3000`) قابل دسترسی خواهد بود.
 
-2.  **View logs:**
+۲.  **مشاهده لاگ‌ها:**
     ```bash
     npm run docker:logs
     ```
 
-3.  **Stop containers:**
+۳.  **متوقف کردن کانتینرها:**
     ```bash
     npm run docker:stop
     ```
 
-**Running Locally (without Docker):**
+**اجرا به صورت محلی (بدون Docker):**
 
-1.  **Start the development server:**
+۱.  **شروع سرور توسعه:**
     ```bash
     npm run dev
     ```
-2.  **Start the production server:**
+۲.  **شروع سرور تولید:**
     ```bash
     npm start
     ```
-    The application will be accessible at `http://localhost:<PORT>`.
+    برنامه در `http://localhost:<PORT>` قابل دسترسی خواهد بود.
 
-## API Endpoints
+## Endpointهای API
 
-The API is documented using the OpenAPI 3.x.x specification. The definition file is located at `docs/swagger-generated.json`.
+API با استفاده از مشخصات OpenAPI 3.x.x مستند شده است. فایل تعریف در `docs/swagger-generated.json` قرار دارد.
 
-When the application is running, an interactive Swagger UI is available at the `/api-docs` endpoint (e.g., `http://localhost:3000/api-docs`). This UI allows you to explore the API, view endpoint details, and test them directly in your browser.
+هنگامی که برنامه در حال اجرا است، یک رابط کاربری تعاملی Swagger در Endpoint `/api-docs` (مثلاً `http://localhost:3000/api-docs`) در دسترس است. این رابط کاربری به شما امکان می‌دهد API را کاوش کنید، جزئیات Endpoint را مشاهده کنید و آنها را مستقیماً در مرورگر خود آزمایش کنید.
 
-The `server.js` file is configured to load `docs/swagger-generated.json` and serve it using `swagger-ui-express`.
+فایل `server.js` برای بارگیری `docs/swagger-generated.json` و ارائه آن با استفاده از `swagger-ui-express` پیکربندی شده است.
 
-Key endpoint categories include:
+دسته‌بندی‌های کلیدی Endpointها عبارتند از:
 
-- **Authentication**: Endpoints for user registration, login, token refresh, logout, and email verification.
-- **Users & Admin**: User profile management (self and admin), user listing (admin), role assignment (admin).
-- **Games**: CRUD operations for games (admin).
-- **Tournaments**: Public listing and details, registration. Tournament creation and management by authorized Tournament Managers and Admins.
-- **Matches**: Result submission, fetching match details.
-- **Leaderboards**: Fetching game leaderboards and user ranks.
-- **Wallet**: Deposit initialization, transaction history, withdrawal requests. Admin management of withdrawals.
-- **Admin**: Dispute management, withdrawal approval/rejection, user management, role management.
+- **احراز هویت**: Endpointهای ثبت‌نام کاربر، ورود، تازه‌سازی توکن، خروج و تأیید ایمیل.
+- **کاربران و ادمین**: مدیریت پروفایل کاربر (شخصی و ادمین)، لیست کاربران (ادمین)، تخصیص نقش (ادمین).
+- **بازی‌ها**: عملیات CRUD برای بازی‌ها (ادمین).
+- **مسابقات**: لیست عمومی و جزئیات، ثبت‌نام. ایجاد و مدیریت مسابقات توسط مدیران مسابقات مجاز و ادمین‌ها.
+- **مسابقات**: ارسال نتایج، دریافت جزئیات مسابقه.
+- **لیدر بوردها**: دریافت لیدر بوردهای بازی و رتبه‌های کاربران.
+- **کیف پول**: شروع واریز، تاریخچه تراکنش‌ها، درخواست‌های برداشت. مدیریت برداشت‌ها توسط ادمین.
+- **ادمین**: مدیریت اختلافات، تأیید/رد برداشت‌ها، مدیریت کاربران، مدیریت نقش.
 
-For detailed endpoint specifications, refer to the interactive Swagger UI.
+برای مشخصات دقیق Endpointها، به رابط کاربری تعاملی Swagger مراجعه کنید.
 
-## WebSocket Events
+## رویدادهای WebSocket
 
-Secure WebSocket communication is handled via Socket.io. Key events are detailed in `SOCKET_IO_DOCUMENTATION.md`.
-The platform includes foundational entities (`ChatSession`, `ChatMessage`) for an upcoming comprehensive real-time chat system. This section will be updated as the chat feature is fully implemented. Existing conceptual events:
+ارتباط امن WebSocket از طریق Socket.io مدیریت می‌شود. رویدادهای کلیدی در `SOCKET_IO_DOCUMENTATION.md` به تفصیل شرح داده شده‌اند.
+این پلتفرم شامل موجودیت‌های بنیادی (`ChatSession`, `ChatMessage`) برای یک سیستم چت آنی جامع آینده است. این بخش با پیاده‌سازی کامل ویژگی چت به‌روز خواهد شد. رویدادهای مفهومی موجود:
 
-| Direction          | Event Name     | Description                                                                                              |
+| جهت                | نام رویداد     | توضیحات                                                                                                  |
 | :----------------- | :------------- | :------------------------------------------------------------------------------------------------------- |
-| **Connection**     | `connection`   | Authenticates with Access Token during handshake.                                                        |
-| **Client -> Server** | `joinRoom`     | Request to join a specific chat room (server verifies permission).                                       |
-| **Client -> Server** | `sendMessage`  | Send a message (rate-limited).                                                                           |
-| **Server -> Client** | `newMessage`   | Broadcasts sanitized message to room participants.                                                       |
-| **Server -> Client** | `notification` | Sends a personal notification to a user.                                                                 |
-| **Server -> Client** | `bracketUpdate`| Sends live tournament bracket updates.                                                                   |
+| **اتصال**          | `connection`   | احراز هویت با توکن دسترسی در حین handshake.                                                              |
+| **کلاینت -> سرور**   | `joinRoom`     | درخواست برای پیوستن به یک اتاق چت خاص (سرور مجوز را بررسی می‌کند).                                       |
+| **کلاینت -> سرور**   | `sendMessage`  | ارسال یک پیام (با محدودیت نرخ).                                                                           |
+| **سرور -> کلاینت**   | `newMessage`   | پخش پیام پاک‌سازی شده به شرکت‌کنندگان اتاق.                                                               |
+| **سرور -> کلاینت**   | `notification` | ارسال یک اعلان شخصی به یک کاربر.                                                                         |
+| **سرور -> کلاینت**   | `bracketUpdate`| ارسال به‌روزرسانی‌های زنده براکت مسابقات.                                                                 |
 
-## Scripts
+## اسکریپت‌ها
 
-- `npm start`: Starts the application in production mode.
-- `npm run dev`: Starts the application in development mode with Nodemon.
-- `npm run lint`: Lints the codebase using ESLint.
-- `npm run format`: Formats code using Prettier.
-- `npm test`: Runs all tests (unit, integration, etc.) with Jest.
-- `npm run test:unit`, `npm run test:integration`, etc.: Runs specific types of tests.
-- `npm run db:migrate`: Applies database migrations.
-- `npm run db:seed`: Seeds the database.
-- `npm run docker:build`: Builds the Docker image.
-- `npm run docker:run`: Starts services using Docker Compose.
-- `npm run docker:stop`: Stops services using Docker Compose.
-- `npm run docker:logs`: Tails logs from the application container.
+- `npm start`: شروع برنامه در حالت تولید.
+- `npm run dev`: شروع برنامه در حالت توسعه با Nodemon.
+- `npm run lint`: لینت کردن کدبیس با ESLint.
+- `npm run format`: فرمت کردن کد با Prettier.
+- `npm test`: اجرای همه تست‌ها (واحد، یکپارچه‌سازی و غیره) با Jest.
+- `npm run test:unit`, `npm run test:integration`, و غیره: اجرای انواع خاصی از تست‌ها.
+- `npm run db:migrate`: اعمال مایگریشن‌های پایگاه داده.
+- `npm run db:seed`: سیدینگ پایگاه داده.
+- `npm run docker:build`: ساخت ایمیج Docker.
+- `npm run docker:run`: شروع سرویس‌ها با Docker Compose.
+- `npm run docker:stop`: متوقف کردن سرویس‌ها با Docker Compose.
+- `npm run docker:logs`: دنبال کردن لاگ‌های کانتینر برنامه.
 
-## Testing
+## تست
 
-The project uses [Jest](https://jestjs.io/) as its testing framework. Tests are categorized into unit, integration, and potentially other types (E2E, contract, performance).
+پروژه از [Jest](https://jestjs.io/) به عنوان فریم‌ورک تست خود استفاده می‌کند. تست‌ها به دسته‌های واحد، یکپارچه‌سازی و به طور بالقوه انواع دیگر (E2E، قرارداد، عملکرد) تقسیم می‌شوند.
 
-**Running Tests:**
+**اجرای تست‌ها:**
 
-*   **Run all tests (unit, integration, etc.) and generate coverage report:**
+*   **اجرای همه تست‌ها (واحد، یکپارچه‌سازی و غیره) و تولید گزارش پوشش:**
     ```bash
     npm test
     ```
-*   **Run only unit tests:**
+*   **اجرای فقط تست‌های واحد:**
     ```bash
     npm run test:unit
     ```
-    Unit tests are typically located in `tests/unit/` and focus on individual modules or functions in isolation, with dependencies mocked.
-*   **Run only integration tests:**
+    تست‌های واحد معمولاً در `tests/unit/` قرار دارند و بر روی ماژول‌ها یا توابع فردی به صورت مجزا، با وابستگی‌های mock شده، تمرکز دارند.
+*   **اجرای فقط تست‌های یکپارچه‌سازی:**
     ```bash
     npm run test:integration
     ```
-    Integration tests are located in `tests/integration/` and test the interaction between different components, such as API endpoints or services with database layers. These tests may require a running test database (as configured in `.env.test`).
-*   **Run a specific test file or suite:**
-    You can pass a path or pattern to Jest via the npm scripts:
+    تست‌های یکپارچه‌سازی در `tests/integration/` قرار دارند و تعامل بین اجزای مختلف، مانند Endpointهای API یا سرویس‌ها با لایه‌های پایگاه داده را آزمایش می‌کنند. این تست‌ها ممکن است به یک پایگاه داده تست در حال اجرا (همانطور که در `.env.test` پیکربندی شده) نیاز داشته باشند.
+*   **اجرای یک فایل یا مجموعه تست خاص:**
+    می‌توانید یک مسیر یا الگو را از طریق اسکریپت‌های npm به Jest ارسال کنید:
     ```bash
-    # Example: Run all tests in a specific directory
+    # مثال: اجرای همه تست‌ها در یک دایرکتوری خاص
     npm test -- tests/unit/domain/
-    # Example: Run a single test file
+    # مثال: اجرای یک فایل تست واحد
     npm test -- tests/integration/auth.routes.test.js
-    # Example: Run tests matching a specific name (using Jest's -t flag)
+    # مثال: اجرای تست‌های مطابق با یک نام خاص (با استفاده از فلگ -t Jest)
     npm test -- -t "should register a user"
     ```
-    Note the `--` before passing Jest-specific arguments when using `npm test`. For specific scripts like `npm run test:unit`, you can often append the path directly:
+    به `--` قبل از ارسال آرگومان‌های خاص Jest هنگام استفاده از `npm test` توجه کنید. برای اسکریپت‌های خاص مانند `npm run test:unit`، اغلب می‌توانید مسیر را مستقیماً اضافه کنید:
     ```bash
     npm run test:unit tests/unit/domain/user/user.entity.test.js
     ```
 
-**Test Environment:**
+**محیط تست:**
 
-*   Ensure you have a `.env.test` file configured, especially for database connection details for integration tests. This file is typically copied from `.env.example` and customized.
-*   The `NODE_ENV=test` is automatically set by the test scripts, which may alter application behavior (e.g., logging levels, database used).
+*   اطمینان حاصل کنید که یک فایل `.env.test` پیکربندی شده دارید، به ویژه برای جزئیات اتصال پایگاه داده برای تست‌های یکپارچه‌سازی. این فایل معمولاً از `.env.example` کپی و سفارشی می‌شود.
+*   `NODE_ENV=test` به طور خودکار توسط اسکریپت‌های تست تنظیم می‌شود، که ممکن است رفتار برنامه را تغییر دهد (مثلاً سطح لاگ‌گیری، پایگاه داده مورد استفاده).
 
-**Coverage:**
+**پوشش:**
 
-*   The `npm test` command automatically generates a coverage report in the `coverage/` directory. You can open `coverage/lcov-report/index.html` in a browser to view detailed coverage statistics.
+*   دستور `npm test` به طور خودکار یک گزارش پوشش در دایرکتوری `coverage/` تولید می‌کند. می‌توانید `coverage/lcov-report/index.html` را در یک مرورگر باز کنید تا آمار دقیق پوشش را مشاهده کنید.
 
 ## CI/CD
 
-The project uses GitHub Actions for Continuous Integration and Continuous Deployment. The workflow (`.github/workflows/ci-cd.yml`) includes:
-- Linting and testing on pushes/pull requests to `main` and `develop`.
-- Building and pushing Docker images to a container registry on pushes to `main` and `develop`.
-- Automated deployment to a staging environment from the `develop` branch.
-- Manual approval for deployment to the production environment from the `main` branch.
+پروژه از GitHub Actions برای یکپارچه‌سازی مداوم و استقرار مداوم استفاده می‌کند. گردش کار (`.github/workflows/ci-cd.yml`) شامل موارد زیر است:
+- لینتینگ و تست در push/pull requestها به `main` و `develop`.
+- ساخت و push ایمیج‌های Docker به یک رجیستری کانتینر در pushها به `main` و `develop`.
+- استقرار خودکار در یک محیط آزمایشی از شاخه `develop`.
+- تأیید دستی برای استقرار در محیط تولید از شاخه `main`.
 
-## Security Considerations
+## ملاحظات امنیتی
 
-- **Authentication**: JWTs with short-lived access tokens and HttpOnly refresh tokens.
-- **Authorization**: Role-Based Access Control (RBAC) middleware. New roles (`TOURNAMENT_MANAGER`, `TOURNAMENT_SUPPORT`, `GENERAL_SUPPORT`) ensure granular access. For example, Tournament Managers can only manage tournaments for games they are assigned to and tournaments they explicitly manage.
-- **Input Validation**: Joi for request body, params, and query validation.
-- **SQL Injection Prevention**: Sequelize ORM handles query sanitization.
-- **XSS Prevention**: Contextual output encoding (though primarily an API, be mindful if serving HTML).
-- **CSRF Protection**: Not typically an issue for stateless APIs using tokens in headers/body, but ensure no session-based auth is mixed. Refresh token cookies should be `SameSite=Strict` or `Lax`.
-- **Secure Headers**: `helmet` middleware is used.
-- **Rate Limiting**: Applied to sensitive endpoints.
-- **Secure File Uploads**: Pre-signed URLs for direct client-to-S3 uploads. Asynchronous malware scanning.
-- **Webhook Security**: Digital signature verification for incoming webhooks.
-- **Secret Management**: All secrets loaded from environment variables (via `.env` in development, platform-provided in production).
-- **Logging**: Comprehensive logging with sensitive data masking/anonymization.
-- **Dependency Management**: Regularly update dependencies and audit for vulnerabilities.
+- **احراز هویت**: JWT با توکن‌های دسترسی کوتاه‌مدت و توکن‌های تازه‌سازی HttpOnly.
+- **مجوزدهی**: کنترل دسترسی مبتنی بر نقش (RBAC). نقش‌های جدید (`TOURNAMENT_MANAGER`, `TOURNAMENT_SUPPORT`, `GENERAL_SUPPORT`) دسترسی دقیق را تضمین می‌کنند. به عنوان مثال، مدیران مسابقات فقط می‌توانند مسابقات مربوط به بازی‌هایی که به آنها اختصاص داده شده‌اند و مسابقاتی که به صراحت مدیریت می‌کنند را مدیریت کنند.
+- **اعتبارسنجی ورودی**: Joi برای اعتبارسنجی بدنه، پارامترها و کوئری درخواست.
+- **جلوگیری از تزریق SQL**: Sequelize ORM پاک‌سازی کوئری را انجام می‌دهد.
+- **جلوگیری از XSS**: کدگذاری خروجی متنی (اگرچه عمدتاً یک API است، در صورت ارائه HTML مراقب باشید).
+- **حفاظت از CSRF**: معمولاً برای APIهای بی‌حالت که از توکن‌ها در هدر/بدنه استفاده می‌کنند، مشکلی نیست، اما اطمینان حاصل کنید که هیچ احراز هویت مبتنی بر جلسه مخلوط نشده باشد. کوکی‌های توکن تازه‌سازی باید `SameSite=Strict` یا `Lax` باشند.
+- **هدرهای امن**: از میان‌افزار `helmet` استفاده می‌شود.
+- **محدودیت نرخ**: برای Endpointهای حساس اعمال می‌شود.
+- **آپلود امن فایل**: URLهای از پیش امضا شده برای آپلود مستقیم کلاینت به S3. اسکن ناهمزمان بدافزار.
+- **امنیت وب‌هوک**: تأیید امضای دیجیتال برای وب‌هوک‌های ورودی.
+- **مدیریت اسرار**: تمام اسرار از متغیرهای محیطی بارگیری می‌شوند (از طریق `.env` در توسعه، ارائه شده توسط پلتفرم در تولید).
+- **لاگ‌گیری**: لاگ‌گیری جامع با پوشاندن/ناشناس‌سازی داده‌های حساس.
+- **مدیریت وابستگی**: به‌روزرسانی منظم وابستگی‌ها و ممیزی برای آسیب‌پذیری‌ها.
 
-## Contributing
+## مشارکت
 
-Contributions are welcome! Please follow these steps:
-1. Fork the repository.
-2. Create a new branch (`git checkout -b feature/your-feature-name`).
-3. Make your changes.
-4. Ensure tests pass (`npm test`).
-5. Commit your changes (`git commit -m 'Add some feature'`).
-6. Push to the branch (`git push origin feature/your-feature-name`).
-7. Open a Pull Request.
+مشارکت‌ها پذیرفته می‌شوند! لطفاً این مراحل را دنبال کنید:
+۱. ریپازیتوری را فورک کنید.
+۲. یک شاخه جدید ایجاد کنید (`git checkout -b feature/your-feature-name`).
+۳. تغییرات خود را ایجاد کنید.
+۴. اطمینان حاصل کنید که تست‌ها با موفقیت انجام می‌شوند (`npm test`).
+۵. تغییرات خود را کامیت کنید (`git commit -m 'Add some feature'`).
+۶. به شاخه push کنید (`git push origin feature/your-feature-name`).
+۷. یک Pull Request باز کنید.
 
-Please ensure your code adheres to the project's linting and formatting standards.
+لطفاً اطمینان حاصل کنید که کد شما به استانداردهای لینتینگ و قالب‌بندی پروژه پایبند است.
 
-## License
+## مجوز
 
-This project is licensed under the ISC License. See the `LICENSE` file (if one exists, or specify here if not creating a separate file) for details.
+این پروژه تحت مجوز ISC است. برای جزئیات بیشتر به فایل `LICENSE` (در صورت وجود، یا در صورت عدم ایجاد فایل جداگانه، در اینجا مشخص کنید) مراجعه کنید.
 
 ---
 
-*This README provides a general overview. Specific implementation details can be found within the codebase and related documentation (`docs/openapi.yml`).*
+*این README یک نمای کلی ارائه می‌دهد. جزئیات پیاده‌سازی خاص را می‌توان در کدبیس و مستندات مرتبط (`docs/openapi.yml`) یافت.*
