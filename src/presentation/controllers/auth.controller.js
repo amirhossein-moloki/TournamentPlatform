@@ -1,5 +1,5 @@
 const httpStatusCodes = require('http-status-codes');
-const { appConfig } = require('../../config/config');
+const { appConfig } = require('../../../config/config.js');
 
 class AuthController {
   constructor(useCases) {

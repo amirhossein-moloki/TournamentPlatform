@@ -64,8 +64,8 @@ const envVarsSchema = Joi.object({
   ADMIN_EMAIL: Joi.string().email().required().description('Default admin email for seeder'),
   ADMIN_PASSWORD: Joi.string().required().description('Default admin password for seeder'),
 
-  RATE_LIMIT_WINDOW_MS: Joi.number().default(15 * 60 * 1000), // 15 minutes
-  RATE_LIMIT_MAX_REQUESTS: Joi.number().default(100),
+  RATE_LIMIT_WINDOW_MS: Joi.any(),
+  RATE_LIMIT_MAX_REQUESTS: Joi.any(),
 
   CORS_ORIGIN: Joi.string().default('*'),
   IDEMPOTENCY_KEY_HEADER: Joi.string().default('X-Idempotency-Key'),

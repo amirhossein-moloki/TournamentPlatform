@@ -9,25 +9,7 @@ const { sequelize } = require('./src/infrastructure/database/postgres.connector'
 const rabbitMQAdapter = require('./src/infrastructure/messaging/rabbitmq.adapter');
 const { initialize: initializeRedis, getClient: getRedisClient } = require('./src/infrastructure/cache/redis.adapter'); // If Redis needs explicit init
 
-// --- اضافه شدن try...catch برای initializeDependencies ---
-let dependencies; // Declare dependencies here to make it accessible in createRoutes
-async function initDependenciesAndCatch() {
-    try {
-        const { initializeDependencies, dependencies: initializedDependencies } = require('./src/config/dependencies');
-        // Ensure Redis client is passed if needed for dependency initialization
-        const redisClient = getRedisClient(); // Get the initialized Redis client
-        await initializeDependencies(redisClient); // Assuming it's an async function or returns a promise
-        dependencies = initializedDependencies; // Assign to the outer 'dependencies' variable
-        console.log('All application dependencies initialized successfully.');
-    } catch (error) {
-        console.error('Failed to initialize application dependencies:');
-        console.error('Raw Error Object from initDependenciesAndCatch:', error);
-        console.error('Error details:', error ? error.message : 'No message available');
-        console.error('Error stack:', error ? error.stack : 'No stack available');
-        process.exit(1);
-    }
-}
-// --- پایان اضافه شدن ---
+const { initialize, getDependencies } = require('./src/config/dependencies');
 
 
 const initializeSocketIO = require('./src/presentation/sockets');
@@ -107,7 +89,8 @@ async function startServer() {
 
         // --- اضافه شدن لاگ برای شروع initializeDependencies ---
         console.log('Initializing application dependencies...');
-        await initDependenciesAndCatch(); // Call the new function to initialize dependencies
+        const redisClient = getRedisClient();
+        await initialize(redisClient);
         console.log('Application dependencies initialized.');
 
         // 3. Connect to Message Queue (e.g., RabbitMQ) and initialize workers
@@ -117,10 +100,10 @@ async function startServer() {
 
         // 4. Initialize routes
         console.log('Initializing API routes...');
-        // --- اضافه شدن try...catch برای createRoutes ---
+        // --- اضافه شدن try...catch для createRoutes ---
         try {
             const createRoutes = require('./src/routes');
-            app.use('/api/v1', createRoutes(dependencies)); // Use the 'dependencies' variable from initDependenciesAndCatch
+            app.use('/api/v1', createRoutes(getDependencies()));
             console.log('API routes initialized successfully.');
         } catch (error) {
             console.error('Failed to initialize API routes:', error);
