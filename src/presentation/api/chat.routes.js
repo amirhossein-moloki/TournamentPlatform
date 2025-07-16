@@ -1,10 +1,9 @@
 const express = require('express');
-const express = require('express');
 const { authenticateToken } = require('../../middleware/auth.middleware');
 const validate = require('../../middleware/validation.middleware');
 const { getChatHistorySchema, createChatSessionSchema } = require('../validators/chat.validator');
 
-function createChatRouter(chatController, userRepository) {
+module.exports = ({ chatController, userRepository }) => {
   const router = express.Router();
   const authMiddleware = authenticateToken(userRepository);
 
@@ -33,5 +32,3 @@ function createChatRouter(chatController, userRepository) {
 
   return router;
 }
-
-module.exports = createChatRouter;

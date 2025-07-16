@@ -12,18 +12,22 @@ module.exports = (dependencies) => {
     const walletRoutes = require('./presentation/api/wallet.routes');
     const chatRoutes = require('./presentation/api/chat.routes');
     const uploadRoutes = require('./presentation/api/upload.routes');
+    const userGameProfilesRoutes = require('./presentation/api/userGameProfiles.routes');
 
-    router.use('/admin', adminRoutes);
-    router.use('/admin/users', adminUserRoutes);
-    router.use('/auth', authRoutes);
-    router.use('/games', gamesRoutes);
-    router.use('/leaderboards', leaderboardsRoutes);
-    router.use('/matches', matchesRoutes);
-    router.use('/teams', teamsRoutes);
-    router.use('/tournaments', tournamentsRoutes);
-    router.use('/wallet', walletRoutes);
-    router.use('/chats', chatRoutes(dependencies.chatController, dependencies.userRepository));
-    router.use('/upload', uploadRoutes);
+
+    router.use('/admin', adminRoutes(dependencies));
+    router.use('/admin/users', adminUserRoutes(dependencies));
+    router.use('/auth', authRoutes(dependencies));
+    router.use('/games', gamesRoutes(dependencies));
+    router.use('/leaderboards', leaderboardsRoutes(dependencies));
+    router.use('/matches', matchesRoutes(dependencies));
+    router.use('/teams', teamsRoutes(dependencies));
+    router.use('/tournaments', tournamentsRoutes(dependencies));
+    router.use('/wallet', walletRoutes(dependencies));
+    router.use('/chats', chatRoutes(dependencies));
+    router.use('/upload', uploadRoutes(dependencies));
+    router.use('/user-game-profiles', userGameProfilesRoutes(dependencies));
+
 
     return router;
 };

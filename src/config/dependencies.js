@@ -114,7 +114,11 @@ function initializeDependencies(redisClient) {
     const getMatchUploadUrlUseCase = new GetMatchUploadUrlUseCase(repositories.matchRepository);
     const submitMatchResultUseCase = new SubmitMatchResultUseCase(repositories.matchRepository);
 
-    const createTeamUseCase = new CreateTeamUseCase(repositories.teamRepository, repositories.teamMemberRepository);
+    const createTeamUseCase = new CreateTeamUseCase({
+        teamRepository: repositories.teamRepository,
+        teamMemberRepository: repositories.teamMemberRepository,
+        userRepository: repositories.userRepository,
+    });
     const getTeamByIdUseCase = new GetTeamByIdUseCase(repositories.teamRepository);
     const getAllTeamsUseCase = new GetAllTeamsUseCase(repositories.teamRepository);
     const updateTeamUseCase = new UpdateTeamUseCase(repositories.teamRepository);
