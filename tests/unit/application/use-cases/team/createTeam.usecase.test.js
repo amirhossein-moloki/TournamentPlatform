@@ -1,7 +1,7 @@
 const CreateTeamUseCase = require('../../../../../src/application/use-cases/team/createTeam.usecase');
 const Team = require('../../../../../src/domain/team/team.entity');
 const TeamMember = require('../../../../../src/domain/team/teamMember.entity');
-const { TeamRoles } = require('../../../../../src/domain/team/teamRole.enums');
+const TeamRole = require('../../../../../src/domain/team/teamRole.enums');
 const ApiError = require('../../../../../src/utils/ApiError');
 const httpStatusCodes = require('http-status-codes');
 const { v4: uuidv4 } = require('uuid');
@@ -40,7 +40,7 @@ describe('CreateTeamUseCase', () => {
     mockUserRepository.findById.mockResolvedValue(owner);
     mockTeamRepository.findByName.mockResolvedValue(null);
     mockTeamRepository.create.mockResolvedValue(createdTeam);
-    mockTeamRepository.findById.mockResolvedValue({ ...createdTeam, members: [new TeamMember({ userId: ownerId, role: TeamRoles.OWNER, status: 'active' })] });
+    mockTeamRepository.findById.mockResolvedValue({ ...createdTeam, members: [new TeamMember({ userId: ownerId, role: TeamRole.OWNER, status: 'active' })] });
 
     const result = await createTeamUseCase.execute(teamData);
 
@@ -48,10 +48,10 @@ describe('CreateTeamUseCase', () => {
     expect(mockTeamRepository.findByName).toHaveBeenCalledWith(teamData.name);
     expect(mockTeamRepository.create).toHaveBeenCalledWith(expect.any(Team));
     expect(mockTeamMemberRepository.create).toHaveBeenCalledWith(expect.any(TeamMember));
-    expect(mockTeamMemberRepository.create.mock.calls[0][0].role).toBe(TeamRoles.OWNER);
+    expect(mockTeamMemberRepository.create.mock.calls[0][0].role).toBe(TeamRole.OWNER);
     expect(result.name).toBe(teamData.name);
     expect(result.members).toHaveLength(1);
-    expect(result.members[0].role).toBe(TeamRoles.OWNER);
+    expect(result.members[0].role).toBe(TeamRole.OWNER);
   });
 
   it('should throw a NOT_FOUND error if owner is not found', async () => {

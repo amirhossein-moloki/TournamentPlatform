@@ -34,7 +34,7 @@ class GetTournamentUseCase {
       const tournament = await this.tournamentRepository.findById(id, findOptions);
 
       if (!tournament) {
-        throw new NotFoundError(`Tournament with ID ${tournamentId} not found.`);
+        throw new NotFoundError(`Tournament with ID ${id} not found.`);
       }
       return tournament;
     } catch (error) {

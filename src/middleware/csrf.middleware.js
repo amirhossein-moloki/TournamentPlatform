@@ -6,4 +6,6 @@ const { csrfSynchronisedProtection } = csrfSync({
   },
 });
 
-module.exports = csrfSynchronisedProtection;
+module.exports = {
+  csrfSynchronisedProtection
+};
