@@ -6,14 +6,8 @@ class CreateGameUseCase {
   }
 
   async execute(gameData) {
-    // Add validation for gameData here if necessary, or use a validation library
-    // Ensure all required fields are present (name, shortName, iconUrl, platforms, supportedModes, winCondition)
-
-    // const game = new Game({ // This is for domain entity, repository should handle persistence details
-    //   ...gameData,
-    // });
-    // For now, repository's create method will receive plain data and return a domain entity
-
+    // gameData includes game details and an array of images
+    // The repository will handle the transaction of creating the game and its associated images
     try {
       const newGame = await this.gameRepository.create(gameData);
       return newGame;
