@@ -6,6 +6,8 @@ class UpdateGameUseCase {
   }
 
   async execute(gameId, updateData) {
+    // updateData can include game details and an array of images
+    // The repository will handle updating the game and its associated images
     if (!gameId) {
       throw new Error('Game ID is required to update a game.');
     }

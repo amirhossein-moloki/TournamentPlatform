@@ -15,6 +15,15 @@ class IGameRepository {
     }
 
     /**
+     * Creates a new game image.
+     * @param {object} imageData - The data for the new game image.
+     * @returns {Promise<import('./gameImage.entity').default>} The created game image entity.
+     */
+    async createImage(imageData) {
+      throw new Error('Method not implemented.');
+    }
+
+    /**
      * Finds a game by its ID.
      * @param {string} gameId - The ID of the game.
      * @returns {Promise<import('./game.entity').default|null>} The game entity or null if not found.

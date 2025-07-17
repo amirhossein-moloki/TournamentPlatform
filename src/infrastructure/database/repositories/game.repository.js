@@ -4,40 +4,63 @@ const Game = require('../../../domain/game/game.entity.js');
 const { Op } = require('sequelize'); // For more complex queries if needed
 
 class GameRepository extends IGameRepository.default {
-  constructor(gameModel) {
+  constructor(gameModel, gameImageModel) {
     super();
     this.GameModel = gameModel;
+    this.GameImageModel = gameImageModel;
   }
 
   async create(gameData) {
+    const { images, ...gameDetails } = gameData;
     try {
-      const newGameModel = await this.GameModel.create(gameData);
-      return Game.fromPersistence(newGameModel.toJSON());
+      const newGameModel = await this.GameModel.create(gameDetails, {
+        include: [{ model: this.GameImageModel, as: 'images' }]
+      });
+
+      if (images && images.length > 0) {
+        const imagePromises = images.map(image => this.createImage({ ...image, gameId: newGameModel.id }));
+        await Promise.all(imagePromises);
+      }
+
+      const gameWithImages = await this.findById(newGameModel.id);
+      return gameWithImages;
+
     } catch (error) {
-      // Handle Sequelize unique constraint errors (e.g., for name, shortName)
       if (error.name === 'SequelizeUniqueConstraintError') {
-        // error.errors is an array of validation error items
         const fields = error.errors.map(e => e.path).join(', ');
         throw new Error(`A game with this ${fields} already exists.`);
       }
-      throw error; // Re-throw other errors
+      throw error;
     }
   }
 
+  async createImage(imageData) {
+    const newImageModel = await this.GameImageModel.create(imageData);
+    return newImageModel.toJSON();
+  }
+
   async findById(gameId) {
-    const gameModel = await this.GameModel.findByPk(gameId);
+    const gameModel = await this.GameModel.findByPk(gameId, {
+      include: [{ model: this.GameImageModel, as: 'images' }]
+    });
     if (!gameModel) return null;
     return Game.fromPersistence(gameModel.toJSON());
   }
 
   async findByShortName(shortName) {
-    const gameModel = await this.GameModel.findOne({ where: { shortName } });
+    const gameModel = await this.GameModel.findOne({
+      where: { shortName },
+      include: [{ model: this.GameImageModel, as: 'images' }]
+    });
     if (!gameModel) return null;
     return Game.fromPersistence(gameModel.toJSON());
   }
 
   async findAll({ filters = {}, includeInactive = false } = {}) {
-    const queryOptions = { where: {} };
+    const queryOptions = {
+      where: {},
+      include: [{ model: this.GameImageModel, as: 'images' }]
+    };
 
     if (!includeInactive) {
       queryOptions.where.isActive = true;
@@ -56,14 +79,25 @@ class GameRepository extends IGameRepository.default {
   }
 
   async update(gameId, updateData) {
+    const { images, ...gameDetails } = updateData;
     const gameModel = await this.GameModel.findByPk(gameId);
     if (!gameModel) {
-      // Or throw a NotFoundError
       return null;
     }
+
     try {
-      const updatedGameModel = await gameModel.update(updateData);
-      return Game.fromPersistence(updatedGameModel.toJSON());
+      await gameModel.update(gameDetails);
+
+      if (images) {
+        // Simple approach: remove existing and add new ones
+        await this.GameImageModel.destroy({ where: { gameId } });
+        const imagePromises = images.map(image => this.createImage({ ...image, gameId }));
+        await Promise.all(imagePromises);
+      }
+
+      const updatedGameWithImages = await this.findById(gameId);
+      return updatedGameWithImages;
+
     } catch (error) {
       if (error.name === 'SequelizeUniqueConstraintError') {
         const fields = error.errors.map(e => e.path).join(', ');

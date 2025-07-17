@@ -13,7 +13,7 @@ const PostgresChatRepository = require('../infrastructure/database/repositories/
 const LeaderboardRedisRepository = require('../infrastructure/database/repositories/leaderboard.redis.repository');
 
 function initializeRepositories(redisClient) {
-    const gameRepository = new GameRepository(db.GameModel);
+    const gameRepository = new GameRepository(db.GameModel, db.GameImageModel);
     const userRepository = new PostgresUserRepository({ UserModel: db.UserModel });
     const userGameProfileRepository = new UserGameProfileRepository(db.UserGameProfileModel, db.GameModel);
     const tournamentParticipantRepository = new PostgresTournamentParticipantRepository(db.TournamentParticipantModel, db.UserModel, db.TournamentModel);
