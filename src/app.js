@@ -11,11 +11,7 @@ const path = require('path');
 const fs = require('fs');
 const cookieParser = require('cookie-parser');
 const xss = require('./middleware/xss.middleware.js');
-const csrfMiddleware = require('./middleware/csrf.middleware');
-// --- تغییر اصلی اینجا است ---
-// ما آبجکتی که از csrf.middleware.js اکسپورت شده (یعنی csrfProtection) را ایمپورت می‌کنیم
-// و نام آن را به 'csrfMiddleware' تغییر دادیم تا با نام 'csrfSync' از کتابخانه اصلی اشتباه نشود.
-// --- پایان تغییر اصلی ---
+const { csrfSynchronisedProtection } = require('./middleware/csrf.middleware');
 
 const app = express();
 
@@ -46,10 +42,7 @@ app.use(cookieParser()); // Cookie parser should be used before CSRF middleware
 
 app.use(xss); // Your custom XSS protection middleware
 
-// --- استفاده صحیح از میان‌افزارهای CSRF ---
-// حالا از خصوصیات tokenProviderMiddleware و csrfSynchronizerMiddleware از آبجکت ایمپورت شده استفاده می‌کنیم.
-app.use(csrfMiddleware);
-// --- پایان استفاده صحیح ---
+app.use(csrfSynchronisedProtection);
 
 app.use(express.static('public'));
 

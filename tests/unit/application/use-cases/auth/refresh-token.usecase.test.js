@@ -17,8 +17,8 @@ describe('RefreshTokenUseCase', () => {
   });
 
   it('should return a new access token for a valid refresh token', async () => {
-    const user = new User('1', 'testuser', 'test@example.com', 'hashedpassword', ['PLAYER'], 'valid-refresh-token');
-    const refreshToken = 'valid-refresh-token';
+    const user = { id: '1', email: 'test@example.com', roles: ['PLAYER'], tokenVersion: 0 };
+    const refreshToken = jwt.sign({ sub: user.id }, appConfig.jwt.secret);
     mockUserRepository.findByRefreshToken.mockResolvedValue(user);
 
     const result = await refreshTokenUseCase.execute(refreshToken);
@@ -34,10 +34,10 @@ describe('RefreshTokenUseCase', () => {
   });
 
   it('should throw an ApiError if the refresh token is invalid', async () => {
-    const refreshToken = 'invalid-refresh-token';
+    const refreshToken = jwt.sign({ sub: '1' }, 'wrong-secret');
     mockUserRepository.findByRefreshToken.mockResolvedValue(null);
 
-    await expect(refreshTokenUseCase.execute(refreshToken)).rejects.toThrow(new ApiError(httpStatusCodes.UNAUTHORIZED, 'Refresh token not recognized or has been invalidated.'));
+    await expect(refreshTokenUseCase.execute(refreshToken)).rejects.toThrow(new ApiError(httpStatusCodes.UNAUTHORIZED, 'Invalid refresh token.'));
   });
 
   it('should throw an ApiError if the refresh token is expired', async () => {

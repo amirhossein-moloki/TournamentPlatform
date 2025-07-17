@@ -7,13 +7,13 @@ const LEADERBOARD_KEY_PREFIX = 'leaderboard';
 const USER_INFO_KEY_PREFIX = 'userinfo'; // For storing username separate from score for efficient updates
 
 class LeaderboardRedisRepository extends LeaderboardRepositoryInterface {
-  constructor() {
+  constructor(redisAdapter) {
     super();
-    this.redisClient = null;
+    this.redisAdapter = redisAdapter;
   }
 
-  setClient(redisClient) {
-    this.redisClient = redisClient;
+  _getClient() {
+    return this.redisAdapter.getClient();
   }
 
   /**
@@ -106,7 +106,7 @@ class LeaderboardRedisRepository extends LeaderboardRepositoryInterface {
 
       // Fetch usernames. Using MGET on HGETALL fields if possible, or multiple HGETs.
       // For simplicity, let's do multiple HGETs. In high performance scenarios, pipeline or Lua script.
-      const usernames = await Promise.all(userInfoKeys.map(key => this.redisClient.hGet(key, 'username')));
+      const usernames = await Promise.all(userInfoKeys.map(key => this._getClient().hGet(key, 'username')));
 
       for (let i = 0; i < results.length; i++) {
         const result = results[i];
@@ -149,12 +149,12 @@ class LeaderboardRedisRepository extends LeaderboardRepositoryInterface {
       const startRankOffset = Math.max(0, userRank - surroundingCount - 1); // -1 because ZREVRANGE is 0-indexed
       const endRankOffset = userRank + surroundingCount -1; // -1 because ZREVRANGE is 0-indexed
 
-      const surroundingResults = await this.redisClient.zRangeWithScores(leaderboardKey, startRankOffset, endRankOffset, { REV: true });
+      const surroundingResults = await redisClient.zRangeWithScores(leaderboardKey, startRankOffset, endRankOffset, { REV: true });
 
       const surroundingEntries = [];
       if (surroundingResults && surroundingResults.length > 0) {
          const userInfoKeys = surroundingResults.map(result => this._getUserInfoKey(result.value));
-         const usernames = await Promise.all(userInfoKeys.map(key => this.redisClient.hGet(key, 'username')));
+         const usernames = await Promise.all(userInfoKeys.map(key => redisClient.hGet(key, 'username')));
 
         for (let i = 0; i < surroundingResults.length; i++) {
             const result = surroundingResults[i];
