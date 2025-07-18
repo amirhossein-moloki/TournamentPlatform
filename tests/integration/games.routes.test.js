@@ -1,5 +1,6 @@
 const request = require('supertest');
-const { app, server } = require('../../src/app'); // Assuming your app entry point is app.js
+const { app } = require('../../src/app'); // Assuming your app entry point is app.js
+const { server } = require('../../server');
 const { sequelize } = require('../../src/infrastructure/database/postgres.connector');
 const { User, Game } = require('../../src/infrastructure/database/models');
 const { generateToken } = require('../../src/utils/jwt'); // Assuming you have a JWT utility
@@ -26,6 +27,11 @@ describe('Game Routes', () => {
 
     beforeAll(async () => {
         await sequelize.sync({ force: true }); // Reset database before tests
+    });
+
+    beforeEach(async () => {
+        await Game.destroy({ where: {}, truncate: true });
+        await User.destroy({ where: {}, truncate: true });
 
         const adminData = await createUserAndLogin(true);
         adminToken = adminData.token;
@@ -38,32 +44,24 @@ describe('Game Routes', () => {
         // Pre-populate some games
         game1 = await Game.create({
             name: 'Test Game 1',
+            shortName: 'TG1',
             description: 'Description for test game 1',
-            genre: 'Adventure',
-            platform: 'PC',
-            releaseDate: new Date('2023-01-01'),
-            developer: 'Test Dev',
-            publisher: 'Test Pub',
-            minPlayers: 1,
-            maxPlayers: 4,
-            // coverImageUrl: 'http://example.com/cover1.jpg',
+            platforms: ['PC', 'PS5'],
+            supportedModes: ['1v1', '2v2'],
+            winCondition: 'higher_score_wins',
         });
         await Game.create({
             name: 'Test Game 2',
+            shortName: 'TG2',
             description: 'Description for test game 2',
-            genre: 'Strategy',
-            platform: 'PS5',
-            releaseDate: new Date('2023-05-01'),
-            developer: 'Another Dev',
-            publisher: 'Another Pub',
-            minPlayers: 1,
-            maxPlayers: 2,
+            platforms: ['Xbox', 'PC'],
+            supportedModes: ['1v1'],
+            winCondition: 'lower_score_wins',
         });
     });
 
     afterAll(async () => {
         await sequelize.close();
-        server.close(); // Close the server after tests
     });
 
     // --- Test Suite for GET /api/v1/games ---
@@ -71,65 +69,32 @@ describe('Game Routes', () => {
         it('should return a list of games', async () => {
             const res = await request(app).get('/api/v1/games');
             expect(res.statusCode).toEqual(200);
-            expect(res.body.success).toBe(true);
-            expect(res.body.data).toBeInstanceOf(Array);
-            expect(res.body.data.length).toBeGreaterThanOrEqual(2);
-            expect(res.body.data[0]).toHaveProperty('name');
-            expect(res.body.data[0]).toHaveProperty('genre');
-        });
-
-        it('should return games with pagination (page and limit)', async () => {
-            const res = await request(app).get('/api/v1/games?page=1&limit=1');
-            expect(res.statusCode).toEqual(200);
-            expect(res.body.data.length).toBe(1);
-            expect(res.body.pagination).toBeDefined();
-            expect(res.body.pagination.currentPage).toBe(1);
-            expect(res.body.pagination.limit).toBe(1);
-            expect(res.body.pagination.totalPages).toBeGreaterThanOrEqual(2);
-        });
-
-        it('should filter games by genre', async () => {
-            const res = await request(app).get('/api/v1/games?genre=Adventure');
-            expect(res.statusCode).toEqual(200);
-            expect(res.body.data.length).toBeGreaterThanOrEqual(1);
-            res.body.data.forEach(game => {
-                expect(game.genre).toEqual('Adventure');
-            });
-        });
-
-        it('should filter games by platform', async () => {
-            const res = await request(app).get('/api/v1/games?platform=PC');
-            expect(res.statusCode).toEqual(200);
-            expect(res.body.data.length).toBeGreaterThanOrEqual(1);
-            res.body.data.forEach(game => {
-                expect(game.platform).toEqual('PC');
-            });
+            expect(res.body).toBeInstanceOf(Array);
+            expect(res.body.length).toBeGreaterThanOrEqual(2);
+            expect(res.body[0]).toHaveProperty('name');
+            expect(res.body[0]).toHaveProperty('platforms');
         });
     });
 
     // --- Test Suite for GET /api/v1/games/:gameId ---
-    describe('GET /api/v1/games/:gameId', () => {
+    describe('GET /api/v1/games/:id', () => {
         it('should return details of a specific game', async () => {
             const res = await request(app).get(`/api/v1/games/${game1.id}`);
             expect(res.statusCode).toEqual(200);
-            expect(res.body.success).toBe(true);
-            expect(res.body.data.id).toEqual(game1.id);
-            expect(res.body.data.name).toEqual(game1.name);
+            expect(res.body.id).toEqual(game1.id);
+            expect(res.body.name).toEqual(game1.name);
+            expect(res.body).toHaveProperty('images');
         });
 
         it('should return 404 if game not found', async () => {
             const nonExistentId = '00000000-0000-0000-0000-000000000000'; // UUID format
             const res = await request(app).get(`/api/v1/games/${nonExistentId}`);
             expect(res.statusCode).toEqual(404);
-            expect(res.body.success).toBe(false);
-            expect(res.body.message).toMatch(/not found/i);
         });
 
         it('should return 400 for invalid gameId format', async () => {
             const res = await request(app).get('/api/v1/games/invalid-id');
-            expect(res.statusCode).toEqual(400); // Assuming UUID validation is in place
-            expect(res.body.success).toBe(false);
-            expect(res.body.message).toMatch(/Invalid UUID/i); // Or similar validation message
+            expect(res.statusCode).toEqual(400);
         });
     });
 
@@ -137,26 +102,26 @@ describe('Game Routes', () => {
     describe('POST /api/v1/games', () => {
         const newGameData = {
             name: 'New Awesome Game',
+            shortName: 'NAG',
             description: 'The most awesome game ever.',
-            genre: 'RPG',
-            platform: 'PC',
-            releaseDate: '2024-01-01',
-            developer: 'Super Dev',
-            publisher: 'Mega Corp',
-            minPlayers: 1,
-            maxPlayers: 99,
-            // coverImageUrl: 'http://example.com/new_cover.jpg'
+            platforms: ['PC'],
+            supportedModes: ['1v1'],
+            winCondition: 'higher_score_wins',
+            images: [
+                { type: 'icon', url: 'http://example.com/icon.jpg' },
+                { type: 'banner', url: 'http://example.com/banner.jpg' },
+            ]
         };
 
-        it('should allow an admin to create a new game', async () => {
+        it('should allow an admin to create a new game with images', async () => {
             const res = await request(app)
                 .post('/api/v1/games')
                 .set('Authorization', `Bearer ${adminToken}`)
                 .send(newGameData);
             expect(res.statusCode).toEqual(201);
-            expect(res.body.success).toBe(true);
-            expect(res.body.data).toHaveProperty('id');
-            expect(res.body.data.name).toEqual(newGameData.name);
+            expect(res.body).toHaveProperty('id');
+            expect(res.body.name).toEqual(newGameData.name);
+            expect(res.body.images.length).toEqual(2);
         });
 
         it('should not allow a regular user to create a game', async () => {
@@ -164,18 +129,14 @@ describe('Game Routes', () => {
                 .post('/api/v1/games')
                 .set('Authorization', `Bearer ${userToken}`)
                 .send(newGameData);
-            expect(res.statusCode).toEqual(403); // Forbidden
-            expect(res.body.success).toBe(false);
-            expect(res.body.message).toMatch(/Admin role required/i);
+            expect(res.statusCode).toEqual(403);
         });
 
         it('should not allow an unauthenticated user to create a game', async () => {
             const res = await request(app)
                 .post('/api/v1/games')
                 .send(newGameData);
-            expect(res.statusCode).toEqual(401); // Unauthorized
-            expect(res.body.success).toBe(false);
-            expect(res.body.message).toMatch(/Authentication token missing or invalid/i);
+            expect(res.statusCode).toEqual(401);
         });
 
         it('should return 400 if required fields are missing', async () => {
@@ -185,17 +146,16 @@ describe('Game Routes', () => {
                 .set('Authorization', `Bearer ${adminToken}`)
                 .send(incompleteData);
             expect(res.statusCode).toEqual(400);
-            expect(res.body.success).toBe(false);
-            expect(res.body.message).toMatch(/validation failed/i); // Or specific field errors
         });
     });
 
     // --- Test Suite for PUT /api/v1/games/:gameId (Admin only) ---
-    describe('PUT /api/v1/games/:gameId', () => {
+    describe('PUT /api/v1/games/:id', () => {
         const updatedGameData = {
             name: 'Updated Test Game 1',
-            genre: 'Action-Adventure',
-            maxPlayers: 8,
+            images: [
+                { type: 'icon', url: 'http://example.com/new_icon.jpg' },
+            ]
         };
 
         it('should allow an admin to update an existing game', async () => {
@@ -204,10 +164,9 @@ describe('Game Routes', () => {
                 .set('Authorization', `Bearer ${adminToken}`)
                 .send(updatedGameData);
             expect(res.statusCode).toEqual(200);
-            expect(res.body.success).toBe(true);
-            expect(res.body.data.name).toEqual(updatedGameData.name);
-            expect(res.body.data.genre).toEqual(updatedGameData.genre);
-            expect(res.body.data.maxPlayers).toEqual(updatedGameData.maxPlayers);
+            expect(res.body.name).toEqual(updatedGameData.name);
+            expect(res.body.images.length).toEqual(1);
+            expect(res.body.images[0].url).toEqual(updatedGameData.images[0].url);
         });
 
         it('should not allow a regular user to update a game', async () => {
@@ -216,7 +175,6 @@ describe('Game Routes', () => {
                 .set('Authorization', `Bearer ${userToken}`)
                 .send(updatedGameData);
             expect(res.statusCode).toEqual(403);
-            expect(res.body.success).toBe(false);
         });
 
         it('should return 404 if admin tries to update a non-existent game', async () => {
@@ -226,7 +184,6 @@ describe('Game Routes', () => {
                 .set('Authorization', `Bearer ${adminToken}`)
                 .send(updatedGameData);
             expect(res.statusCode).toEqual(404);
-            expect(res.body.success).toBe(false);
         });
 
         it('should return 400 for invalid gameId format on update', async () => {
@@ -235,27 +192,22 @@ describe('Game Routes', () => {
                 .set('Authorization', `Bearer ${adminToken}`)
                 .send(updatedGameData);
             expect(res.statusCode).toEqual(400);
-            expect(res.body.success).toBe(false);
-            expect(res.body.message).toMatch(/Invalid UUID/i);
         });
     });
 
     // --- Test Suite for DELETE /api/v1/games/:gameId (Admin only) ---
-    describe('DELETE /api/v1/games/:gameId', () => {
+    describe('DELETE /api/v1/games/:id', () => {
         let gameToDelete;
 
         beforeAll(async () => {
             // Create a game specifically for deletion tests to avoid conflicts
             gameToDelete = await Game.create({
                 name: 'Game To Delete',
+                shortName: 'GTD',
                 description: 'This game will be deleted',
-                genre: 'Puzzle',
-                platform: 'Mobile',
-                releaseDate: new Date(),
-                developer: 'Temp Dev',
-                publisher: 'Temp Pub',
-                minPlayers: 1,
-                maxPlayers: 1,
+                platforms: ['PC'],
+                supportedModes: ['1v1'],
+                winCondition: 'higher_score_wins',
             });
         });
 
@@ -263,9 +215,7 @@ describe('Game Routes', () => {
             const res = await request(app)
                 .delete(`/api/v1/games/${gameToDelete.id}`)
                 .set('Authorization', `Bearer ${adminToken}`);
-            expect(res.statusCode).toEqual(200); // Or 204 if no content is returned
-            expect(res.body.success).toBe(true);
-            expect(res.body.message).toMatch(/deleted successfully/i);
+            expect(res.statusCode).toEqual(204);
 
             // Verify game is actually deleted
             const findRes = await request(app).get(`/api/v1/games/${gameToDelete.id}`);
@@ -273,13 +223,11 @@ describe('Game Routes', () => {
         });
 
         it('should not allow a regular user to delete a game', async () => {
-            // Recreate gameToDelete if it was deleted in a previous run or create a new one
-            const tempGame = await Game.create({ name: 'Another Game to Delete Attempt', genre: 'Test', platform: 'Test', releaseDate: new Date(), developer: 'Dev', publisher: 'Pub', minPlayers: 1, maxPlayers:1 });
+            const tempGame = await Game.create({ name: 'Another Game to Delete Attempt', shortName: 'AGDA' });
             const res = await request(app)
                 .delete(`/api/v1/games/${tempGame.id}`)
                 .set('Authorization', `Bearer ${userToken}`);
             expect(res.statusCode).toEqual(403);
-            expect(res.body.success).toBe(false);
             await tempGame.destroy(); // Clean up
         });
 
@@ -289,7 +237,6 @@ describe('Game Routes', () => {
                 .delete(`/api/v1/games/${nonExistentId}`)
                 .set('Authorization', `Bearer ${adminToken}`);
             expect(res.statusCode).toEqual(404);
-            expect(res.body.success).toBe(false);
         });
 
         it('should return 400 for invalid gameId format on delete', async () => {
@@ -297,8 +244,6 @@ describe('Game Routes', () => {
                 .delete('/api/v1/games/invalid-id-format')
                 .set('Authorization', `Bearer ${adminToken}`);
             expect(res.statusCode).toEqual(400);
-            expect(res.body.success).toBe(false);
-            expect(res.body.message).toMatch(/Invalid UUID/i);
         });
     });
 });

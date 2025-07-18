@@ -1,12 +1,13 @@
 const request = require('supertest');
-const { app, server } = require('../../src/app');
+const { app } = require('../../src/app');
+const { server } = require('../../server');
 const {
     sequelize, User, Game, Tournament, TournamentParticipant, Match,
     DisputeTicket, Transaction, Wallet
 } = require('../../src/infrastructure/database/postgres.connector');
 const { generateToken } = require('../../src/utils/jwt');
 const { TournamentStatus } = require('../../src/domain/tournament/tournament.entity');
-const { DisputeStatus } = require('../../src/domain/dispute/dispute.entity');
+const { DisputeStatus } = require('../../src/domain/dispute/dispute.entity.js');
 const { TransactionStatus, TransactionType } = require('../../src/domain/wallet/transaction.entity');
 
 describe('Admin Routes (/api/v1/admin)', () => {
@@ -41,6 +42,15 @@ describe('Admin Routes (/api/v1/admin)', () => {
             name: 'Admin Test Tournament', gameId: game1.id, entryFee: 10, prizePool: 100, maxParticipants: 2,
             startDate: isoFutureDate(1), organizerId: adminUser.id, status: TournamentStatus.REGISTRATION_OPEN, type: 'SINGLE_ELIMINATION'
         });
+    });
+
+    beforeEach(async () => {
+        await DisputeTicket.destroy({ where: {}, truncate: true });
+        await Transaction.destroy({ where: {}, truncate: true });
+        await Wallet.destroy({ where: {}, truncate: true });
+        await Match.destroy({ where: {}, truncate: true });
+        await TournamentParticipant.destroy({ where: {}, truncate: true });
+
         participant1 = await TournamentParticipant.create({ tournamentId: tournament1.id, userId: regularUser.id, status: 'REGISTERED' });
         // Need another user for a match
         const tempUserForMatch = await User.create({username: 'tempMatchPlayer', email: 'tempMatch@example.com', password:'password'});
@@ -78,7 +88,14 @@ describe('Admin Routes (/api/v1/admin)', () => {
 
     afterAll(async () => {
         await sequelize.close();
-        server.close();
+    });
+
+    beforeEach(async () => {
+        await DisputeTicket.destroy({ where: {}, truncate: true });
+        await Transaction.destroy({ where: {}, truncate: true });
+        await Wallet.destroy({ where: {}, truncate: true });
+        await Match.destroy({ where: {}, truncate: true });
+        await TournamentParticipant.destroy({ where: {}, truncate: true });
     });
 
     // --- Dispute Management ---

@@ -53,7 +53,7 @@ jest.mock('../../src/infrastructure/database/repositories/postgres.user.reposito
 let mockAuthMiddleware;
 
 jest.mock('../../src/middleware/auth.middleware', () => ({
-    authenticateToken: (req, res, next) => mockAuthMiddleware(req, res, next),
+    authenticateToken: jest.fn((req, res, next) => mockAuthMiddleware(req, res, next)),
 }));
 
 const errorHandler = (err, req, res, next) => {
@@ -88,6 +88,10 @@ describe('Auth Routes Integration Tests', () => {
     mockRefreshTokenUseCaseExecuteFn = jest.fn();
     mockSendVerificationEmailUseCaseExecuteFn = jest.fn();
     mockVerifyEmailUseCaseExecuteFn = jest.fn();
+  });
+
+  afterAll(async () => {
+    await sequelize.close();
   });
 
   describe('POST /api/v1/auth/register', () => {

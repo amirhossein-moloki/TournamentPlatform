@@ -25,13 +25,13 @@ const envVarsSchema = Joi.object({
   PORT: Joi.number().default(3000),
   API_BASE_URL: Joi.string().default('/api/v1'),
 
-  DB_HOST: Joi.string().required().description('Database host'),
-  DB_PORT: Joi.number().default(5432),
-  DB_USER: Joi.string().required().description('Database user'),
-  DB_PASSWORD: Joi.string().required().description('Database password'),
-  DB_NAME: Joi.string().required().description('Database name'),
+  DB_HOST: Joi.string().when('DB_DIALECT', { is: 'sqlite', then: Joi.optional(), otherwise: Joi.required() }).description('Database host'),
+  DB_PORT: Joi.number().when('DB_DIALECT', { is: 'sqlite', then: Joi.optional(), otherwise: Joi.required() }),
+  DB_USER: Joi.string().when('DB_DIALECT', { is: 'sqlite', then: Joi.optional(), otherwise: Joi.required() }).description('Database user'),
+  DB_PASSWORD: Joi.string().when('DB_DIALECT', { is: 'sqlite', then: Joi.optional(), otherwise: Joi.required() }).description('Database password'),
+  DB_NAME: Joi.string().when('DB_DIALECT', { is: 'sqlite', then: Joi.optional(), otherwise: Joi.required() }).description('Database name'),
   DB_SSL_ENABLED: Joi.boolean().default(false),
-  DB_DIALECT: Joi.string().default('postgres'), // Added for Sequelize explicit config
+  DB_DIALECT: Joi.string().default('postgres'),
 
   JWT_SECRET: Joi.string().required().description('JWT secret key'),
   JWT_ACCESS_TOKEN_EXPIRATION: Joi.string().default('15m').description('Access token expiration'),
@@ -64,8 +64,8 @@ const envVarsSchema = Joi.object({
   ADMIN_EMAIL: Joi.string().email().required().description('Default admin email for seeder'),
   ADMIN_PASSWORD: Joi.string().required().description('Default admin password for seeder'),
 
-  RATE_LIMIT_WINDOW_MS: Joi.number().default(15 * 60 * 1000), // 15 minutes
-  RATE_LIMIT_MAX_REQUESTS: Joi.number().default(100),
+  RATE_LIMIT_WINDOW_MS: Joi.any(),
+  RATE_LIMIT_MAX_REQUESTS: Joi.any(),
 
   CORS_ORIGIN: Joi.string().default('*'),
   IDEMPOTENCY_KEY_HEADER: Joi.string().default('X-Idempotency-Key'),

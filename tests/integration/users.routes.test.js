@@ -1,16 +1,26 @@
 const request = require('supertest');
-const { app, server } = require('../../src/app');
+const { app } = require('../../src/app');
 const { sequelize, User, Game, UserGameProfile } = require('../../src/infrastructure/database/postgres.connector');
 const { generateToken } = require('../../src/utils/jwt');
 const { redisAdapter } = require('../../src/config/dependencies');
+const { startServer, closeServer } = require('../test-server');
 
 describe('User Routes', () => {
     let adminUser, user1, user2;
     let adminToken, token1, token2;
     let game1;
+    let server;
 
     beforeAll(async () => {
-        await sequelize.sync({ force: true });
+        server = await startServer();
+    });
+
+
+    beforeEach(async () => {
+        await User.destroy({ where: {}, truncate: true, cascade: true });
+        await Game.destroy({ where: {}, truncate: true, cascade: true });
+        await UserGameProfile.destroy({ where: {}, truncate: true, cascade: true });
+
         if (redisAdapter && typeof redisAdapter.initialize === 'function' && !redisAdapter.getClient()) {
             try {
                 await redisAdapter.initialize();
@@ -20,16 +30,16 @@ describe('User Routes', () => {
             }
         }
 
-        adminUser = await User.create({ username: 'userAdmin', email: 'useradmin@example.com', password: 'password', role: 'Admin', isVerified: true });
+        adminUser = await User.create({ id: 'a1b2c3d4-e5f6-7890-1234-567890abcdef', username: 'userAdmin', email: 'useradmin@example.com', password: 'password', role: 'Admin', isVerified: true });
         adminToken = generateToken({ id: adminUser.id, role: adminUser.role, sub: adminUser.id });
 
-        user1 = await User.create({ username: 'testUser1', email: 'user1@example.com', password: 'password123', role: 'User', isVerified: true });
+        user1 = await User.create({ id: 'b2c3d4e5-f6a7-8901-2345-67890abcdef0', username: 'testUser1', email: 'user1@example.com', password: 'password123', role: 'User', isVerified: true });
         token1 = generateToken({ id: user1.id, role: user1.role, sub: user1.id });
 
-        user2 = await User.create({ username: 'testUser2', email: 'user2@example.com', password: 'password123', role: 'User', isVerified: false });
+        user2 = await User.create({ id: 'c3d4e5f6-a7b8-9012-3456-7890abcdef01', username: 'testUser2', email: 'user2@example.com', password: 'password123', role: 'User', isVerified: false });
         token2 = generateToken({ id: user2.id, role: user2.role, sub: user2.id });
 
-        game1 = await Game.create({ name: 'User Game Profile Game', genre: 'RPG', platform: 'PC', releaseDate: new Date(), developer:"Dev", publisher:"Pub", minPlayers:1, maxPlayers:1 });
+        game1 = await Game.create({ id: 'd4e5f6a7-b8c9-0123-4567-890abcdef012', name: 'User Game Profile Game', genre: 'RPG', platform: 'PC', releaseDate: new Date(), developer:"Dev", publisher:"Pub", minPlayers:1, maxPlayers:1 });
 
         // Create a game profile for user1 and game1
         await UserGameProfile.create({
@@ -39,11 +49,6 @@ describe('User Routes', () => {
             rank: 'Gold',
             gameSpecificData: { mmr: 1200 }
         });
-    });
-
-    afterAll(async () => {
-        await sequelize.close();
-        server.close();
     });
 
     // --- /api/v1/users/me ---

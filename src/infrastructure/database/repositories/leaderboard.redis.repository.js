@@ -7,9 +7,13 @@ const LEADERBOARD_KEY_PREFIX = 'leaderboard';
 const USER_INFO_KEY_PREFIX = 'userinfo'; // For storing username separate from score for efficient updates
 
 class LeaderboardRedisRepository extends LeaderboardRepositoryInterface {
-  constructor(redisClient = null) {
+  constructor(redisAdapter) {
     super();
-    this.redisClient = redisClient || redisAdapter.getClient();
+    this.redisAdapter = redisAdapter;
+  }
+
+  _getClient() {
+    return this.redisAdapter.getClient();
   }
 
   /**
@@ -53,12 +57,13 @@ class LeaderboardRedisRepository extends LeaderboardRepositoryInterface {
       // Store/update username. HSET is idempotent.
       // Storing it separately means we don't have to encode it in the sorted set member,
       // which would make score updates and rank lookups more complex if username changes.
-      await this.redisClient.hSet(userInfoKey, 'username', username);
+      const redisClient = this._getClient();
+      await redisClient.hSet(userInfoKey, 'username', username);
       // TODO: Consider adding other user info if needed, e.g., avatarUrl
 
       // Add score to the sorted set.
       // Scores are stored as numbers. Higher scores mean better rank.
-      await this.redisClient.zAdd(leaderboardKey, {
+      await redisClient.zAdd(leaderboardKey, {
         score: score,
         value: userId, // Store userId as the member
       });
@@ -78,8 +83,9 @@ class LeaderboardRedisRepository extends LeaderboardRepositoryInterface {
     const stop = start + limit - 1;
 
     try {
+      const redisClient = this._getClient();
       // Get total items for pagination
-      const totalItems = await this.redisClient.zCard(leaderboardKey);
+      const totalItems = await redisClient.zCard(leaderboardKey);
       if (totalItems === 0) {
         return { entries: [], totalItems: 0 };
       }
@@ -88,7 +94,7 @@ class LeaderboardRedisRepository extends LeaderboardRepositoryInterface {
       // ZREVRANGE returns an array of [member1, score1, member2, score2, ...] if WITHSCORES is used with node-redis v4 client.
       // Or an array of {value: member, score: score} objects. Let's check redis client version / behavior.
       // Assuming node-redis v4, `zRangeWithScores` is more explicit or `zRevRange` with `WITHSCORES`
-      const results = await this.redisClient.zRangeWithScores(leaderboardKey, start, stop, { REV: true });
+      const results = await redisClient.zRangeWithScores(leaderboardKey, start, stop, { REV: true });
       // results is like: [{value: 'userId1', score: 100}, {value: 'userId2', score: 90}]
 
       if (!results || results.length === 0) {
@@ -100,7 +106,7 @@ class LeaderboardRedisRepository extends LeaderboardRepositoryInterface {
 
       // Fetch usernames. Using MGET on HGETALL fields if possible, or multiple HGETs.
       // For simplicity, let's do multiple HGETs. In high performance scenarios, pipeline or Lua script.
-      const usernames = await Promise.all(userInfoKeys.map(key => this.redisClient.hGet(key, 'username')));
+      const usernames = await Promise.all(userInfoKeys.map(key => this._getClient().hGet(key, 'username')));
 
       for (let i = 0; i < results.length; i++) {
         const result = results[i];
@@ -125,8 +131,9 @@ class LeaderboardRedisRepository extends LeaderboardRepositoryInterface {
     let userScore;
 
     try {
+      const redisClient = this._getClient();
       // Atomically get rank and score
-      const pipeline = this.redisClient.multi();
+      const pipeline = redisClient.multi();
       pipeline.zRevRank(leaderboardKey, userId);
       pipeline.zScore(leaderboardKey, userId);
       const [rankResult, scoreResult] = await pipeline.exec();
@@ -142,12 +149,12 @@ class LeaderboardRedisRepository extends LeaderboardRepositoryInterface {
       const startRankOffset = Math.max(0, userRank - surroundingCount - 1); // -1 because ZREVRANGE is 0-indexed
       const endRankOffset = userRank + surroundingCount -1; // -1 because ZREVRANGE is 0-indexed
 
-      const surroundingResults = await this.redisClient.zRangeWithScores(leaderboardKey, startRankOffset, endRankOffset, { REV: true });
+      const surroundingResults = await redisClient.zRangeWithScores(leaderboardKey, startRankOffset, endRankOffset, { REV: true });
 
       const surroundingEntries = [];
       if (surroundingResults && surroundingResults.length > 0) {
          const userInfoKeys = surroundingResults.map(result => this._getUserInfoKey(result.value));
-         const usernames = await Promise.all(userInfoKeys.map(key => this.redisClient.hGet(key, 'username')));
+         const usernames = await Promise.all(userInfoKeys.map(key => redisClient.hGet(key, 'username')));
 
         for (let i = 0; i < surroundingResults.length; i++) {
             const result = surroundingResults[i];
@@ -182,7 +189,8 @@ class LeaderboardRedisRepository extends LeaderboardRepositoryInterface {
   async updateUsername(userId, newUsername) {
     const userInfoKey = this._getUserInfoKey(userId);
     try {
-      await this.redisClient.hSet(userInfoKey, 'username', newUsername);
+      const redisClient = this._getClient();
+      await redisClient.hSet(userInfoKey, 'username', newUsername);
       logger.info(`Username updated for user ${userId} to ${newUsername}`);
     } catch (error) {
       logger.error(`Error updating username for user ${userId}:`, error);

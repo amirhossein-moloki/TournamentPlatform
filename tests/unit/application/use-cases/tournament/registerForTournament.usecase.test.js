@@ -93,8 +93,8 @@ describe('RegisterForTournamentUseCase', () => {
     expect(canRegisterSpy).toHaveBeenCalledTimes(1);
     expect(mockTournamentParticipantRepository.findByUserIdAndTournamentId).toHaveBeenCalledWith(userId, tournamentId);
     expect(mockUserGameProfileRepository.findByUserIdAndGameId).toHaveBeenCalledWith(userId, gameId);
-    expect(mockTournamentParticipantRepository.create).toHaveBeenCalledWith(expect.objectContaining({ userId, tournamentId }));
-    expect(mockTournamentRepository.incrementParticipantCount).toHaveBeenCalledWith(tournamentId);
+    expect(mockTournamentParticipantRepository.create).toHaveBeenCalledWith(expect.objectContaining({ userId, tournamentId }), expect.any(Object));
+    expect(mockTournamentRepository.incrementParticipantCount).toHaveBeenCalledWith(tournamentId, { transaction: expect.any(Object) });
     expect(result).toEqual(expect.objectContaining({ userId, tournamentId }));
   });
 

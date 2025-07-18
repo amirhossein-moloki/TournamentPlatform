@@ -25,9 +25,6 @@ class GameController {
 
   async createGame(req, res, next) {
     try {
-      // TODO: Add input validation (e.g., using Joi) for req.body
-      // Required fields: name, shortName, iconUrl, platforms, supportedModes, winCondition
-      // Optional: description, bannerUrl, isActive
       const gameData = req.body;
       const game = await this.createGameUseCase.execute(gameData);
       res.status(httpStatusCodes.CREATED).json(game.toPlainObject ? game.toPlainObject() : game);
@@ -64,7 +61,6 @@ class GameController {
     try {
       const { gameId } = req.params;
       const updateData = req.body;
-      // TODO: Add input validation for updateData
       if (Object.keys(updateData).length === 0) {
         throw new ApiError(httpStatusCodes.BAD_REQUEST, 'No update data provided.');
       }

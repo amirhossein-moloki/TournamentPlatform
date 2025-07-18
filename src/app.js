@@ -9,6 +9,9 @@ const routes = require('./routes');
 const swaggerUi = require('swagger-ui-express');
 const path = require('path');
 const fs = require('fs');
+const cookieParser = require('cookie-parser');
+const xss = require('./middleware/xss.middleware.js');
+const { csrfSynchronisedProtection } = require('./middleware/csrf.middleware');
 
 const app = express();
 
@@ -35,6 +38,12 @@ app.use(cors({
 
 app.use(express.json({ limit: process.env.REQUEST_LIMIT || '16kb' }));
 app.use(express.urlencoded({ extended: true, limit: process.env.REQUEST_LIMIT || '16kb' }));
+app.use(cookieParser()); // Cookie parser should be used before CSRF middleware
+
+app.use(xss); // Your custom XSS protection middleware
+
+app.use(csrfSynchronisedProtection);
+
 app.use(express.static('public'));
 
 // Rate limiting to prevent brute-force attacks
@@ -51,7 +60,6 @@ if (process.env.NODE_ENV === 'development') {
     app.use(morgan('dev'));
 }
 
-app.use('/api/v1', routes);
 app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerDocument));
 
 app.get('/', (req, res) => {
@@ -62,10 +70,12 @@ app.get('/ping', (req, res) => {
     res.status(200).send('pong');
 });
 
+// If no route handles the request, return a 404 error
 app.use((req, res, next) => {
     next(new ApiError(404, 'Not Found - The requested resource does not exist on this server.'));
 });
 
+// Centralized error handling middleware
 app.use(errorHandler);
 
 module.exports = app;

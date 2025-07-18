@@ -26,27 +26,27 @@ describe('GetTournamentUseCase', () => {
     // Assuming repository returns a full domain entity or data that the use case can return directly
     mockTournamentRepository.findById.mockResolvedValue(expectedTournament);
 
-    const result = await getTournamentUseCase.execute(tournamentId);
+    const result = await getTournamentUseCase.execute({ id: tournamentId });
 
-    expect(mockTournamentRepository.findById).toHaveBeenCalledWith(tournamentId, { includeGame: true, includeOrganizer: true }); // Default includes
+    expect(mockTournamentRepository.findById).toHaveBeenCalledWith(tournamentId, { includeGame: true, includeParticipants: undefined });
     expect(result).toEqual(expectedTournament);
   });
 
   it('should return tournament data with specific includes if provided', async () => {
     const tournamentId = faker.string.uuid();
     const expectedTournament = createTournament({ id: tournamentId });
-    const options = { includeGame: false, includeOrganizer: false, includeParticipants: true };
+    const options = { include: ['participants'] };
     mockTournamentRepository.findById.mockResolvedValue(expectedTournament);
 
-    const result = await getTournamentUseCase.execute(tournamentId, options);
+    const result = await getTournamentUseCase.execute({ id: tournamentId, include: options.include });
 
-    expect(mockTournamentRepository.findById).toHaveBeenCalledWith(tournamentId, options);
+    expect(mockTournamentRepository.findById).toHaveBeenCalledWith(tournamentId, { includeGame: true, includeParticipants: true });
     expect(result).toEqual(expectedTournament);
   });
 
 
   it('should throw ApiError if tournamentId is not provided', async () => {
-    await expect(getTournamentUseCase.execute(null))
+    await expect(getTournamentUseCase.execute({}))
       .rejects.toThrow(new ApiError(httpStatusCodes.BAD_REQUEST, 'Tournament ID is required.'));
   });
 
@@ -54,7 +54,7 @@ describe('GetTournamentUseCase', () => {
     const tournamentId = faker.string.uuid();
     mockTournamentRepository.findById.mockResolvedValue(null); // Simulate tournament not found
 
-    await expect(getTournamentUseCase.execute(tournamentId))
+    await expect(getTournamentUseCase.execute({ id: tournamentId }))
       .rejects.toThrow(new ApiError(httpStatusCodes.NOT_FOUND, `Tournament with ID ${tournamentId} not found.`));
   });
 
@@ -65,7 +65,7 @@ describe('GetTournamentUseCase', () => {
     const consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
 
     try {
-        await getTournamentUseCase.execute(tournamentId);
+        await getTournamentUseCase.execute({ id: tournamentId });
         fail('Expected getTournamentUseCase.execute to throw an error');
     } catch (error) {
         expect(error).toBeInstanceOf(ApiError);

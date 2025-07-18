@@ -1,6 +1,7 @@
 const request = require('supertest');
 const httpStatus = require('http-status');
-const app = require('../../src/app');
+const { app } = require('../../src/app');
+const { server } = require('../../server');
 const { sequelize, User, Team, TeamMember } = require('../../src/infrastructure/database/models');
 const { generateToken } = require('../../src/utils/jwt');
 

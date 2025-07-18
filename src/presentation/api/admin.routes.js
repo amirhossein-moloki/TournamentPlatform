@@ -54,7 +54,7 @@ router.post('/disputes/:id/resolve', authenticateToken, authorizeRole([UserRoles
             type: "object",
             properties: {
                 dispute: { $ref: "#/components/schemas/DisputeTicketResponse" },
-                match: { $ref: "#/components/schemas/Match" }
+                match: { $ref: "#/components/schemas/MatchDetailsResponse" }
             }
         }}}
     }
@@ -123,8 +123,5 @@ router.post('/withdrawals/:id/reject', authenticateToken, authorizeRole([UserRol
     #swagger.responses[403] = { $ref: '#/components/responses/ForbiddenError' }
     #swagger.responses[404] = { $ref: '#/components/responses/NotFoundError' }
 */
-
-const adminUserRoutes = require('./admin/users.routes');
-router.use('/users', adminUserRoutes);
 
 module.exports = router;

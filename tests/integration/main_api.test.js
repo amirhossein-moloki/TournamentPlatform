@@ -5,7 +5,7 @@ const db = require('../../src/infrastructure/database/models'); // Sequelize mod
 // Helper function to clear all data from tables
 async function clearDatabase() {
   const { sequelize } = db;
-  const tableNames = Object.values(sequelize.models).map(model => `"${model.tableName}"`).join(', ');
+  const tableNames = Object.values(db.sequelize.models).map(model => `"${model.tableName}"`).join(', ');
 
   if (!tableNames) {
     return; // No tables to clear
@@ -24,25 +24,7 @@ async function clearDatabase() {
   //   await sequelize.query(`TRUNCATE TABLE "${model.tableName}" RESTART IDENTITY CASCADE;`);
   // }
 
-  // Alternative 2: Disable FK checks, truncate, re-enable (more robust for complex schemas)
-  // This is dialect-specific. For PostgreSQL:
-  try {
-    await sequelize.query("SET session_replication_role = 'replica';"); // Disable FK checks
-    // Iterate through models and truncate.
-    // Using model.destroy with truncate: true was problematic. Let's use direct TRUNCATE.
-    for (const model of Object.values(sequelize.models)) {
-        // We need to ensure tables are truncated in an order that respects FKs,
-        // or rely on CASCADE. If CASCADE is problematic, a sorted list of tables is better.
-        // For now, trying with individual TRUNCATE CASCADE.
-        await sequelize.query(`TRUNCATE TABLE "${model.tableName}" RESTART IDENTITY CASCADE;`);
-    }
-  } catch (error) {
-    console.error("Error during database truncation:", error);
-    // Rethrow or handle as appropriate for your test setup
-    throw error;
-  } finally {
-    await sequelize.query("SET session_replication_role = 'origin';"); // Re-enable FK checks
-  }
+  await sequelize.sync({ force: true });
 }
 
 // Global beforeAll and afterAll hooks

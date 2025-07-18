@@ -24,6 +24,7 @@ describe('Game Entity', () => {
     winCondition: 'higher_score_wins',
     tournament_managers: [uuidv4()],
     tournament_supports: [uuidv4(), uuidv4()],
+    images: [],
     createdAt: now,
     updatedAt: now,
   });
@@ -101,6 +102,7 @@ describe('Game Entity', () => {
         supportedModes: [...baseData.supportedModes],
         tournament_managers: [...baseData.tournament_managers],
         tournament_supports: [...baseData.tournament_supports],
+        images: [],
         createdAt: baseData.createdAt,
         updatedAt: baseData.updatedAt,
       };
@@ -124,6 +126,7 @@ describe('Game Entity', () => {
         winCondition: undefined,
         tournament_managers: [],
         tournament_supports: [],
+        images: [],
         createdAt: game.createdAt,
         updatedAt: game.updatedAt,
       });

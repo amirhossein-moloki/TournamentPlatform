@@ -1,5 +1,6 @@
 const request = require('supertest');
-const { app, server } = require('../../src/app');
+const { app } = require('../../src/app');
+const { server } = require('../../server');
 const { sequelize, User, Game, Tournament, TournamentParticipant, Match } = require('../../src/infrastructure/database/postgres.connector');
 const { generateToken } = require('../../src/utils/jwt');
 const { S3Client, PutObjectCommand } = require("@aws-sdk/client-s3"); // For mocking S3
@@ -40,6 +41,11 @@ describe('Match Routes', () => {
             type: 'SINGLE_ELIMINATION',
             // entryFee: 0,
         });
+    });
+
+    beforeEach(async () => {
+        await Match.destroy({ where: {}, truncate: true });
+        await TournamentParticipant.destroy({ where: {}, truncate: true });
 
         // Enroll participants
         await TournamentParticipant.create({ tournamentId: tournament.id, userId: user1.id, status: 'REGISTERED' });
@@ -69,7 +75,11 @@ describe('Match Routes', () => {
 
     afterAll(async () => {
         await sequelize.close();
-        server.close();
+    });
+
+    beforeEach(async () => {
+        await Match.destroy({ where: {}, truncate: true });
+        await TournamentParticipant.destroy({ where: {}, truncate: true });
     });
 
     describe('GET /api/v1/matches/:id', () => {
@@ -178,7 +188,7 @@ describe('Match Routes', () => {
     describe('POST /api/v1/matches/:id/results', () => {
         // Assume user1 won
         const resultPayload = {
-            winningParticipantId: user1.id, // This should be the User ID
+            winningParticipantId: 'a15a1357-8242-42f5-8495-17482335c6e7', // This should be the User ID
             scoreParticipant1: 2,
             scoreParticipant2: 1,
             resultScreenshotFileKey: 'mocked/s3/filekey/result.png', // From upload-url response

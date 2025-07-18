@@ -20,24 +20,21 @@ class GetTournamentUseCase {
    * @throws {import('../../../utils/errors').NotFoundError} If tournament not found.
    * @throws {import('../../../utils/errors').InternalServerError} If any other error occurs.
    */
-  async execute(tournamentId, options = {}) {
-    if (!tournamentId) {
+  async execute({ id, include }) {
+    if (!id) {
       throw new BadRequestError('Tournament ID is required.');
     }
 
-    // Default options for includes, can be overridden by passed options
-    const defaultOptions = {
-        includeGame: true,
-        includeOrganizer: true,
-        // Add other common includes here if needed, e.g., includeParticipants: false
+    const findOptions = {
+      includeGame: true,
+      includeParticipants: include && include.includes('participants'),
     };
-    const findOptions = { ...defaultOptions, ...options };
 
     try {
-      const tournament = await this.tournamentRepository.findById(tournamentId, findOptions);
+      const tournament = await this.tournamentRepository.findById(id, findOptions);
 
       if (!tournament) {
-        throw new NotFoundError(`Tournament with ID ${tournamentId} not found.`);
+        throw new NotFoundError(`Tournament with ID ${id} not found.`);
       }
       return tournament;
     } catch (error) {

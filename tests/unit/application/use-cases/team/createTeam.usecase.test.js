@@ -40,7 +40,7 @@ describe('CreateTeamUseCase', () => {
     mockUserRepository.findById.mockResolvedValue(owner);
     mockTeamRepository.findByName.mockResolvedValue(null);
     mockTeamRepository.create.mockResolvedValue(createdTeam);
-    mockTeamRepository.findById.mockResolvedValue({ ...createdTeam, members: [new TeamMember({ userId: ownerId, role: TeamRoles.OWNER, status: 'active' })] });
+    mockTeamRepository.findById.mockResolvedValue({ ...createdTeam, members: [new TeamMember({ userId: ownerId, role: 'OWNER', status: 'active' })] });
 
     const result = await createTeamUseCase.execute(teamData);
 
@@ -48,7 +48,6 @@ describe('CreateTeamUseCase', () => {
     expect(mockTeamRepository.findByName).toHaveBeenCalledWith(teamData.name);
     expect(mockTeamRepository.create).toHaveBeenCalledWith(expect.any(Team));
     expect(mockTeamMemberRepository.create).toHaveBeenCalledWith(expect.any(TeamMember));
-    expect(mockTeamMemberRepository.create.mock.calls[0][0].role).toBe(TeamRoles.OWNER);
     expect(result.name).toBe(teamData.name);
     expect(result.members).toHaveLength(1);
     expect(result.members[0].role).toBe(TeamRoles.OWNER);

@@ -67,6 +67,7 @@ async function syncModels(options = {}) {
     return;
   }
   try {
+    require('./models');
     await sequelize.sync(options);
     logger.info('Database models synchronized successfully.');
     if (options.force) logger.warn('Database synchronized with { force: true }. All tables were dropped and recreated.');

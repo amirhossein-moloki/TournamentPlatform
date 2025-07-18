@@ -77,16 +77,17 @@ describe('Team Entity', () => {
   });
 
   describe('changeOwner', () => {
-    it('should change the ownerId', () => {
+    it('should change the ownerId', async () => {
       const team = new Team({ name: 'Test Team', ownerId });
       const newOwnerId = uuidv4();
       const oldUpdatedAt = team.updatedAt;
 
+      await new Promise(resolve => setTimeout(resolve, 1));
+
       team.changeOwner(newOwnerId);
-      team.updatedAt = new Date();
 
       expect(team.ownerId).toBe(newOwnerId);
-      expect(team.updatedAt).not.toEqual(oldUpdatedAt);
+      expect(team.updatedAt.getTime()).toBeGreaterThan(oldUpdatedAt.getTime());
     });
 
     it('should throw an error if newOwnerId is not provided', () => {

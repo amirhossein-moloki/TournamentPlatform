@@ -21,7 +21,7 @@ const mockUserModel = {
 jest.mock('../../../src/infrastructure/database/repositories/postgres.user.repository', () => {
   return jest.fn().mockImplementation(() => {
     return {
-      findByPk: jest.fn().mockResolvedValue({ id: 'user123', roles: ['PLAYER', 'ADMIN'] }),
+      findById: jest.fn().mockResolvedValue({ id: 'user123', roles: ['PLAYER', 'ADMIN'] }),
     };
   });
 });
@@ -42,11 +42,25 @@ describe('Auth Middleware', () => {
 
   describe('authenticateToken', () => {
     it('should call next() and set req.user if token is valid (with roles array)', async () => {
-      const userPayload = { sub: 'user123', email: 'test@example.com', username: 'testuser', roles: ['PLAYER', 'ADMIN'] };
+      const userPayload = { sub: 'user123', email: 'test@example.com', username: 'testuser', roles: ['PLAYER', 'ADMIN'], tokenVersion: 0 };
       const token = jwt.sign(userPayload, appConfig.jwt.secret, { expiresIn: '1h' });
       mockReq.headers['authorization'] = `Bearer ${token}`;
 
-      await authenticateToken(mockReq, mockRes, nextSpy);
+      const userRepository = {
+        findById: jest.fn().mockResolvedValue({
+          id: userPayload.sub,
+          username: userPayload.username,
+          email: userPayload.email,
+          roles: userPayload.roles,
+          tokenVersion: 0,
+          toPublicProfile: () => ({
+            id: userPayload.sub,
+            username: userPayload.username,
+            roles: userPayload.roles,
+          }),
+        }),
+      };
+      await authenticateToken(userRepository)(mockReq, mockRes, nextSpy);
 
       expect(nextSpy).toHaveBeenCalledWith(); // No error
       expect(nextSpy).toHaveBeenCalledTimes(1);
@@ -57,11 +71,25 @@ describe('Auth Middleware', () => {
     });
 
     it('should correctly convert single role string from old token to roles array in req.user', async () => {
-        const userPayloadOldToken = { sub: 'user456', email: 'old@example.com', username: 'olduser', role: 'ADMIN' };
+        const userPayloadOldToken = { sub: 'user456', email: 'old@example.com', username: 'olduser', role: 'ADMIN', tokenVersion: 0 };
         const token = jwt.sign(userPayloadOldToken, appConfig.jwt.secret, { expiresIn: '1h' });
         mockReq.headers['authorization'] = `Bearer ${token}`;
+        const userRepository = {
+            findById: jest.fn().mockResolvedValue({
+              id: userPayloadOldToken.sub,
+              username: userPayloadOldToken.username,
+              email: userPayloadOldToken.email,
+              roles: [userPayloadOldToken.role],
+              tokenVersion: 0,
+              toPublicProfile: () => ({
+                id: userPayloadOldToken.sub,
+                username: userPayloadOldToken.username,
+                roles: [userPayloadOldToken.role],
+              }),
+            }),
+          };
 
-        await authenticateToken(mockReq, mockRes, nextSpy);
+        await authenticateToken(userRepository)(mockReq, mockRes, nextSpy);
         expect(nextSpy).toHaveBeenCalledWith();
         expect(mockReq.user).toBeDefined();
         expect(mockReq.user.id).toBe(userPayloadOldToken.sub);
@@ -69,11 +97,25 @@ describe('Auth Middleware', () => {
     });
 
     it('should set req.user.roles to empty array if no roles or role field in token', async () => {
-        const userPayloadNoRoles = { sub: 'user789', email: 'norole@example.com', username: 'noroleuser' };
+        const userPayloadNoRoles = { sub: 'user789', email: 'norole@example.com', username: 'noroleuser', tokenVersion: 0 };
         const token = jwt.sign(userPayloadNoRoles, appConfig.jwt.secret, { expiresIn: '1h' });
         mockReq.headers['authorization'] = `Bearer ${token}`;
+        const userRepository = {
+            findById: jest.fn().mockResolvedValue({
+              id: userPayloadNoRoles.sub,
+              username: userPayloadNoRoles.username,
+              email: userPayloadNoRoles.email,
+              roles: [],
+              tokenVersion: 0,
+              toPublicProfile: () => ({
+                id: userPayloadNoRoles.sub,
+                username: userPayloadNoRoles.username,
+                roles: [],
+              }),
+            }),
+          };
 
-        await authenticateToken(mockReq, mockRes, nextSpy);
+        await authenticateToken(userRepository)(mockReq, mockRes, nextSpy);
         expect(nextSpy).toHaveBeenCalledWith();
         expect(mockReq.user).toBeDefined();
         expect(mockReq.user.roles).toEqual([]);
@@ -81,7 +123,7 @@ describe('Auth Middleware', () => {
 
 
     it('should call next with ApiError if no token is provided', async () => {
-      await authenticateToken(mockReq, mockRes, nextSpy);
+      await authenticateToken({})(mockReq, mockRes, nextSpy);
       expect(nextSpy).toHaveBeenCalledWith(expect.any(ApiError));
       expect(nextSpy.mock.calls[0][0].statusCode).toBe(httpStatusCodes.UNAUTHORIZED);
       expect(nextSpy.mock.calls[0][0].message).toBe('Access token is required.');
@@ -95,7 +137,7 @@ describe('Auth Middleware', () => {
       // Allow time for token to actually expire
       await new Promise(resolve => setTimeout(resolve, 50));
 
-      await authenticateToken(mockReq, mockRes, nextSpy);
+      await authenticateToken({})(mockReq, mockRes, nextSpy);
       expect(nextSpy).toHaveBeenCalledWith(expect.any(ApiError));
       expect(nextSpy.mock.calls[0][0].statusCode).toBe(httpStatusCodes.UNAUTHORIZED);
       expect(nextSpy.mock.calls[0][0].message).toBe('Access token expired.');
@@ -103,7 +145,7 @@ describe('Auth Middleware', () => {
 
     it('should call next with ApiError if token is invalid', async () => {
       mockReq.headers['authorization'] = 'Bearer invalidtoken123';
-      await authenticateToken(mockReq, mockRes, nextSpy);
+      await authenticateToken({})(mockReq, mockRes, nextSpy);
       expect(nextSpy).toHaveBeenCalledWith(expect.any(ApiError));
       expect(nextSpy.mock.calls[0][0].statusCode).toBe(httpStatusCodes.UNAUTHORIZED);
       expect(nextSpy.mock.calls[0][0].message).toBe('Invalid access token.');
@@ -171,7 +213,21 @@ describe('Auth Middleware', () => {
       const token = jwt.sign(userPayload, appConfig.jwt.secret);
       mockSocket.handshake.auth.token = token;
 
-      await authenticateSocketToken(mockSocket, nextSpy);
+      const userRepository = {
+        findById: jest.fn().mockResolvedValue({
+          id: userPayload.sub,
+          username: userPayload.username,
+          email: userPayload.email,
+          roles: userPayload.roles,
+          tokenVersion: 0,
+          toPublicProfile: () => ({
+            id: userPayload.sub,
+            username: userPayload.username,
+            roles: userPayload.roles,
+          }),
+        }),
+      };
+      await authenticateSocketToken(userRepository)(mockSocket, nextSpy);
       expect(nextSpy).toHaveBeenCalledWith();
       expect(mockSocket.user).toBeDefined();
       expect(mockSocket.user.id).toBe(userPayload.sub);
@@ -182,8 +238,22 @@ describe('Auth Middleware', () => {
       const userPayload = { sub: 'socketuser2', email: 'socket2@example.com', username: 'socketuser2', roles: ['PLAYER'] };
       const token = jwt.sign(userPayload, appConfig.jwt.secret);
       mockSocket.handshake.headers['x-access-token'] = token;
+      const userRepository = {
+        findById: jest.fn().mockResolvedValue({
+          id: userPayload.sub,
+          username: userPayload.username,
+          email: userPayload.email,
+          roles: userPayload.roles,
+          tokenVersion: 0,
+          toPublicProfile: () => ({
+            id: userPayload.sub,
+            username: userPayload.username,
+            roles: userPayload.roles,
+          }),
+        }),
+      };
 
-      await authenticateSocketToken(mockSocket, nextSpy);
+      await authenticateSocketToken(userRepository)(mockSocket, nextSpy);
       expect(nextSpy).toHaveBeenCalledWith();
       expect(mockSocket.user).toBeDefined();
       expect(mockSocket.user.id).toBe(userPayload.sub);
@@ -195,15 +265,29 @@ describe('Auth Middleware', () => {
         const userPayloadOldToken = { sub: 'socketuserOld', role: 'ADMIN' };
         const token = jwt.sign(userPayloadOldToken, appConfig.jwt.secret);
         mockSocket.handshake.auth.token = token;
+        const userRepository = {
+            findById: jest.fn().mockResolvedValue({
+              id: userPayloadOldToken.sub,
+              username: userPayloadOldToken.username,
+              email: userPayloadOldToken.email,
+              roles: [userPayloadOldToken.role],
+              tokenVersion: 0,
+              toPublicProfile: () => ({
+                id: userPayloadOldToken.sub,
+                username: userPayloadOldToken.username,
+                roles: [userPayloadOldToken.role],
+              }),
+            }),
+          };
 
-        await authenticateSocketToken(mockSocket, nextSpy);
+        await authenticateSocketToken(userRepository)(mockSocket, nextSpy);
         expect(nextSpy).toHaveBeenCalledWith();
         expect(mockSocket.user).toBeDefined();
         expect(mockSocket.user.roles).toEqual(['ADMIN']);
     });
 
     it('should call next with Error if no token is provided for socket', async () => {
-      await authenticateSocketToken(mockSocket, nextSpy);
+      await authenticateSocketToken({})(mockSocket, nextSpy);
       expect(nextSpy).toHaveBeenCalledWith(expect.any(Error));
       expect(nextSpy.mock.calls[0][0].message).toBe('Authentication error: No token provided.');
     });
@@ -214,14 +298,14 @@ describe('Auth Middleware', () => {
       mockSocket.handshake.auth.token = expiredToken;
       await new Promise(resolve => setTimeout(resolve, 50));
 
-      await authenticateSocketToken(mockSocket, nextSpy);
+      await authenticateSocketToken({})(mockSocket, nextSpy);
       expect(nextSpy).toHaveBeenCalledWith(expect.any(Error));
       expect(nextSpy.mock.calls[0][0].message).toBe('Authentication error: Token expired.');
     });
 
     it('should call next with Error if socket token is invalid', async () => {
       mockSocket.handshake.auth.token = 'invalidtoken';
-      await authenticateSocketToken(mockSocket, nextSpy);
+      await authenticateSocketToken({})(mockSocket, nextSpy);
       expect(nextSpy).toHaveBeenCalledWith(expect.any(Error));
       expect(nextSpy.mock.calls[0][0].message).toBe('Authentication error: Invalid token.');
     });

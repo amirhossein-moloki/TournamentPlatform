@@ -1,5 +1,6 @@
 const request = require('supertest');
-const { app, server } = require('../../src/app');
+const { app } = require('../../src/app');
+const { server } = require('../../server');
 const { sequelize, User, Game, Tournament, TournamentParticipant } = require('../../src/infrastructure/database/postgres.connector');
 const { generateToken } = require('../../src/utils/jwt');
 const { redisAdapter } = require('../../src/config/dependencies');
@@ -16,6 +17,14 @@ describe('Tournament Routes', () => {
 
     beforeAll(async () => {
         await sequelize.sync({ force: true });
+    });
+
+    beforeEach(async () => {
+        await Tournament.destroy({ where: {}, truncate: true });
+        await TournamentParticipant.destroy({ where: {}, truncate: true });
+        await User.destroy({ where: {}, truncate: true });
+        await Game.destroy({ where: {}, truncate: true });
+
         if (redisAdapter && typeof redisAdapter.initialize === 'function' && !redisAdapter.getClient()) {
             try {
                 await redisAdapter.initialize();
@@ -86,7 +95,6 @@ describe('Tournament Routes', () => {
 
     afterAll(async () => {
         await sequelize.close();
-        server.close();
     });
 
     describe('POST /api/v1/tournaments (Admin Only)', () => {

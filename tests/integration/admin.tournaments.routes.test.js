@@ -1,6 +1,7 @@
 // tests/integration/admin.tournaments.routes.test.js
 const request = require('supertest');
-const { app, server } = require('../../src/app'); // Corrected path and include server for close
+const { app } = require('../../src/app'); // Corrected path and include server for close
+const { server } = require('../../server');
 const db = require('../../src/infrastructure/database/models'); // Sequelize models
 const { generateToken } = require('../../src/utils/jwt'); // Corrected path for generateToken
 const { UserRole } = require('../../src/domain/user/user.entity'); // User roles
@@ -11,33 +12,39 @@ const { TournamentStatus } = require('../../src/domain/tournament/tournament.ent
 let adminUser, regularUser, adminToken, regularUserToken, testGame, testTournament;
 
 // Adjusted setupTestUser to match the User model structure more closely for creation
-const setupTestUser = async (role = UserRole.USER, isVerified = true, usernameSuffix = '') => {
+const setupTestUser = async (role = UserRole.PLAYER, isVerified = true, usernameSuffix = '') => {
   const uniqueSuffix = Date.now() + usernameSuffix;
   const userData = {
     username: `test${role}${uniqueSuffix}`,
     email: `test${role}${uniqueSuffix}@example.com`,
     password: 'password123', // Plain password, will be hashed by User model hooks if set up
-    role: role,
+    roles: [role],
     isVerified: isVerified,
     // tokenVersion: 0, // Assuming User model sets this default or it's handled
   };
   const user = await db.UserModel.create(userData);
   // Pass sub, role for token generation as per typical JWT setup
-  const token = generateToken({ sub: user.id, role: user.role });
+  const token = generateToken({ sub: user.id, roles: user.roles });
   return { user, token };
 };
 
 describe('Admin Tournament Routes', () => {
   beforeAll(async () => {
-    // Clean and setup database before all tests
     await db.sequelize.sync({ force: true }); // Clears and recreates tables
+  });
+
+  beforeEach(async () => {
+    // Clean and setup database before all tests
+    await db.TournamentModel.destroy({ where: {}, truncate: true });
+    await db.UserModel.destroy({ where: {}, truncate: true });
+    await db.GameModel.destroy({ where: {}, truncate: true });
 
     // Create users
     const adminData = await setupTestUser(UserRole.ADMIN, true, 'admin');
     adminUser = adminData.user;
     adminToken = adminData.token;
 
-    const regularData = await setupTestUser(UserRole.USER, true, 'regular'); // Changed to USER from PLAYER if PLAYER is not a direct role
+    const regularData = await setupTestUser(UserRole.PLAYER, true, 'regular'); // Changed to USER from PLAYER if PLAYER is not a direct role
     regularUser = regularData.user;
     regularUserToken = regularData.token;
 
@@ -79,7 +86,6 @@ describe('Admin Tournament Routes', () => {
   });
 
   afterAll(async () => {
-    await server.close(); // Close server
     await db.sequelize.close();
   });
 
@@ -135,10 +141,12 @@ describe('Admin Tournament Routes', () => {
   // --- PATCH /admin/tournaments/:id/status ---
   describe('PATCH /api/v1/admin/tournaments/:id/status', () => {
     let statusTestTournament;
-    beforeAll(async () => { // Create a dedicated tournament for status tests to avoid interference
+    beforeEach(async () => { // Create a dedicated tournament for status tests to avoid interference
         statusTestTournament = await db.TournamentModel.create({
             name: 'Status Test Tournament', gameId: testGame.id, status: 'PENDING',
-            startDate: new Date(Date.now() + 3600000), maxParticipants: 8, entryFee: 0, prizePool: 0
+            startDate: new Date(Date.now() + 3600000), maxParticipants: 8, entryFee: 0, prizePool: 0, type: 'SINGLE_ELIMINATION', organizerId: adminUser.id,
+            rules: 'Standard rules apply.',
+            endDate: new Date(Date.now() + 48 * 60 * 60 * 1000),
         });
     });
 
@@ -193,10 +201,12 @@ describe('Admin Tournament Routes', () => {
     let participantTournament;
     let participantUser;
 
-    beforeAll(async () => {
+    beforeEach(async () => {
         participantTournament = await db.TournamentModel.create({
             name: 'Participant Management Test', gameId: testGame.id, status: 'REGISTRATION_OPEN',
-            startDate: new Date(Date.now() + 3600000), maxParticipants: 8, entryFee: 0, prizePool: 0
+            startDate: new Date(Date.now() + 3600000), maxParticipants: 8, entryFee: 0, prizePool: 0, type: 'SINGLE_ELIMINATION', organizerId: adminUser.id,
+            rules: 'Standard rules apply.',
+            endDate: new Date(Date.now() + 48 * 60 * 60 * 1000),
         });
         // Create a user who will be a participant
         const pUserData = await setupTestUser(UserRole.PLAYER, true, 'participant');

@@ -14,6 +14,7 @@ class Game {
       winCondition, // 'higher_score_wins' or 'lower_score_wins'
       tournament_managers = [], // Array of User IDs
       tournament_supports = [], // Array of User IDs
+      images = [],
       createdAt,
       updatedAt,
     }) {
@@ -32,6 +33,7 @@ class Game {
       this.winCondition = winCondition;
       this.tournament_managers = Array.isArray(tournament_managers) ? [...new Set(tournament_managers)] : [];
       this.tournament_supports = Array.isArray(tournament_supports) ? [...new Set(tournament_supports)] : [];
+      this.images = images;
       this.createdAt = createdAt ? new Date(createdAt) : new Date();
       this.updatedAt = updatedAt ? new Date(updatedAt) : new Date();
     }
@@ -50,6 +52,7 @@ class Game {
         winCondition,
         tournament_managers,
         tournament_supports,
+        images,
         createdAt,
         updatedAt,
       } = persistedData;
@@ -66,6 +69,7 @@ class Game {
         winCondition,
         tournament_managers,
         tournament_supports,
+        images,
         createdAt,
         updatedAt,
       });
@@ -85,6 +89,7 @@ class Game {
         winCondition: this.winCondition,
         tournament_managers: [...this.tournament_managers],
         tournament_supports: [...this.tournament_supports],
+        images: this.images,
         createdAt: this.createdAt,
         updatedAt: this.updatedAt,
       };
@@ -139,8 +144,6 @@ class Game {
         if (details.name !== undefined) this.name = details.name;
         if (details.shortName !== undefined) this.shortName = details.shortName;
         if (details.description !== undefined) this.description = details.description;
-        if (details.iconUrl !== undefined) this.iconUrl = details.iconUrl;
-        if (details.bannerUrl !== undefined) this.bannerUrl = details.bannerUrl;
         if (details.platforms !== undefined && Array.isArray(details.platforms)) {
             this.platforms = [...new Set(details.platforms)];
         }

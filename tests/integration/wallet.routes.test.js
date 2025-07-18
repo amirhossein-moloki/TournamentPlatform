@@ -7,11 +7,7 @@ const httpStatusCodes = require('http-status-codes');
 
 // Mock middleware and use cases
 jest.mock('../../src/middleware/auth.middleware', () => ({ // Corrected path
-  authenticateToken: jest.fn((req, res, next) => {
-    // Simulate successful authentication for most tests
-    req.user = { sub: 'test-user-id', email: 'test@example.com' };
-    next();
-  }),
+  authenticateToken: jest.fn(),
 }));
 
 // Define mock implementations for use case execute methods
@@ -118,7 +114,7 @@ describe('Wallet Routes Integration Tests', () => {
         .send(depositPayload);
 
       expect(response.status).toBe(httpStatusCodes.OK);
-      expect(response.body.data).toEqual(expect.objectContaining({ transactionId: 'tx-1' }));
+      expect(response.body.data).toEqual(mockResponse);
       expect(mockInitializeDepositUseCaseExecute).toHaveBeenCalledWith('test-user-id', depositPayload.amount, depositPayload.currency, idempotencyKey);
     });
 

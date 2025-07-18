@@ -31,7 +31,7 @@ describe('LeaderboardRedisRepository', () => {
 
 
     redisAdapter.getClient.mockReturnValue(mockRedisClient);
-    leaderboardRepository = new LeaderboardRedisRepository();
+    leaderboardRepository = new LeaderboardRedisRepository(redisAdapter);
   });
 
   afterEach(() => {
