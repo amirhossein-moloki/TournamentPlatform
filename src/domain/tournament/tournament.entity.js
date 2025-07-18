@@ -55,7 +55,8 @@ class Tournament {
     // matches = [],       // Simplified, managed by service
     bannerImageUrl = null,
     bracketType = Tournament.BracketType.SINGLE_ELIMINATION,
-    settings = {}
+    settings = {},
+    images = []
   ) {
     if (!id) throw new Error('Tournament ID is required.');
     if (!name) throw new Error('Tournament name is required.');
@@ -103,6 +104,7 @@ class Tournament {
     this.bannerImageUrl = bannerImageUrl;
     this.bracketType = bracketType;
     this.settings = settings;
+    this.images = images;
 
     this.participants = []; // Initialized as empty, populated from persistence
     // this._matches = matches;           // Store as internal, manage via methods
@@ -136,7 +138,8 @@ class Tournament {
       data.updatedAt,
       data.bannerImageUrl,
       data.bracketType,
-      data.settings
+      data.settings,
+      data.images
     );
   }
 
@@ -327,6 +330,7 @@ class Tournament {
         this.bracketType = details.bracketType;
     }
     if (details.settings !== undefined) this.settings = details.settings;
+    if (details.images !== undefined) this.images = details.images;
 
     this.updatedAt = new Date();
   }
