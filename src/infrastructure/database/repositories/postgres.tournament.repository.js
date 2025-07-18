@@ -78,6 +78,20 @@ class PostgresTournamentRepository extends TournamentRepositoryInterface {
           as: 'participants', // This 'as' must match the alias in TournamentModel.associate
         });
       }
+      if (options.includeManagers) {
+        queryOptions.include.push({
+          model: this.UserModel,
+          as: 'managers',
+          through: { attributes: [] },
+        });
+      }
+      if (options.includeSupports) {
+        queryOptions.include.push({
+          model: this.UserModel,
+          as: 'supports',
+          through: { attributes: [] },
+        });
+      }
       // Example: if (options.includeCreator && this.UserModel) {
       //   queryOptions.include.push({ model: this.UserModel, as: 'organizer' }); // Ensure alias matches
       // }

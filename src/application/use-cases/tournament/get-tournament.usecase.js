@@ -28,6 +28,8 @@ class GetTournamentUseCase {
     const findOptions = {
       includeGame: true,
       includeParticipants: include && include.includes('participants'),
+      includeManagers: true,
+      includeSupports: true,
     };
 
     try {

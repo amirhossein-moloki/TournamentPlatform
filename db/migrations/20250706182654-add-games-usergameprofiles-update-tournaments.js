@@ -144,6 +144,11 @@ module.exports = {
       type: 'unique',
       name: 'unique_user_game_profile_constraint', // Optional: specify a name for the constraint
     });
+
+    await queryInterface.addColumn('Tournaments', 'images', {
+      type: Sequelize.ARRAY(Sequelize.JSONB),
+      allowNull: true,
+    });
   },
 
   async down(queryInterface, Sequelize) {
@@ -165,5 +170,7 @@ module.exports = {
 
     // Drop Games table
     await queryInterface.dropTable('Games');
+
+    await queryInterface.removeColumn('Tournaments', 'images');
   }
 };
