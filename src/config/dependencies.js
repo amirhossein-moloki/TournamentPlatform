@@ -114,6 +114,12 @@ function initializeDependencies(redisClient) {
     const getMatchUploadUrlUseCase = new GetMatchUploadUrlUseCase(repositories.matchRepository);
     const submitMatchResultUseCase = new SubmitMatchResultUseCase(repositories.matchRepository);
 
+    const matchController = new MatchController({
+        getMatchUseCase,
+        getMatchUploadUrlUseCase,
+        submitMatchResultUseCase,
+    });
+
     const createTeamUseCase = new CreateTeamUseCase({
         teamRepository: repositories.teamRepository,
         teamMemberRepository: repositories.teamMemberRepository,
@@ -200,6 +206,7 @@ function initializeDependencies(redisClient) {
         teamController,
         chatController,
         uploadController,
+        matchController,
         //... export other dependencies if needed
     };
 }

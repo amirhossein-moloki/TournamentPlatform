@@ -38,7 +38,7 @@ describe('Match Routes', () => {
             organizerId: adminUser.id,
             status: 'OPEN',
             type: 'SINGLE_ELIMINATION',
-            // entryFee: 0,
+            entryFee: 0,
         });
 
         // Enroll participants

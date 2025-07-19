@@ -3,8 +3,8 @@ const request = require('supertest');
 const { app, server } = require('../../src/app'); // Corrected path and include server for close
 const db = require('../../src/infrastructure/database/models'); // Sequelize models
 const { generateToken } = require('../../src/utils/jwt'); // Corrected path for generateToken
-const { UserRole } = require('../../src/domain/user/user.entity'); // User roles
-const { TournamentStatus } = require('../../src/domain/tournament/tournament.entity'); // Tournament statuses
+const { UserRole } = require('../../src/domain/user/user.entity');
+const { TournamentStatus } = require('../../src/domain/tournament/tournament.entity');
 
 
 // Helper to create users and tokens
@@ -29,9 +29,8 @@ const setupTestUser = async (role = UserRole.USER, isVerified = true, usernameSu
 
 describe('Admin Tournament Routes', () => {
   beforeAll(async () => {
+    await db.sequelize.sync({ force: true });
     // Clean and setup database before all tests
-    await db.sequelize.sync({ force: true }); // Clears and recreates tables
-
     // Create users
     const adminData = await setupTestUser(UserRole.ADMIN, true, 'admin');
     adminUser = adminData.user;
@@ -78,9 +77,10 @@ describe('Admin Tournament Routes', () => {
     });
   });
 
-  afterAll(async () => {
-    await server.close(); // Close server
-    await db.sequelize.close();
+  afterAll(done => {
+    db.sequelize.close().then(() => {
+        server.close(done);
+    });
   });
 
   // --- PUT /admin/tournaments/:id ---

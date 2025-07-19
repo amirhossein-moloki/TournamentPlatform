@@ -1,7 +1,8 @@
 const request = require('supertest');
 const httpStatus = require('http-status');
 const app = require('../../src/app');
-const { sequelize, User, Team, TeamMember } = require('../../src/infrastructure/database/models');
+const { sequelize } = require('../../src/infrastructure/database/postgres.connector');
+const { User, Team, TeamMember } = require('../../src/infrastructure/database/models');
 const { generateToken } = require('../../src/utils/jwt');
 
 describe('Team Routes Integration Tests', () => {
@@ -10,13 +11,6 @@ describe('Team Routes Integration Tests', () => {
 
   beforeAll(async () => {
     await sequelize.sync({ force: true });
-  });
-
-  beforeEach(async () => {
-    await TeamMember.destroy({ truncate: true, cascade: true });
-    await Team.destroy({ truncate: true, cascade: true });
-    await User.destroy({ truncate: true, cascade: true });
-
     testUser1 = await User.create({ id: 'a15a1357-8242-42f5-8495-17482335c6e7', username: 'user1', email: 'user1@example.com', password: 'password1', roles: ['PLAYER'], isVerified: true });
     testUser2 = await User.create({ id: 'a15a1357-8242-42f5-8495-17482335c6e8', username: 'user2', email: 'user2@example.com', password: 'password2', roles: ['PLAYER'], isVerified: true });
     adminUser = await User.create({ id: 'a15a1357-8242-42f5-8495-17482335c6e9', username: 'admin', email: 'admin@example.com', password: 'password3', roles: ['ADMIN'], isVerified: true });
@@ -26,8 +20,10 @@ describe('Team Routes Integration Tests', () => {
     adminToken = generateToken({ sub: adminUser.id, roles: adminUser.roles, tokenVersion: adminUser.tokenVersion });
   });
 
-  afterAll(async () => {
-    await sequelize.close();
+  afterAll(done => {
+    sequelize.close().then(() => {
+        server.close(done);
+    });
   });
 
   describe('POST /api/v1/teams', () => {

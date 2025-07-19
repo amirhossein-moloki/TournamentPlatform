@@ -63,12 +63,15 @@ if (process.env.NODE_ENV === 'development') {
 app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerDocument));
 
 app.get('/', (req, res) => {
-    res.status(200).json({ status: 'success', message: 'Server is healthy and running!' });
+    res.status(200).json({ status: 'success', message: 'Server is healthy and running!', csrfToken: req.csrfToken() });
 });
 
 app.get('/ping', (req, res) => {
     res.status(200).send('pong');
 });
+
+// If no route handles the request, return a 404 error
+app.use('/api/v1', routes);
 
 // If no route handles the request, return a 404 error
 app.use((req, res, next) => {

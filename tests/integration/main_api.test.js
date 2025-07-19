@@ -5,50 +5,43 @@ const db = require('../../src/infrastructure/database/models'); // Sequelize mod
 // Helper function to clear all data from tables
 async function clearDatabase() {
   const { sequelize } = db;
-  const tableNames = Object.values(sequelize.models).map(model => `"${model.tableName}"`).join(', ');
+  const models = sequelize.models;
 
-  if (!tableNames) {
-    return; // No tables to clear
-  }
+  const tableNames = Object.keys(models)
+    .sort((a, b) => {
+      const modelA = models[a];
+      const modelB = models[b];
+      const aDependsOnB = Object.values(modelA.associations).some(assoc => assoc.target.name === modelB.name);
+      const bDependsOnA = Object.values(modelB.associations).some(assoc => assoc.target.name === modelA.name);
 
-  // For PostgreSQL, a common way to truncate all tables respecting FKs and restarting identities:
-  // Note: This requires the user connecting to the DB to have appropriate permissions.
-  // Using 'RESTART IDENTITY CASCADE' handles dependencies.
-  // It's generally safer to list tables explicitly if possible,
-  // but for a full test clear, this is common.
-  // We must be careful if there are tables not managed by Sequelize that we don't want to touch.
-  // Assuming all relevant tables are managed by Sequelize here.
+      if (aDependsOnB && !bDependsOnA) {
+        return 1;
+      }
+      if (bDependsOnA && !aDependsOnB) {
+        return -1;
+      }
+      return 0;
+    });
 
-  // Alternative 1: Iterate and truncate individually (might still hit order issues if not careful)
-  // for (const model of Object.values(sequelize.models)) {
-  //   await sequelize.query(`TRUNCATE TABLE "${model.tableName}" RESTART IDENTITY CASCADE;`);
-  // }
-
-  // Alternative 2: Disable FK checks, truncate, re-enable (more robust for complex schemas)
-  // This is dialect-specific. For PostgreSQL:
   try {
-    await sequelize.query("SET session_replication_role = 'replica';"); // Disable FK checks
-    // Iterate through models and truncate.
-    // Using model.destroy with truncate: true was problematic. Let's use direct TRUNCATE.
-    for (const model of Object.values(sequelize.models)) {
-        // We need to ensure tables are truncated in an order that respects FKs,
-        // or rely on CASCADE. If CASCADE is problematic, a sorted list of tables is better.
-        // For now, trying with individual TRUNCATE CASCADE.
-        await sequelize.query(`TRUNCATE TABLE "${model.tableName}" RESTART IDENTITY CASCADE;`);
+    await sequelize.query("SET session_replication_role = 'replica';");
+    for (const tableName of tableNames) {
+        await sequelize.query(`TRUNCATE TABLE "${models[tableName].tableName}" RESTART IDENTITY CASCADE;`);
     }
   } catch (error) {
-    console.error("Error during database truncation:", error);
-    // Rethrow or handle as appropriate for your test setup
-    throw error;
+    // ignore error if table does not exist
+    if (error.name !== 'SequelizeDatabaseError' || !error.message.includes('does not exist')) {
+        console.error("Error during database truncation:", error);
+        throw error;
+    }
   } finally {
-    await sequelize.query("SET session_replication_role = 'origin';"); // Re-enable FK checks
+    await sequelize.query("SET session_replication_role = 'origin';");
   }
 }
 
 // Global beforeAll and afterAll hooks
 beforeAll(async () => {
-  // Ensure DB connection and sync (if needed, though usually handled by app start)
-  // await db.sequelize.sync({ force: true }); // Example: if you want to reset DB structure
+  await db.sequelize.sync({ force: true });
 });
 
 afterAll(async () => {
@@ -98,11 +91,18 @@ describe('Authentication API (/api/v1/auth)', () => {
   };
   let accessToken = '';
   let refreshTokenCookie = ''; // To store the actual cookie string
+  let csrfToken = '';
+
+  beforeEach(async () => {
+    const response = await request(app).get('/');
+    csrfToken = response.body.csrfToken;
+  });
 
   describe('POST /register', () => {
     it('should register a new user successfully', async () => {
       const response = await request(app)
         .post(registerUrl)
+        .set('x-csrf-token', csrfToken)
         .send(testUser);
       expect(response.statusCode).toBe(201);
       expect(response.body.message).toContain('User registered and logged in successfully');
@@ -159,6 +159,7 @@ describe('Authentication API (/api/v1/auth)', () => {
     it('should login an existing user successfully', async () => {
       const response = await request(app)
         .post(loginUrl)
+        .set('x-csrf-token', csrfToken)
         .send({ email: testUser.email, password: testUser.password });
       expect(response.statusCode).toBe(200);
       expect(response.body.message).toContain('Login successful');
@@ -205,6 +206,7 @@ describe('Authentication API (/api/v1/auth)', () => {
       // refreshTokenCookie should be automatically sent by supertest if set correctly
       const response = await request(app)
         .post(refreshUrl)
+        .set('x-csrf-token', csrfToken)
         .set('Cookie', refreshTokenCookie); // Manually set cookie for test
 
       expect(response.statusCode).toBe(200);
@@ -253,6 +255,7 @@ describe('Authentication API (/api/v1/auth)', () => {
     it('should logout user successfully and clear refresh token cookie', async () => {
       const response = await request(app)
         .post(logoutUrl)
+        .set('x-csrf-token', csrfToken)
         .set('Authorization', `Bearer ${accessToken}`)
         .set('Cookie', refreshTokenCookie); // Send current cookie to simulate browser
 

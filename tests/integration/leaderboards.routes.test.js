@@ -121,9 +121,10 @@ describe('Leaderboard Routes', () => {
         }
     });
 
-    afterAll(async () => {
-        await sequelize.close();
-        server.close();
+    afterAll(done => {
+        sequelize.close().then(() => {
+            server.close(done);
+        });
     });
 
     describe('GET /api/v1/leaderboards', () => {
