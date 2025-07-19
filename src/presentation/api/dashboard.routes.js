@@ -1,8 +1,8 @@
-const express = 'require'('express');
-const router = express.Router();
+const express = require('express');
 const { authenticateToken } = require('../../middleware/auth.middleware');
-const dashboardController = require('../controllers/dashboard.controller');
 
-router.get('/', authenticateToken, dashboardController.getDashboardData);
-
-module.exports = router;
+module.exports = ({ dashboardController }) => {
+    const router = express.Router();
+    router.get('/', authenticateToken, dashboardController.getDashboardData);
+    return router;
+};

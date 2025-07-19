@@ -1,5 +1,5 @@
 const Joi = require('joi');
-const { TeamMemberRoles } = require('../../domain/team/teamMember.entity');
+const TeamRole = require('../../domain/team/teamRole.enums');
 
 const addMemberSchema = Joi.object({
     params: Joi.object({
@@ -7,7 +7,7 @@ const addMemberSchema = Joi.object({
     }),
     body: Joi.object({
         userId: Joi.string().uuid().required(),
-        role: Joi.string().valid(...Object.values(TeamMemberRoles)).default(TeamMemberRoles.MEMBER),
+        role: Joi.string().valid(...Object.values(TeamRole)).default(TeamRole.MEMBER),
     }),
 });
 
@@ -24,7 +24,7 @@ const updateMemberRoleSchema = Joi.object({
         userId: Joi.string().uuid().required(),
     }),
     body: Joi.object({
-        role: Joi.string().valid(...Object.values(TeamMemberRoles)).required(),
+        role: Joi.string().valid(...Object.values(TeamRole)).required(),
     }),
 });
 
