@@ -155,7 +155,7 @@ class PostgresWalletRepository extends WalletRepositoryInterface {
   }
 }
 
-module.exports = { PostgresWalletRepository }; // Export as object
+module.exports = PostgresWalletRepository;
 
 // Comments about model definition, migrations, and specific choices are now assumed to be handled
 // by the centralized model definitions and the overall project structure.

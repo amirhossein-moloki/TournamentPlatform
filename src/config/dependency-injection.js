@@ -9,6 +9,7 @@ const { PostgresTeamRepository } = require('../infrastructure/database/repositor
 const { PostgresTeamMemberRepository } = require('../infrastructure/database/repositories/postgres.teamMember.repository');
 const PostgresChatRepository = require('../infrastructure/database/repositories/postgres.chat.repository');
 const LeaderboardRedisRepository = require('../infrastructure/database/repositories/leaderboard.redis.repository');
+const PostgresWalletRepository = require('../infrastructure/database/repositories/postgres.wallet.repository');
 const GetDashboardDataUseCase = require('../application/use-cases/dashboard/get-dashboard-data.usecase');
 const MatchController = require('../presentation/controllers/match.controller');
 const GetMatchUseCase = require('../application/use-cases/match/get-match.usecase');
@@ -49,10 +50,11 @@ function initializeRepositories(redisClient) {
         ChatMessageModel: db.ChatMessageModel
     });
     const leaderboardRepository = new LeaderboardRedisRepository(redisClient);
+    const walletRepository = new PostgresWalletRepository({ WalletModel: db.WalletModel });
 
     const getDashboardDataUseCase = new GetDashboardDataUseCase(
         userRepository,
-        new (require('../infrastructure/database/repositories/postgres.wallet.repository'))({WalletModel: db.WalletModel}),
+        walletRepository,
         tournamentRepository
     );
 
@@ -79,6 +81,7 @@ function initializeRepositories(redisClient) {
         teamMemberRepository,
         chatRepository,
         leaderboardRepository,
+        walletRepository,
         getDashboardDataUseCase,
         matchController,
     };
