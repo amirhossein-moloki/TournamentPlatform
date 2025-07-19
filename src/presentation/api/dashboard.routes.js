@@ -1,4 +1,4 @@
-const express = 'require'('express');
+const express = require('express');
 const router = express.Router();
 const { authenticateToken } = require('../../middleware/auth.middleware');
 const dashboardController = require('../controllers/dashboard.controller');
