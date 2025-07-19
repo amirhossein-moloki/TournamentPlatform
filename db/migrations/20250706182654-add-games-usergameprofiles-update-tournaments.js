@@ -35,11 +35,11 @@ module.exports = {
         allowNull: true,
       },
       platforms: {
-        type: Sequelize.ARRAY(Sequelize.STRING),
+        type: Sequelize.STRING,
         allowNull: false,
       },
       supportedModes: {
-        type: Sequelize.ARRAY(Sequelize.STRING),
+        type: Sequelize.STRING,
         allowNull: false,
       },
       isActive: {
@@ -146,7 +146,7 @@ module.exports = {
     });
 
     await queryInterface.addColumn('Tournaments', 'images', {
-      type: Sequelize.ARRAY(Sequelize.JSONB),
+      type: Sequelize.STRING,
       allowNull: true,
     });
   },

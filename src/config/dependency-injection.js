@@ -11,6 +11,7 @@ const { PostgresTeamRepository } = require('../infrastructure/database/repositor
 const { PostgresTeamMemberRepository } = require('../infrastructure/database/repositories/postgres.teamMember.repository');
 const PostgresChatRepository = require('../infrastructure/database/repositories/postgres.chat.repository');
 const LeaderboardRedisRepository = require('../infrastructure/database/repositories/leaderboard.redis.repository');
+const GetDashboardDataUseCase = require('../application/use-cases/dashboard/get-dashboard-data.usecase');
 
 function initializeRepositories(redisClient) {
     const gameRepository = new GameRepository(db.GameModel, db.GameImageModel);
@@ -46,6 +47,12 @@ function initializeRepositories(redisClient) {
     });
     const leaderboardRepository = new LeaderboardRedisRepository(redisClient);
 
+    const getDashboardDataUseCase = new GetDashboardDataUseCase({
+        userRepository,
+        walletRepository: new (require('../infrastructure/database/repositories/postgres.wallet.repository'))({ WalletModel: db.WalletModel }),
+        tournamentRepository,
+    });
+
     return {
         gameRepository,
         userRepository,
@@ -57,6 +64,7 @@ function initializeRepositories(redisClient) {
         teamMemberRepository,
         chatRepository,
         leaderboardRepository,
+        getDashboardDataUseCase,
     };
 }
 
