@@ -4,10 +4,10 @@ const Game = require('../../../domain/game/game.entity.js');
 const { Op } = require('sequelize'); // For more complex queries if needed
 
 class GameRepository extends IGameRepository.default {
-  constructor(gameModel, gameImageModel) {
+  constructor(models) {
     super();
-    this.GameModel = gameModel;
-    this.GameImageModel = gameImageModel;
+    this.GameModel = models.GameModel;
+    this.GameImageModel = models.GameImageModel;
   }
 
   async create(gameData) {
