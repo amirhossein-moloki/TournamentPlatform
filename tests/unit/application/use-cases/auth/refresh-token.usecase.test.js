@@ -5,6 +5,15 @@ const httpStatusCodes = require('http-status-codes');
 const jwt = require('jsonwebtoken');
 const { appConfig } = require('../../../../../config/config');
 
+jest.mock('../../../../../config/config', () => ({
+  appConfig: {
+    jwt: {
+      secret: 'test-secret',
+      expiresIn: '1h',
+    },
+  },
+}));
+
 describe('RefreshTokenUseCase', () => {
   let refreshTokenUseCase;
   let mockUserRepository;

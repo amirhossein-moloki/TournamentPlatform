@@ -88,6 +88,12 @@ describe('RegisterForTournamentUseCase', () => {
 
   it('should register user successfully', async () => {
     const canRegisterSpy = jest.spyOn(testTournamentEntity, 'canRegister').mockReturnValue(true);
+    mockTournamentRepository.findById.mockResolvedValue(testTournamentEntity);
+    mockTournamentParticipantRepository.findByUserIdAndTournamentId.mockResolvedValue(null);
+    mockUserGameProfileRepository.findByUserIdAndGameId.mockResolvedValue(testUserGameProfile);
+    mockTournamentParticipantRepository.create.mockResolvedValue({ userId, tournamentId, registeredAt: new Date() });
+    mockTournamentRepository.incrementParticipantCount.mockResolvedValue(true);
+
     const result = await registerForTournamentUseCase.execute({ userId, tournamentId });
     expect(mockTournamentRepository.findById).toHaveBeenCalledWith(tournamentId);
     expect(canRegisterSpy).toHaveBeenCalledTimes(1);
@@ -171,12 +177,19 @@ describe('RegisterForTournamentUseCase', () => {
   });
 
   it('should throw error if participant creation fails', async () => {
+    mockTournamentRepository.findById.mockResolvedValue(testTournamentEntity);
+    mockTournamentParticipantRepository.findByUserIdAndTournamentId.mockResolvedValue(null);
+    mockUserGameProfileRepository.findByUserIdAndGameId.mockResolvedValue(testUserGameProfile);
     mockTournamentParticipantRepository.create.mockRejectedValue(new Error('DB participant error'));
     await expect(registerForTournamentUseCase.execute({ userId, tournamentId }))
         .rejects.toThrow('DB participant error');
   });
 
   it('should throw error if incrementing participant count fails', async () => {
+    mockTournamentRepository.findById.mockResolvedValue(testTournamentEntity);
+    mockTournamentParticipantRepository.findByUserIdAndTournamentId.mockResolvedValue(null);
+    mockUserGameProfileRepository.findByUserIdAndGameId.mockResolvedValue(testUserGameProfile);
+    mockTournamentParticipantRepository.create.mockResolvedValue({ userId, tournamentId, registeredAt: new Date() });
     mockTournamentRepository.incrementParticipantCount.mockRejectedValue(new Error('DB count error'));
     await expect(registerForTournamentUseCase.execute({ userId, tournamentId }))
         .rejects.toThrow('DB count error');

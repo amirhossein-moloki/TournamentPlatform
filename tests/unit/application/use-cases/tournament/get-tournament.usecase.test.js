@@ -28,7 +28,7 @@ describe('GetTournamentUseCase', () => {
 
     const result = await getTournamentUseCase.execute({ id: tournamentId });
 
-    expect(mockTournamentRepository.findById).toHaveBeenCalledWith(tournamentId, { includeGame: true, includeParticipants: undefined });
+    expect(mockTournamentRepository.findById).toHaveBeenCalledWith(tournamentId, { includeGame: true, includeParticipants: undefined, includeManagers: true, includeSupports: true });
     expect(result).toEqual(expectedTournament);
   });
 
@@ -40,7 +40,7 @@ describe('GetTournamentUseCase', () => {
 
     const result = await getTournamentUseCase.execute({ id: tournamentId, include: options.include });
 
-    expect(mockTournamentRepository.findById).toHaveBeenCalledWith(tournamentId, { includeGame: true, includeParticipants: true });
+    expect(mockTournamentRepository.findById).toHaveBeenCalledWith(tournamentId, { includeGame: true, includeParticipants: true, includeManagers: true, includeSupports: true });
     expect(result).toEqual(expectedTournament);
   });
 
