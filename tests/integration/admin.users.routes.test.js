@@ -1,6 +1,7 @@
 const request = require('supertest');
 const { app, server } = require('../../src/app');
-const { sequelize, User } = require('../../src/infrastructure/database/postgres.connector');
+const { sequelize } = require('../../src/infrastructure/database/postgres.connector');
+const { User } = require('../../src/infrastructure/database/models');
 const { generateToken } = require('../../src/utils/jwt');
 
 describe('Admin User Management Routes (/api/v1/admin/users)', () => {
@@ -9,7 +10,6 @@ describe('Admin User Management Routes (/api/v1/admin/users)', () => {
 
     beforeAll(async () => {
         await sequelize.sync({ force: true });
-
         // Create users
         adminUser = await User.create({ username: 'adminUser', email: 'admin@example.com', password: 'password', role: 'Admin', isVerified: true });
         regularUser1 = await User.create({ username: 'testuser1', email: 'test1@example.com', password: 'password', role: 'User', isVerified: true });

@@ -213,7 +213,7 @@ module.exports.test = {
     password: envVars.DB_PASSWORD,
     database: envVars.DB_NAME,
     host: envVars.DB_HOST,
-    port: 5433,
+    port: 5434,
     dialect: 'postgres',
     logging: false,
 };

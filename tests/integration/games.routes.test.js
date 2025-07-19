@@ -25,8 +25,7 @@ describe('Game Routes', () => {
     let game1;
 
     beforeAll(async () => {
-        await sequelize.sync({ force: true }); // Reset database before tests
-
+        await sequelize.sync({ force: true });
         const adminData = await createUserAndLogin(true);
         adminToken = adminData.token;
         adminUser = adminData.user;
@@ -54,9 +53,10 @@ describe('Game Routes', () => {
         });
     });
 
-    afterAll(async () => {
-        await sequelize.close();
-        server.close(); // Close the server after tests
+    afterAll(done => {
+        sequelize.close().then(() => {
+            server.close(done);
+        });
     });
 
     // --- Test Suite for GET /api/v1/games ---

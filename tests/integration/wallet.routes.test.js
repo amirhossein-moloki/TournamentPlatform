@@ -21,6 +21,14 @@ const mockRequestWithdrawalUseCaseExecute = jest.fn();
 const mockGetTransactionHistoryUseCaseExecute = jest.fn();
 
 // Mock the use case modules
+const mockLoginUseCaseExecute = jest.fn();
+
+jest.mock('../../src/application/use-cases/auth/login.usecase', () => {
+  return jest.fn().mockImplementation(() => {
+    return { execute: mockLoginUseCaseExecute };
+  });
+});
+
 jest.mock('../../src/application/use-cases/wallet/get-wallet-details.usecase', () => {
   return jest.fn().mockImplementation(() => {
     return { execute: mockGetWalletDetailsUseCaseExecute };
@@ -63,6 +71,8 @@ app.use('/api/v1/wallet', walletRoutes); // Use the actual walletRoutes
 app.use(errorHandler); // Add the centralized error handler
 
 describe('Wallet Routes Integration Tests', () => {
+  let csrfToken;
+
   beforeEach(() => {
     // Reset mocks before each test
     jest.clearAllMocks();
@@ -71,6 +81,17 @@ describe('Wallet Routes Integration Tests', () => {
         req.user = { sub: 'test-user-id', email: 'test@example.com' };
         next();
     });
+
+    csrfToken = 'test-csrf-token';
+    app.use((req, res, next) => {
+      req.csrfToken = () => csrfToken;
+      next();
+    });
+
+    mockLoginUseCaseExecute.mockResolvedValue({
+      accessToken: 'test-access-token',
+      refreshToken: 'test-refresh-token',
+    });
   });
 
   describe('GET /api/v1/wallet (Get Wallet Details)', () => {
@@ -78,7 +99,7 @@ describe('Wallet Routes Integration Tests', () => {
       const mockWallet = { id: 'wallet-1', balance: 100, currency: 'USD' };
       mockGetWalletDetailsUseCaseExecute.mockResolvedValue(mockWallet);
 
-      const response = await request(app).get('/api/v1/wallet');
+      const response = await request(app).get('/api/v1/wallet').set('x-csrf-token', csrfToken);
 
       expect(response.status).toBe(httpStatusCodes.OK);
       expect(response.body.success).toBe(true);
@@ -91,14 +112,14 @@ describe('Wallet Routes Integration Tests', () => {
         // Simulate authentication failure by not calling next() or throwing error
          next(new ApiError(httpStatusCodes.UNAUTHORIZED, 'No token provided or token is invalid.'));
       });
-      const response = await request(app).get('/api/v1/wallet');
+      const response = await request(app).get('/api/v1/wallet').set('x-csrf-token', csrfToken);
       expect(response.status).toBe(httpStatusCodes.UNAUTHORIZED);
       expect(response.body.message).toBe('No token provided or token is invalid.');
     });
 
     it('should return 404 Not Found if wallet does not exist', async () => {
       mockGetWalletDetailsUseCaseExecute.mockRejectedValue(new ApiError(httpStatusCodes.NOT_FOUND, 'Wallet not found'));
-      const response = await request(app).get('/api/v1/wallet');
+      const response = await request(app).get('/api/v1/wallet').set('x-csrf-token', csrfToken);
       expect(response.status).toBe(httpStatusCodes.NOT_FOUND);
       expect(response.body.message).toBe('Wallet not found');
     });
@@ -115,6 +136,7 @@ describe('Wallet Routes Integration Tests', () => {
       const response = await request(app)
         .post('/api/v1/wallet/deposit/initialize')
         .set('X-Idempotency-Key', idempotencyKey)
+        .set('x-csrf-token', csrfToken)
         .send(depositPayload);
 
       expect(response.status).toBe(httpStatusCodes.OK);
@@ -125,6 +147,7 @@ describe('Wallet Routes Integration Tests', () => {
     it('should return 400 Bad Request if X-Idempotency-Key header is missing', async () => {
       const response = await request(app)
         .post('/api/v1/wallet/deposit/initialize')
+        .set('x-csrf-token', csrfToken)
         .send(depositPayload);
       expect(response.status).toBe(httpStatusCodes.BAD_REQUEST);
       expect(response.body.message).toContain('X-Idempotency-Key is required');
@@ -134,6 +157,7 @@ describe('Wallet Routes Integration Tests', () => {
         const response = await request(app)
           .post('/api/v1/wallet/deposit/initialize')
           .set('X-Idempotency-Key', 'not-a-uuid')
+          .set('x-csrf-token', csrfToken)
           .send(depositPayload);
         expect(response.status).toBe(httpStatusCodes.BAD_REQUEST);
         expect(response.body.message).toContain('X-Idempotency-Key must be a valid UUID');
@@ -143,9 +167,10 @@ describe('Wallet Routes Integration Tests', () => {
       const response = await request(app)
         .post('/api/v1/wallet/deposit/initialize')
         .set('X-Idempotency-Key', idempotencyKey)
+        .set('x-csrf-token', csrfToken)
         .send({ amount: -10, currency: 'USD' }); // Invalid amount
       expect(response.status).toBe(httpStatusCodes.BAD_REQUEST);
-      expect(response.body.errors[0]).toContain('Amount must be positive');
+      expect(response.body.message).toContain('Amount must be positive');
     });
   });
 
@@ -157,9 +182,23 @@ describe('Wallet Routes Integration Tests', () => {
       const mockTransaction = { id: 'tx-withdraw-1', status: 'REQUIRES_APPROVAL' };
       mockRequestWithdrawalUseCaseExecute.mockResolvedValue({ transaction: mockTransaction, message: 'Withdrawal request submitted.' });
 
+      await request(app)
+        .post('/api/v1/auth/login')
+        .set('x-csrf-token', csrfToken)
+        .send({ email: 'test@example.com', password: 'password' });
+
+      await request(app)
+        .post('/api/v1/auth/login')
+        .set('x-csrf-token', csrfToken)
+        .send({ email: 'test@example.com', password: 'password' });
+      await request(app)
+        .post('/api/v1/auth/login')
+        .set('x-csrf-token', csrfToken)
+        .send({ email: 'test@example.com', password: 'password' });
       const response = await request(app)
         .post('/api/v1/wallet/withdrawals')
         .set('X-Idempotency-Key', idempotencyKey)
+        .set('x-csrf-token', csrfToken)
         .send(withdrawalPayload);
 
       expect(response.status).toBe(httpStatusCodes.ACCEPTED);
@@ -179,6 +218,7 @@ describe('Wallet Routes Integration Tests', () => {
       const response = await request(app)
         .post('/api/v1/wallet/withdrawals')
         .set('X-Idempotency-Key', idempotencyKey)
+        .set('x-csrf-token', csrfToken)
         .send(withdrawalPayload);
 
       expect(response.status).toBe(httpStatusCodes.OK);
@@ -190,17 +230,27 @@ describe('Wallet Routes Integration Tests', () => {
     });
 
     it('should return 400 Bad Request if X-Idempotency-Key header is missing', async () => {
+        await request(app)
+            .post('/api/v1/auth/login')
+            .set('x-csrf-token', csrfToken)
+            .send({ email: 'test@example.com', password: 'password' });
         const response = await request(app)
           .post('/api/v1/wallet/withdrawals')
+          .set('x-csrf-token', csrfToken)
           .send(withdrawalPayload);
         expect(response.status).toBe(httpStatusCodes.BAD_REQUEST);
         expect(response.body.message).toContain('X-Idempotency-Key is required');
     });
 
     it('should return 400 Bad Request if X-Idempotency-Key header is not a UUID', async () => {
+        await request(app)
+            .post('/api/v1/auth/login')
+            .set('x-csrf-token', csrfToken)
+            .send({ email: 'test@example.com', password: 'password' });
         const response = await request(app)
           .post('/api/v1/wallet/withdrawals')
           .set('X-Idempotency-Key', 'not-a-uuid-either')
+          .set('x-csrf-token', csrfToken)
           .send(withdrawalPayload);
         expect(response.status).toBe(httpStatusCodes.BAD_REQUEST);
         expect(response.body.message).toContain('X-Idempotency-Key must be a valid UUID');
@@ -211,6 +261,7 @@ describe('Wallet Routes Integration Tests', () => {
       const response = await request(app)
         .post('/api/v1/wallet/withdrawals')
         .set('X-Idempotency-Key', idempotencyKey)
+        .set('x-csrf-token', csrfToken)
         .send(withdrawalPayload);
       expect(response.status).toBe(httpStatusCodes.BAD_REQUEST);
       expect(response.body.message).toBe('Insufficient balance');

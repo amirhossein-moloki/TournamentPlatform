@@ -28,7 +28,7 @@ module.exports = (dependencies) => {
     router.use('/chats', chatRoutes({ chatController: dependencies.chatController }));
     router.use('/upload', uploadRoutes({ uploadController: dependencies.uploadController }));
     router.use('/user-game-profiles', userGameProfilesRoutes({ userGameProfileController: dependencies.userGameProfileController }));
-    router.use('/dashboard', dashboardRoutes({ dashboardController: dependencies.dashboardController }));
+    router.use('/dashboard', dashboardRoutes(dependencies.dashboardController));
 
 
     return router;

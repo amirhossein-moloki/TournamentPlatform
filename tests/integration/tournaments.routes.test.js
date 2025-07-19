@@ -1,6 +1,7 @@
 const request = require('supertest');
 const { app, server } = require('../../src/app');
-const { sequelize, User, Game, Tournament, TournamentParticipant } = require('../../src/infrastructure/database/postgres.connector');
+const { sequelize } = require('../../src/infrastructure/database/postgres.connector');
+const { User, Game, Tournament, TournamentParticipant } = require('../../src/infrastructure/database/models');
 const { generateToken } = require('../../src/utils/jwt');
 const { redisAdapter } = require('../../src/config/dependencies');
 
@@ -16,6 +17,7 @@ describe('Tournament Routes', () => {
 
     beforeAll(async () => {
         await sequelize.sync({ force: true });
+
         if (redisAdapter && typeof redisAdapter.initialize === 'function' && !redisAdapter.getClient()) {
             try {
                 await redisAdapter.initialize();

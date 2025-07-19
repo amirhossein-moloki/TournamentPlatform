@@ -3,7 +3,7 @@ const { app, server } = require('../../src/app');
 const {
     sequelize, User, Game, Tournament, TournamentParticipant, Match,
     DisputeTicket, Transaction, Wallet
-} = require('../../src/infrastructure/database/postgres.connector');
+} = require('../../src/infrastructure/database/models');
 const { generateToken } = require('../../src/utils/jwt');
 const { TournamentStatus } = require('../../src/domain/tournament/tournament.entity');
 const { DisputeStatus } = require('../../src/domain/dispute/dispute.entity');
