@@ -18,43 +18,43 @@ const FileValidationService = require('../application/services/fileValidation.se
 
 function initializeRepositories(redisClient) {
     const gameRepository = new GameRepository(db.GameModel, db.GameImageModel);
-    const userRepository = new PostgresUserRepository({ UserModel: db.UserModel });
+    const userRepository = new PostgresUserRepository(db.UserModel);
     const userGameProfileRepository = new UserGameProfileRepository(db.UserGameProfileModel, db.GameModel);
     const tournamentParticipantRepository = new PostgresTournamentParticipantRepository(db.TournamentParticipantModel, db.UserModel, db.TournamentModel);
-    const tournamentRepository = new PostgresTournamentRepository({
-        TournamentModel: db.TournamentModel,
-        TournamentParticipantModel: db.TournamentParticipantModel,
-        GameModel: db.GameModel,
-        UserModel: db.UserModel,
-    });
-    const matchRepository = new PostgresMatchRepository({
-        MatchModel: db.MatchModel,
-        TournamentModel: db.TournamentModel,
-        GameModel: db.GameModel,
-    });
-    const teamRepository = new PostgresTeamRepository({
-        TeamModel: db.TeamModel,
-        TeamMemberModel: db.TeamMemberModel,
-        UserModel: db.UserModel,
-        sequelize: db.sequelize,
-    });
-    const teamMemberRepository = new PostgresTeamMemberRepository({
-        TeamMemberModel: db.TeamMemberModel,
-        UserModel: db.UserModel,
-        TeamModel: db.TeamModel,
-        sequelize: db.sequelize,
-    });
-    const chatRepository = new PostgresChatRepository({
-        ChatSessionModel: db.ChatSessionModel,
-        ChatMessageModel: db.ChatMessageModel,
-    });
+    const tournamentRepository = new PostgresTournamentRepository(
+        db.TournamentModel,
+        db.TournamentParticipantModel,
+        db.GameModel,
+        db.UserModel
+    );
+    const matchRepository = new PostgresMatchRepository(
+        db.MatchModel,
+        db.TournamentModel,
+        db.GameModel
+    );
+    const teamRepository = new PostgresTeamRepository(
+        db.TeamModel,
+        db.TeamMemberModel,
+        db.UserModel,
+        db.sequelize
+    );
+    const teamMemberRepository = new PostgresTeamMemberRepository(
+        db.TeamMemberModel,
+        db.UserModel,
+        db.TeamModel,
+        db.sequelize
+    );
+    const chatRepository = new PostgresChatRepository(
+        db.ChatSessionModel,
+        db.ChatMessageModel
+    );
     const leaderboardRepository = new LeaderboardRedisRepository(redisClient);
 
-    const getDashboardDataUseCase = new GetDashboardDataUseCase({
+    const getDashboardDataUseCase = new GetDashboardDataUseCase(
         userRepository,
-        walletRepository: new (require('../infrastructure/database/repositories/postgres.wallet.repository'))({ WalletModel: db.WalletModel }),
-        tournamentRepository,
-    });
+        new (require('../infrastructure/database/repositories/postgres.wallet.repository'))(db.WalletModel),
+        tournamentRepository
+    );
 
     const fileValidationService = new FileValidationService();
 
@@ -62,11 +62,11 @@ function initializeRepositories(redisClient) {
     const getMatchUploadUrlUseCase = new GetMatchUploadUrlUseCase(tournamentRepository);
     const submitMatchResultUseCase = new SubmitMatchResultUseCase(tournamentRepository, fileValidationService);
 
-    const matchController = new MatchController({
+    const matchController = new MatchController(
         getMatchUseCase,
         getMatchUploadUrlUseCase,
-        submitMatchResultUseCase,
-    });
+        submitMatchResultUseCase
+    );
 
     return {
         gameRepository,

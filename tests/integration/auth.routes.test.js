@@ -9,6 +9,7 @@ const { PostgresUserRepository } = require('../../src/infrastructure/database/re
 const authRoutes = require('../../src/presentation/api/auth.routes')({
   registerUserUseCase: new (require('../../src/application/use-cases/auth/register-user.usecase'))(),
   loginUseCase: new (require('../../src/application/use-cases/auth/login.usecase'))(),
+  logoutUseCase: new (require('../../src/application/use-cases/auth/logout.usecase'))(),
   refreshTokenUseCase: new (require('../../src/application/use-cases/auth/refresh-token.usecase'))(),
   sendVerificationEmailUseCase: new (require('../../src/application/use-cases/auth/send-verification-email.usecase'))(),
   verifyEmailUseCase: new (require('../../src/application/use-cases/auth/verify-email.usecase'))(),
@@ -17,6 +18,7 @@ const authRoutes = require('../../src/presentation/api/auth.routes')({
 
 let mockRegisterUserUseCaseExecuteFn;
 let mockLoginUseCaseExecuteFn;
+let mockLogoutUseCaseExecuteFn;
 let mockRefreshTokenUseCaseExecuteFn;
 let mockSendVerificationEmailUseCaseExecuteFn;
 let mockVerifyEmailUseCaseExecuteFn;
@@ -31,6 +33,11 @@ jest.mock('../../src/application/use-cases/auth/login.usecase', () => {
   return jest.fn().mockImplementation(() => ({
     execute: (...args) => mockLoginUseCaseExecuteFn(...args),
   }));
+});
+jest.mock('../../src/application/use-cases/auth/logout.usecase', () => {
+    return jest.fn().mockImplementation(() => ({
+        execute: (...args) => mockLogoutUseCaseExecuteFn(...args),
+    }));
 });
 jest.mock('../../src/application/use-cases/auth/refresh-token.usecase', () => {
   return jest.fn().mockImplementation(() => ({
@@ -93,6 +100,7 @@ describe('Auth Routes Integration Tests', () => {
 
     mockRegisterUserUseCaseExecuteFn = jest.fn();
     mockLoginUseCaseExecuteFn = jest.fn();
+    mockLogoutUseCaseExecuteFn = jest.fn();
     mockRefreshTokenUseCaseExecuteFn = jest.fn();
     mockSendVerificationEmailUseCaseExecuteFn = jest.fn();
     mockVerifyEmailUseCaseExecuteFn = jest.fn();
