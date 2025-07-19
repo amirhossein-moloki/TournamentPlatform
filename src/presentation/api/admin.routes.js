@@ -1,5 +1,4 @@
 const router = require('express').Router();
-const adminController = require('../controllers/admin.controller'); // Assuming you will create this
 const { authenticateToken, authorizeRole } = require('../../middleware/auth.middleware');
 const { UserRoles } = require('../../domain/user/user.entity');
 const validate = require('../../middleware/validation.middleware');
@@ -16,10 +15,11 @@ const {
 
 // --- Routes ---
 
-// --- Dispute Management ---
-router.get('/disputes', authenticateToken, authorizeRole([UserRoles.ADMIN, UserRoles.DISPUTE_MODERATOR]), validate(listDisputesSchema), adminController.listDisputes);
-/*  #swagger.tags = ['Admin']
-    #swagger.summary = 'List dispute tickets (Admin/Moderator)'
+module.exports = ({ adminController }) => {
+    // --- Dispute Management ---
+    router.get('/disputes', authenticateToken, authorizeRole([UserRoles.ADMIN, UserRoles.DISPUTE_MODERATOR]), validate(listDisputesSchema), adminController.listDisputes);
+    /*  #swagger.tags = ['Admin']
+        #swagger.summary = 'List dispute tickets (Admin/Moderator)'
     #swagger.description = 'Retrieves a paginated list of dispute tickets, with optional filters.'
     #swagger.security = [{ "bearerAuth": [] }]
     #swagger.parameters['page'] = { $ref: '#/components/parameters/PageParam' }
@@ -123,5 +123,5 @@ router.post('/withdrawals/:id/reject', authenticateToken, authorizeRole([UserRol
     #swagger.responses[403] = { $ref: '#/components/responses/ForbiddenError' }
     #swagger.responses[404] = { $ref: '#/components/responses/NotFoundError' }
 */
-
-module.exports = router;
+    return router;
+};

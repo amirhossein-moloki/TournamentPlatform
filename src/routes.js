@@ -16,19 +16,19 @@ module.exports = (dependencies) => {
     const dashboardRoutes = require('./presentation/api/dashboard.routes');
 
 
-    router.use('/admin', adminRoutes(dependencies));
-    router.use('/admin/users', adminUserRoutes(dependencies));
-    router.use('/auth', authRoutes(dependencies));
-    router.use('/games', gamesRoutes(dependencies));
-    router.use('/leaderboards', leaderboardsRoutes(dependencies));
-    router.use('/matches', matchesRoutes(dependencies));
-    router.use('/teams', teamsRoutes(dependencies));
-    router.use('/tournaments', tournamentsRoutes(dependencies));
-    router.use('/wallet', walletRoutes(dependencies));
-    router.use('/chats', chatRoutes(dependencies));
-    router.use('/upload', uploadRoutes(dependencies));
-    router.use('/user-game-profiles', userGameProfilesRoutes(dependencies));
-    router.use('/dashboard', dashboardRoutes(dependencies));
+    router.use('/admin', adminRoutes({ adminController: dependencies.adminController }));
+    router.use('/admin/users', adminUserRoutes({ userController: dependencies.userController, adminController: dependencies.adminController }));
+    router.use('/auth', authRoutes({ authController: dependencies.authController }));
+    router.use('/games', gamesRoutes({ gameController: dependencies.gameController }));
+    router.use('/leaderboards', leaderboardsRoutes({ leaderboardController: dependencies.leaderboardController }));
+    router.use('/matches', matchesRoutes({ matchController: dependencies.matchController }));
+    router.use('/teams', teamsRoutes({ teamController: dependencies.teamController, teamMemberController: dependencies.teamMemberController }));
+    router.use('/tournaments', tournamentsRoutes({ tournamentController: dependencies.tournamentController }));
+    router.use('/wallet', walletRoutes({ walletController: dependencies.walletController }));
+    router.use('/chats', chatRoutes({ chatController: dependencies.chatController }));
+    router.use('/upload', uploadRoutes({ uploadController: dependencies.uploadController }));
+    router.use('/user-game-profiles', userGameProfilesRoutes({ userGameProfileController: dependencies.userGameProfileController }));
+    router.use('/dashboard', dashboardRoutes({ dashboardController: dependencies.dashboardController }));
 
 
     return router;

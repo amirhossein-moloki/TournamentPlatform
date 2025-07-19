@@ -4,7 +4,7 @@ const Joi = require('joi');
 
 // Load environment variables based on NODE_ENV
 if (process.env.NODE_ENV === 'test') {
-  // For SQLite in-memory tests, we don't need to load from .env.test
+  dotenv.config({ path: path.resolve(process.cwd(), '.env.test') });
 } else if (process.env.NODE_ENV === 'development') {
   // Attempt to load .env.development, fallback to .env if it doesn't exist or isn't specified
   const devEnvPath = path.resolve(process.cwd(), '.env.development');
@@ -209,18 +209,18 @@ module.exports.development = {
     logging: console.log,
 };
 module.exports.test = {
-  dialect: 'sqlite',
-  storage: './test.sqlite',
-  logging: false,
-};
-module.exports.production = {
     username: envVars.DB_USER,
     password: envVars.DB_PASSWORD,
     database: envVars.DB_NAME,
     host: envVars.DB_HOST,
-    port: envVars.DB_PORT,
+    port: 5433,
     dialect: 'postgres',
     logging: false,
+};
+module.exports.production = {
+  dialect: 'sqlite',
+  storage: './test.sqlite',
+  logging: false,
 };
 
 // Export the main config object for application use
