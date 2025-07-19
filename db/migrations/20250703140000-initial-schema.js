@@ -31,9 +31,9 @@ module.exports = {
         allowNull: false,
       },
       roles: {
-        type: DataTypes.ARRAY(DataTypes.STRING),
+        type: DataTypes.STRING,
         allowNull: false,
-        defaultValue: ['PLAYER'],
+        defaultValue: 'PLAYER',
       },
       refreshToken: {
         type: DataTypes.STRING,

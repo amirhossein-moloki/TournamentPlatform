@@ -5,7 +5,15 @@ const httpStatusCodes = require('http-status-codes');
 const { appConfig } = require('../../config/config');
 const ms = require('ms');
 
-const authRoutes = require('../../src/presentation/api/auth.routes');
+const { PostgresUserRepository } = require('../../src/infrastructure/database/repositories/postgres.user.repository');
+const authRoutes = require('../../src/presentation/api/auth.routes')({
+  registerUserUseCase: new (require('../../src/application/use-cases/auth/register-user.usecase'))(),
+  loginUseCase: new (require('../../src/application/use-cases/auth/login.usecase'))(),
+  refreshTokenUseCase: new (require('../../src/application/use-cases/auth/refresh-token.usecase'))(),
+  sendVerificationEmailUseCase: new (require('../../src/application/use-cases/auth/send-verification-email.usecase'))(),
+  verifyEmailUseCase: new (require('../../src/application/use-cases/auth/verify-email.usecase'))(),
+  userRepository: new PostgresUserRepository(),
+});
 
 let mockRegisterUserUseCaseExecuteFn;
 let mockLoginUseCaseExecuteFn;

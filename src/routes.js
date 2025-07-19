@@ -13,6 +13,7 @@ module.exports = (dependencies) => {
     const chatRoutes = require('./presentation/api/chat.routes');
     const uploadRoutes = require('./presentation/api/upload.routes');
     const userGameProfilesRoutes = require('./presentation/api/userGameProfiles.routes');
+    const dashboardRoutes = require('./presentation/api/dashboard.routes');
 
 
     router.use('/admin', adminRoutes(dependencies));
@@ -27,6 +28,7 @@ module.exports = (dependencies) => {
     router.use('/chats', chatRoutes(dependencies));
     router.use('/upload', uploadRoutes(dependencies));
     router.use('/user-game-profiles', userGameProfilesRoutes(dependencies));
+    router.use('/dashboard', dashboardRoutes(dependencies));
 
 
     return router;
