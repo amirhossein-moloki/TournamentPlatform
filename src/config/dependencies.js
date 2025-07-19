@@ -114,11 +114,7 @@ function initializeDependencies(redisClient) {
     const getMatchUploadUrlUseCase = new GetMatchUploadUrlUseCase(repositories.matchRepository);
     const submitMatchResultUseCase = new SubmitMatchResultUseCase(repositories.matchRepository);
 
-    const matchController = new MatchController({
-        getMatchUseCase,
-        getMatchUploadUrlUseCase,
-        submitMatchResultUseCase,
-    });
+    const matchController = repositories.matchController;
 
     const createTeamUseCase = new CreateTeamUseCase({
         teamRepository: repositories.teamRepository,
