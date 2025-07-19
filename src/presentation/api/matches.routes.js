@@ -3,7 +3,7 @@ const { authenticateToken } = require('../../middleware/auth.middleware');
 const validate = require('../../middleware/validation.middleware');
 const { matchIdParamSchema, uploadUrlRequestSchema, submitResultSchema } = require('../validators/match.validator');
 
-module.exports = function(matchController) {
+module.exports = ({ matchController }) => {
     // Get match details by ID
     router.get('/:id', authenticateToken, validate(matchIdParamSchema), matchController.getMatchById);
     /*  #swagger.tags = ['Matches']

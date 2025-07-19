@@ -10,7 +10,7 @@ services:
       POSTGRES_PASSWORD: ${DB_PASSWORD:-test_password}
       POSTGRES_DB: ${DB_NAME:-test_db}
     ports:
-      - "5433:5432"
+      - "5434:5432"
     networks:
       - tournament_test_network
 
