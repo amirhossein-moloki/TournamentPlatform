@@ -40,6 +40,7 @@ describe('CreateTeamUseCase', () => {
     mockUserRepository.findById.mockResolvedValue(owner);
     mockTeamRepository.findByName.mockResolvedValue(null);
     mockTeamRepository.create.mockResolvedValue(createdTeam);
+    mockTeamMemberRepository.create.mockResolvedValue(new TeamMember({ userId: ownerId, role: TeamRole.OWNER, status: 'active' }));
     mockTeamRepository.findById.mockResolvedValue({ ...createdTeam, members: [new TeamMember({ userId: ownerId, role: TeamRole.OWNER, status: 'active' })] });
 
     const result = await createTeamUseCase.execute(teamData);

@@ -1,5 +1,3 @@
-// src/config/dependency-injection.js
-
 const db = require('../infrastructure/database/models');
 const GameRepository = require('../infrastructure/database/repositories/game.repository');
 const UserGameProfileRepository = require('../infrastructure/database/repositories/userGameProfile.repository');
@@ -12,6 +10,11 @@ const { PostgresTeamMemberRepository } = require('../infrastructure/database/rep
 const PostgresChatRepository = require('../infrastructure/database/repositories/postgres.chat.repository');
 const LeaderboardRedisRepository = require('../infrastructure/database/repositories/leaderboard.redis.repository');
 const GetDashboardDataUseCase = require('../application/use-cases/dashboard/get-dashboard-data.usecase');
+const MatchController = require('../presentation/controllers/match.controller');
+const GetMatchUseCase = require('../application/use-cases/match/get-match.usecase');
+const GetMatchUploadUrlUseCase = require('../application/use-cases/match/get-match-upload-url.usecase');
+const SubmitMatchResultUseCase = require('../application/use-cases/match/submit-match-result.usecase');
+const FileValidationService = require('../application/services/fileValidation.service');
 
 function initializeRepositories(redisClient) {
     const gameRepository = new GameRepository(db.GameModel, db.GameImageModel);
@@ -53,6 +56,18 @@ function initializeRepositories(redisClient) {
         tournamentRepository,
     });
 
+    const fileValidationService = new FileValidationService();
+
+    const getMatchUseCase = new GetMatchUseCase(tournamentRepository, userGameProfileRepository, matchRepository);
+    const getMatchUploadUrlUseCase = new GetMatchUploadUrlUseCase(tournamentRepository);
+    const submitMatchResultUseCase = new SubmitMatchResultUseCase(tournamentRepository, fileValidationService);
+
+    const matchController = new MatchController({
+        getMatchUseCase,
+        getMatchUploadUrlUseCase,
+        submitMatchResultUseCase,
+    });
+
     return {
         gameRepository,
         userRepository,
@@ -65,6 +80,7 @@ function initializeRepositories(redisClient) {
         chatRepository,
         leaderboardRepository,
         getDashboardDataUseCase,
+        matchController,
     };
 }
 
