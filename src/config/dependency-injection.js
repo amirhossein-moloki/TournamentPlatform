@@ -15,7 +15,7 @@ const MatchController = require('../presentation/controllers/match.controller');
 const GetMatchUseCase = require('../application/use-cases/match/get-match.usecase');
 const GetMatchUploadUrlUseCase = require('../application/use-cases/match/get-match-upload-url.usecase');
 const SubmitMatchResultUseCase = require('../application/use-cases/match/submit-match-result.usecase');
-const FileValidationService = require('../application/services/fileValidation.service');
+const { FileValidationService } = require('../application/services/fileValidation.service');
 
 function initializeRepositories(redisClient) {
     const gameRepository = new GameRepository({ GameModel: db.GameModel, GameImageModel: db.GameImageModel });
@@ -58,7 +58,12 @@ function initializeRepositories(redisClient) {
         tournamentRepository
     );
 
-    const fileValidationService = new FileValidationService();
+    const fileValidationService = new FileValidationService({
+        matchRepository,
+        s3Service: undefined,
+        notificationService: undefined,
+        logger: console,
+    });
 
     const getMatchUseCase = new GetMatchUseCase(tournamentRepository, userGameProfileRepository, matchRepository);
     const getMatchUploadUrlUseCase = new GetMatchUploadUrlUseCase(tournamentRepository);
