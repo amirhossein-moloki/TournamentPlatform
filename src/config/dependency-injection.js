@@ -17,42 +17,42 @@ const SubmitMatchResultUseCase = require('../application/use-cases/match/submit-
 const FileValidationService = require('../application/services/fileValidation.service');
 
 function initializeRepositories(redisClient) {
-    const gameRepository = new GameRepository(db.GameModel, db.GameImageModel);
+    const gameRepository = new GameRepository({ GameModel: db.GameModel, GameImageModel: db.GameImageModel });
     const userRepository = new PostgresUserRepository({ UserModel: db.UserModel });
-    const userGameProfileRepository = new UserGameProfileRepository(db.UserGameProfileModel, db.GameModel);
-    const tournamentParticipantRepository = new PostgresTournamentParticipantRepository(db.TournamentParticipantModel, db.UserModel, db.TournamentModel);
-    const tournamentRepository = new PostgresTournamentRepository(
-        db.TournamentModel,
-        db.TournamentParticipantModel,
-        db.GameModel,
-        db.UserModel
-    );
-    const matchRepository = new PostgresMatchRepository(
-        db.MatchModel,
-        db.TournamentModel,
-        db.GameModel
-    );
-    const teamRepository = new PostgresTeamRepository(
-        db.TeamModel,
-        db.TeamMemberModel,
-        db.UserModel,
-        db.sequelize
-    );
-    const teamMemberRepository = new PostgresTeamMemberRepository(
-        db.TeamMemberModel,
-        db.UserModel,
-        db.TeamModel,
-        db.sequelize
-    );
-    const chatRepository = new PostgresChatRepository(
-        db.ChatSessionModel,
-        db.ChatMessageModel
-    );
+    const userGameProfileRepository = new UserGameProfileRepository({ UserGameProfileModel: db.UserGameProfileModel, GameModel: db.GameModel });
+    const tournamentParticipantRepository = new PostgresTournamentParticipantRepository({ TournamentParticipantModel: db.TournamentParticipantModel, UserModel: db.UserModel, TournamentModel: db.TournamentModel });
+    const tournamentRepository = new PostgresTournamentRepository({
+        TournamentModel: db.TournamentModel,
+        TournamentParticipantModel: db.TournamentParticipantModel,
+        GameModel: db.GameModel,
+        UserModel: db.UserModel
+    });
+    const matchRepository = new PostgresMatchRepository({
+        MatchModel: db.MatchModel,
+        TournamentModel: db.TournamentModel,
+        GameModel: db.GameModel
+    });
+    const teamRepository = new PostgresTeamRepository({
+        TeamModel: db.TeamModel,
+        TeamMemberModel: db.TeamMemberModel,
+        UserModel: db.UserModel,
+        sequelize: db.sequelize
+    });
+    const teamMemberRepository = new PostgresTeamMemberRepository({
+        TeamMemberModel: db.TeamMemberModel,
+        UserModel: db.UserModel,
+        TeamModel: db.TeamModel,
+        sequelize: db.sequelize
+    });
+    const chatRepository = new PostgresChatRepository({
+        ChatSessionModel: db.ChatSessionModel,
+        ChatMessageModel: db.ChatMessageModel
+    });
     const leaderboardRepository = new LeaderboardRedisRepository(redisClient);
 
     const getDashboardDataUseCase = new GetDashboardDataUseCase(
         userRepository,
-        new (require('../infrastructure/database/repositories/postgres.wallet.repository'))(db.WalletModel),
+        new (require('../infrastructure/database/repositories/postgres.wallet.repository'))({WalletModel: db.WalletModel}),
         tournamentRepository
     );
 

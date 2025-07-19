@@ -14,14 +14,14 @@
 // }
 
 class PostgresTournamentParticipantRepository /* extends ITournamentParticipantRepository */ {
-  constructor(tournamentParticipantModel, userModel, tournamentModel) {
+  constructor(models) {
     // super(); // Call super if extending an interface that has a constructor
-    if (!tournamentParticipantModel || !userModel || !tournamentModel) {
+    if (!models || !models.TournamentParticipantModel || !models.UserModel || !models.TournamentModel) {
       throw new Error('Required models (TournamentParticipantModel, UserModel, TournamentModel) not provided.');
     }
-    this.TournamentParticipantModel = tournamentParticipantModel;
-    this.UserModel = userModel;
-    this.TournamentModel = tournamentModel;
+    this.TournamentParticipantModel = models.TournamentParticipantModel;
+    this.UserModel = models.UserModel;
+    this.TournamentModel = models.TournamentModel;
     // this.sequelize = tournamentParticipantModel.sequelize; // If needed
     // this.Op = this.sequelize.Op; // If needed
     console.log('PostgresTournamentParticipantRepository constructor reached');

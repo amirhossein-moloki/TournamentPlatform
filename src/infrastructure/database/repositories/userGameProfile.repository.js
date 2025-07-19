@@ -4,10 +4,10 @@ const UserGameProfile = require('../../../domain/user/userGameProfile.entity.js'
 // const Game = require('../../../domain/game/game.entity.js');
 
 class UserGameProfileRepository extends IUserGameProfileRepository.default {
-  constructor(userGameProfileModel, gameModel) { // gameModel for including game details
+  constructor(models) { // gameModel for including game details
     super();
-    this.UserGameProfileModel = userGameProfileModel;
-    this.GameModel = gameModel; // Sequelize model for Game
+    this.UserGameProfileModel = models.UserGameProfileModel;
+    this.GameModel = models.GameModel; // Sequelize model for Game
   }
 
   async upsert(userId, gameId, inGameName) {
