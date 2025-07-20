@@ -77,6 +77,13 @@ describe('Admin Tournament Routes', () => {
     });
   });
 
+  let server;
+
+  beforeAll(async () => {
+      await db.sequelize.sync({ force: true });
+      server = app.listen(0);
+  });
+
   afterAll(done => {
     db.sequelize.close().then(() => {
         server.close(done);

@@ -1,10 +1,12 @@
 const CreateTeamUseCase = require('../../../../../src/application/use-cases/team/createTeam.usecase');
+const { withTransaction } = require('../../../../../src/infrastructure/database/postgres.connector');
 const Team = require('../../../../../src/domain/team/team.entity');
 const TeamMember = require('../../../../../src/domain/team/teamMember.entity');
 const TeamRole = require('../../../../../src/domain/team/teamRole.enums');
 const ApiError = require('../../../../../src/utils/ApiError');
 const httpStatusCodes = require('http-status-codes');
 const { v4: uuidv4 } = require('uuid');
+
 
 describe('CreateTeamUseCase', () => {
   let mockTeamRepository;
@@ -29,6 +31,7 @@ describe('CreateTeamUseCase', () => {
       teamMemberRepository: mockTeamMemberRepository,
       userRepository: mockUserRepository,
     });
+    jest.spyOn(require('../../../../../src/infrastructure/database/postgres.connector'), 'withTransaction').mockImplementation(async (fn) => fn());
   });
 
   it('should create a team and add owner as a member successfully', async () => {

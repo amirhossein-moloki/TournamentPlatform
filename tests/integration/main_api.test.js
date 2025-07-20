@@ -44,8 +44,16 @@ beforeAll(async () => {
   await db.sequelize.sync({ force: true });
 });
 
+let server;
+
+beforeAll(async () => {
+  await db.sequelize.sync({ force: true });
+  server = app.listen(0); // Start server on a random free port
+});
+
 afterAll(async () => {
   await db.sequelize.close(); // Close DB connection
+  server.close(); // Close the server
 });
 
 // Hook to clear database before each test suite (or each test if preferred)

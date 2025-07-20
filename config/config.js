@@ -209,13 +209,9 @@ module.exports.development = {
     logging: console.log,
 };
 module.exports.test = {
-    username: envVars.DB_USER,
-    password: envVars.DB_PASSWORD,
-    database: envVars.DB_NAME,
-    host: envVars.DB_HOST,
-    port: 5434,
-    dialect: 'postgres',
-    logging: false,
+  dialect: 'sqlite',
+  storage: './test.sqlite',
+  logging: false,
 };
 module.exports.production = {
   dialect: 'sqlite',
