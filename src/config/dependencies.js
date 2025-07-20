@@ -84,6 +84,9 @@ const InitializeDepositUseCase = require('../application/use-cases/wallet/initia
 const GetTransactionHistoryUseCase = require('../application/use-cases/wallet/get-transaction-history.usecase.js');
 const RequestWithdrawalUseCase = require('../application/use-cases/wallet/request-withdrawal.usecase.js');
 
+// Dashboard Use Cases
+const GetDashboardDataUseCase = require('../application/use-cases/dashboard/get-dashboard-data.usecase.js');
+
 
 // Infrastructure
 const LocalFileUploader = require('../infrastructure/file-upload/local.file-uploader.js');
