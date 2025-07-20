@@ -75,6 +75,14 @@ const UploadController = require('../presentation/controllers/upload.controller.
 const AdminController = require('../presentation/controllers/admin.controller.js');
 const MatchController = require('../presentation/controllers/match.controller.js');
 const LeaderboardController = require('../presentation/controllers/leaderboard.controller.js');
+const WalletController = require('../presentation/controllers/wallet.controller.js');
+
+// Wallet Use Cases
+const GetWalletDetailsUseCase = require('../application/use-cases/wallet/get-wallet-details.usecase.js');
+const InitializeDepositUseCase = require('../application/use-cases/wallet/initialize-deposit.usecase.js');
+const GetTransactionHistoryUseCase = require('../application/use-cases/wallet/get-transaction-history.usecase.js');
+const RequestWithdrawalUseCase = require('../application/use-cases/wallet/request-withdrawal.usecase.js');
+
 
 // Infrastructure
 const LocalFileUploader = require('../infrastructure/file-upload/local.file-uploader.js');
@@ -219,6 +227,18 @@ function initializeDependencies(redisClient) {
         getUserRankUseCase,
     });
 
+    const getWalletDetailsUseCase = new GetWalletDetailsUseCase(repositories.walletRepository);
+    const initializeDepositUseCase = new InitializeDepositUseCase(repositories.walletRepository);
+    const getTransactionHistoryUseCase = new GetTransactionHistoryUseCase(repositories.transactionRepository);
+    const requestWithdrawalUseCase = new RequestWithdrawalUseCase(repositories.walletRepository);
+
+    const walletController = new WalletController({
+        getWalletDetailsUseCase,
+        initializeDepositUseCase,
+        getTransactionHistoryUseCase,
+        requestWithdrawalUseCase,
+    });
+
     return {
         authController,
         gameController,
@@ -231,6 +251,7 @@ function initializeDependencies(redisClient) {
         adminController,
         userController,
         leaderboardController,
+        walletController,
         //... export other dependencies if needed
     };
 }

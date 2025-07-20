@@ -24,7 +24,7 @@ module.exports = (dependencies) => {
     router.use('/matches', matchesRoutes({ matchController: dependencies.matchController }));
     router.use('/teams', teamsRoutes({ teamController: dependencies.teamController, teamMemberController: dependencies.teamMemberController }));
     router.use('/tournaments', tournamentsRoutes({ tournamentController: dependencies.tournamentController }));
-    router.use('/wallet', walletRoutes(dependencies));
+    router.use('/wallet', walletRoutes({ walletController: dependencies.walletController }));
     router.use('/chats', chatRoutes({ chatController: dependencies.chatController }));
     router.use('/upload', uploadRoutes({ uploadController: dependencies.uploadController }));
     router.use('/user-game-profiles', userGameProfilesRoutes({ userGameProfileController: dependencies.userGameProfileController }));
