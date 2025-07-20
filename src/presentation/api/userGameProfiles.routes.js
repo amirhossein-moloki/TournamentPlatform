@@ -12,21 +12,21 @@ module.exports = ({ userGameProfileController }) => {
     '/',
     authenticateToken,
     validate(upsertUserGameProfileSchema),
-    userGameProfileController.upsertUserGameProfile
+    userGameProfileController.upsertProfile
   );
 
   router.get(
     '/',
     authenticateToken,
     validate(getUserGameProfilesSchema),
-    userGameProfileController.getUserGameProfiles
+    userGameProfileController.getProfiles
   );
 
   router.get(
     '/:gameId',
     authenticateToken,
     validate(getUserGameProfileForGameSchema),
-    userGameProfileController.getUserGameProfileForGame
+    userGameProfileController.getProfileForGame
   );
 
   return router;
