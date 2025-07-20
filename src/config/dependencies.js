@@ -76,6 +76,7 @@ const AdminController = require('../presentation/controllers/admin.controller.js
 const MatchController = require('../presentation/controllers/match.controller.js');
 const LeaderboardController = require('../presentation/controllers/leaderboard.controller.js');
 const WalletController = require('../presentation/controllers/wallet.controller.js');
+const DashboardController = require('../presentation/controllers/dashboard.controller.js');
 
 // Wallet Use Cases
 const GetWalletDetailsUseCase = require('../application/use-cases/wallet/get-wallet-details.usecase.js');
@@ -239,6 +240,16 @@ function initializeDependencies(redisClient) {
         requestWithdrawalUseCase,
     });
 
+    const getDashboardDataUseCase = new GetDashboardDataUseCase({
+        tournamentRepository: repositories.tournamentRepository,
+        matchRepository: repositories.matchRepository,
+        userRepository: repositories.userRepository,
+    });
+
+    const dashboardController = new DashboardController({
+        getDashboardDataUseCase,
+    });
+
     return {
         authController,
         gameController,
@@ -252,6 +263,7 @@ function initializeDependencies(redisClient) {
         userController,
         leaderboardController,
         walletController,
+        dashboardController,
         //... export other dependencies if needed
     };
 }
