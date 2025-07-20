@@ -10,7 +10,7 @@
     "format": "prettier --write \"**/*.{js,json,md,yml}\"",
     "test": "NODE_ENV=test jest",
     "test:unit": "NODE_ENV=test jest --testPathPattern=tests/unit",
-    "test:integration": "sudo docker-compose -f docker-compose.test.yml up -d > docker-compose.log 2>&1 && sleep 15 && NODE_ENV=test npm run db:migrate && NODE_ENV=test jest --testPathPattern=tests/integration && sudo docker-compose -f docker-compose.test.yml down",
+    "test:integration": "docker-compose -f docker-compose.test.yml up -d > docker-compose.log 2>&1 && sleep 15 && NODE_ENV=test npm run db:migrate && NODE_ENV=test jest --testPathPattern=tests/integration && docker-compose -f docker-compose.test.yml down",
     "test:e2e": "NODE_ENV=test jest --testPathPattern=tests/e2e",
     "test:contract": "NODE_ENV=test jest --testPathPattern=tests/contract",
     "test:performance": "NODE_ENV=test jest --testPathPattern=tests/performance",
