@@ -72,6 +72,7 @@ const TeamController = require('../presentation/controllers/team.controller.js')
 const ChatController = require('../presentation/controllers/chat.controller.js');
 const UploadController = require('../presentation/controllers/upload.controller.js');
 const AdminController = require('../presentation/controllers/admin.controller.js');
+const MatchController = require('../presentation/controllers/match.controller.js');
 
 // Infrastructure
 const LocalFileUploader = require('../infrastructure/file-upload/local.file-uploader.js');
@@ -115,7 +116,11 @@ function initializeDependencies(redisClient) {
     const getMatchUploadUrlUseCase = new GetMatchUploadUrlUseCase(repositories.matchRepository);
     const submitMatchResultUseCase = new SubmitMatchResultUseCase(repositories.matchRepository);
 
-    const matchController = repositories.matchController;
+    const matchController = new MatchController({
+        getMatchUseCase,
+        getMatchUploadUrlUseCase,
+        submitMatchResultUseCase,
+    });
 
     const createTeamUseCase = new CreateTeamUseCase({
         teamRepository: repositories.teamRepository,

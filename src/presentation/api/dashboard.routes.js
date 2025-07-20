@@ -1,4 +1,4 @@
-const express = 'require'('express');
+const express = require('express');
 const { authenticateToken } = require('../../middleware/auth.middleware');
 
 module.exports = ({ dashboardController }) => {
