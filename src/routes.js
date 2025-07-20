@@ -20,7 +20,7 @@ module.exports = (dependencies) => {
     router.use('/admin/users', adminUserRoutes({ userController: dependencies.userController, adminController: dependencies.adminController }));
     router.use('/auth', authRoutes({ authController: dependencies.authController }));
     router.use('/games', gamesRoutes({ gameController: dependencies.gameController }));
-    router.use('/leaderboards', leaderboardsRoutes(dependencies));
+    router.use('/leaderboards', leaderboardsRoutes({ leaderboardController: dependencies.leaderboardController }));
     router.use('/matches', matchesRoutes({ matchController: dependencies.matchController }));
     router.use('/teams', teamsRoutes({ teamController: dependencies.teamController, teamMemberController: dependencies.teamMemberController }));
     router.use('/tournaments', tournamentsRoutes({ tournamentController: dependencies.tournamentController }));
