@@ -74,6 +74,7 @@ const ChatController = require('../presentation/controllers/chat.controller.js')
 const UploadController = require('../presentation/controllers/upload.controller.js');
 const AdminController = require('../presentation/controllers/admin.controller.js');
 const MatchController = require('../presentation/controllers/match.controller.js');
+const LeaderboardController = require('../presentation/controllers/leaderboard.controller.js');
 
 // Infrastructure
 const LocalFileUploader = require('../infrastructure/file-upload/local.file-uploader.js');
@@ -213,6 +214,11 @@ function initializeDependencies(redisClient) {
         removeRoleUseCase,
     });
 
+    const leaderboardController = new LeaderboardController({
+        getLeaderboardUseCase,
+        getUserRankUseCase,
+    });
+
     return {
         authController,
         gameController,
@@ -224,6 +230,7 @@ function initializeDependencies(redisClient) {
         matchController,
         adminController,
         userController,
+        leaderboardController,
         //... export other dependencies if needed
     };
 }
