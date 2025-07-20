@@ -66,6 +66,7 @@ const UploadFileUseCase = require('../application/use-cases/upload/upload-file.u
 // Controllers
 const AuthController = require('../presentation/controllers/auth.controller.js');
 const GameController = require('../presentation/controllers/game.controller.js');
+const UserController = require('../presentation/controllers/user.controller.js');
 const UserGameProfileController = require('../presentation/controllers/userGameProfile.controller.js');
 const TournamentController = require('../presentation/controllers/tournament.controller.js');
 const TeamController = require('../presentation/controllers/team.controller.js');
@@ -202,6 +203,16 @@ function initializeDependencies(redisClient) {
 
     const adminController = require('../presentation/controllers/admin.controller.js');
 
+    const userController = new UserController({
+        getUserProfileUseCase,
+        updateUserProfileUseCase,
+        listUsersUseCase,
+        adminUpdateUserUseCase,
+        adminDeleteUserUseCase,
+        assignRoleUseCase,
+        removeRoleUseCase,
+    });
+
     return {
         authController,
         gameController,
@@ -212,6 +223,7 @@ function initializeDependencies(redisClient) {
         uploadController,
         matchController,
         adminController,
+        userController,
         //... export other dependencies if needed
     };
 }
