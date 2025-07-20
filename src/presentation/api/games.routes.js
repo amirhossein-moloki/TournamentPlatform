@@ -44,7 +44,7 @@ module.exports = ({ gameController }) => {
     */
 
     // Get a specific game by ID (Public)
-    router.get('/:id', validate(gameIdParamSchema), gameController.getGameById);
+    router.get('/:id', validate(gameIdParamSchema), gameController.getGame);
     /*  #swagger.tags = ['Games']
         #swagger.summary = 'Get game details by ID'
         #swagger.description = 'Retrieves detailed information for a specific game.'

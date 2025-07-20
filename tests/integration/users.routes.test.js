@@ -43,6 +43,13 @@ describe('User Routes', () => {
         });
     });
 
+let server;
+
+beforeAll(async () => {
+    await sequelize.sync({ force: true });
+    server = app.listen(0);
+});
+
     afterAll(async () => {
         await sequelize.close();
         server.close();

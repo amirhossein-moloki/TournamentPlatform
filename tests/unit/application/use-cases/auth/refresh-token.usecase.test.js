@@ -9,7 +9,7 @@ jest.mock('../../../../../config/config', () => ({
   appConfig: {
     jwt: {
       secret: 'test-secret',
-      expiresIn: '1h',
+      accessExpiration: '1h',
     },
   },
 }));

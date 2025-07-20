@@ -53,6 +53,13 @@ describe('Game Routes', () => {
         });
     });
 
+    let server;
+
+    beforeAll(async () => {
+        await sequelize.sync({ force: true });
+        server = app.listen(0);
+    });
+
     afterAll(done => {
         sequelize.close().then(() => {
             server.close(done);

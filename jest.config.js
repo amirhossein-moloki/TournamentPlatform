@@ -106,4 +106,5 @@ module.exports = {
 
   // Setup files after env
   // setupFilesAfterEnv: ['<rootDir>/tests/setupTests.js'], // if you have one
+  setupFiles: ['dotenv/config'],
 };

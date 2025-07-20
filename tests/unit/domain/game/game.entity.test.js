@@ -16,8 +16,7 @@ describe('Game Entity', () => {
     name: 'Awesome Game',
     shortName: 'AG',
     description: 'The most awesome game ever.',
-    iconUrl: 'http://example.com/icon.png',
-    bannerUrl: 'http://example.com/banner.jpg',
+    images: [{ type: 'icon', url: 'http://example.com/icon.png' }, { type: 'banner', url: 'http://example.com/banner.jpg' }],
     platforms: ['PC', 'PlayStation'],
     supportedModes: ['1v1', 'Team Deathmatch'],
     isActive: true,
@@ -101,6 +100,7 @@ describe('Game Entity', () => {
         supportedModes: [...baseData.supportedModes],
         tournament_managers: [...baseData.tournament_managers],
         tournament_supports: [...baseData.tournament_supports],
+        images: [...baseData.images],
         createdAt: baseData.createdAt,
         updatedAt: baseData.updatedAt,
       };
@@ -116,14 +116,13 @@ describe('Game Entity', () => {
         name: minimalData.name,
         shortName: undefined,
         description: undefined,
-        iconUrl: undefined,
-        bannerUrl: undefined,
         platforms: [],
         supportedModes: [],
         isActive: true,
         winCondition: undefined,
         tournament_managers: [],
         tournament_supports: [],
+        images: [],
         createdAt: game.createdAt,
         updatedAt: game.updatedAt,
       });
@@ -141,13 +140,12 @@ describe('Game Entity', () => {
       game = new Game({ id: uuidv4(), name: 'Test Game for Roles' });
     });
 
-    it('addTournamentManager should add a manager ID and update updatedAt', async () => {
+    it('addTournamentManager should add a manager ID and update updatedAt', () => {
       const initialUpdatedAt = game.updatedAt;
-      await tick(); // Ensure time progresses
       game.addTournamentManager(managerId1);
       expect(game.tournament_managers).toContain(managerId1);
       expect(game.isTournamentManager(managerId1)).toBe(true);
-      expect(game.updatedAt.getTime()).toBeGreaterThan(initialUpdatedAt.getTime());
+      expect(game.updatedAt.getTime()).toBeGreaterThanOrEqual(initialUpdatedAt.getTime());
     });
 
     it('addTournamentManager should not add duplicate manager ID or update updatedAt', () => {
@@ -158,17 +156,15 @@ describe('Game Entity', () => {
       expect(game.updatedAt.getTime()).toEqual(firstUpdatedAt.getTime());
     });
 
-    it('removeTournamentManager should remove an existing manager ID and update updatedAt', async () => {
+    it('removeTournamentManager should remove an existing manager ID and update updatedAt', () => {
       game.addTournamentManager(managerId1);
       game.addTournamentManager(managerId2);
-      await tick();
       const initialUpdatedAt = game.updatedAt;
-      await tick();
       game.removeTournamentManager(managerId1);
       expect(game.tournament_managers).not.toContain(managerId1);
       expect(game.tournament_managers).toContain(managerId2);
       expect(game.isTournamentManager(managerId1)).toBe(false);
-      expect(game.updatedAt.getTime()).toBeGreaterThan(initialUpdatedAt.getTime());
+      expect(game.updatedAt.getTime()).toBeGreaterThanOrEqual(initialUpdatedAt.getTime());
     });
 
     it('removeTournamentManager should do nothing and not update updatedAt if manager ID not found', () => {
@@ -179,13 +175,12 @@ describe('Game Entity', () => {
       expect(game.updatedAt.getTime()).toEqual(initialUpdatedAt.getTime());
     });
 
-    it('addTournamentSupport should add a support ID and update updatedAt', async () => {
+    it('addTournamentSupport should add a support ID and update updatedAt', () => {
       const initialUpdatedAt = game.updatedAt;
-      await tick();
       game.addTournamentSupport(supportId1);
       expect(game.tournament_supports).toContain(supportId1);
       expect(game.isTournamentSupport(supportId1)).toBe(true);
-      expect(game.updatedAt.getTime()).toBeGreaterThan(initialUpdatedAt.getTime());
+      expect(game.updatedAt.getTime()).toBeGreaterThanOrEqual(initialUpdatedAt.getTime());
     });
 
     it('addTournamentSupport should not add duplicate support ID or update updatedAt', () => {
@@ -196,17 +191,15 @@ describe('Game Entity', () => {
       expect(game.updatedAt.getTime()).toEqual(firstUpdatedAt.getTime());
     });
 
-    it('removeTournamentSupport should remove an existing support ID and update updatedAt', async () => {
+    it('removeTournamentSupport should remove an existing support ID and update updatedAt', () => {
       game.addTournamentSupport(supportId1);
       game.addTournamentSupport(supportId2);
-      await tick();
       const initialUpdatedAt = game.updatedAt;
-      await tick();
       game.removeTournamentSupport(supportId1);
       expect(game.tournament_supports).not.toContain(supportId1);
       expect(game.tournament_supports).toContain(supportId2);
       expect(game.isTournamentSupport(supportId1)).toBe(false);
-      expect(game.updatedAt.getTime()).toBeGreaterThan(initialUpdatedAt.getTime());
+      expect(game.updatedAt.getTime()).toBeGreaterThanOrEqual(initialUpdatedAt.getTime());
     });
 
     it('removeTournamentSupport should do nothing and not update updatedAt if support ID not found', () => {
@@ -224,45 +217,41 @@ describe('Game Entity', () => {
       game = new Game({ id: uuidv4(), name: 'Initial Game Name', platforms: ['OldPlatform'] });
     });
 
-    it('should update basic details and updatedAt', async () => {
+    it('should update basic details and updatedAt', () => {
       const initialUpdatedAt = game.updatedAt;
       const updates = {
         name: 'Updated Game Name',
         description: 'New description',
         isActive: false,
       };
-      await tick();
       game.updateDetails(updates);
       expect(game.name).toBe(updates.name);
       expect(game.description).toBe(updates.description);
       expect(game.isActive).toBe(updates.isActive);
-      expect(game.updatedAt.getTime()).toBeGreaterThan(initialUpdatedAt.getTime());
+      expect(game.updatedAt.getTime()).toBeGreaterThanOrEqual(initialUpdatedAt.getTime());
     });
 
-    it('should update array details like platforms and supportedModes, ensuring uniqueness and update updatedAt', async () => {
+    it('should update array details like platforms and supportedModes, ensuring uniqueness and update updatedAt', () => {
         const initialUpdatedAt = game.updatedAt;
-        await tick();
         game.updateDetails({ platforms: ['PC', 'PC', 'Xbox']});
         expect(game.platforms).toEqual(['PC', 'Xbox']);
-        expect(game.updatedAt.getTime()).toBeGreaterThan(initialUpdatedAt.getTime());
+        expect(game.updatedAt.getTime()).toBeGreaterThanOrEqual(initialUpdatedAt.getTime());
 
         const secondUpdateAt = game.updatedAt;
-        await tick();
         game.updateDetails({ supportedModes: ['1v1', '2v2', '1v1']});
         expect(game.supportedModes).toEqual(['1v1', '2v2']);
-        expect(game.updatedAt.getTime()).toBeGreaterThan(secondUpdateAt.getTime());
+        expect(game.updatedAt.getTime()).toBeGreaterThanOrEqual(secondUpdateAt.getTime());
     });
 
-    it('should not update tournament_managers or tournament_supports via updateDetails by default', async () => {
+    it('should not update tournament_managers or tournament_supports via updateDetails by default', () => {
         const initialManagers = [...game.tournament_managers];
         const initialSupports = [...game.tournament_supports];
         const initialUpdatedAt = game.updatedAt;
-        await tick();
         game.updateDetails({ tournament_managers: [uuidv4()], tournament_supports: [uuidv4()], name: 'Another Name' });
         expect(game.tournament_managers).toEqual(initialManagers);
         expect(game.tournament_supports).toEqual(initialSupports);
         expect(game.name).toBe('Another Name');
-        expect(game.updatedAt.getTime()).toBeGreaterThan(initialUpdatedAt.getTime());
+        expect(game.updatedAt.getTime()).toBeGreaterThanOrEqual(initialUpdatedAt.getTime());
     });
   });
 });

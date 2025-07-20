@@ -20,6 +20,13 @@ describe('Team Routes Integration Tests', () => {
     adminToken = generateToken({ sub: adminUser.id, roles: adminUser.roles, tokenVersion: adminUser.tokenVersion });
   });
 
+  let server;
+
+  beforeAll(async () => {
+      await sequelize.sync({ force: true });
+      server = app.listen(0);
+  });
+
   afterAll(done => {
     sequelize.close().then(() => {
         server.close(done);
