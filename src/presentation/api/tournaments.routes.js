@@ -35,6 +35,9 @@ module.exports = ({ tournamentController }) => {
 
     // Get a list of all tournaments (Public)
     router.get('/', validate(listTournamentsSchema), tournamentController.listTournaments);
+
+    // Get tournament history for the authenticated user
+    router.get('/history', authenticateToken, tournamentController.getTournamentHistory);
     /*  #swagger.tags = ['Tournaments']
         #swagger.summary = 'Get a list of tournaments'
         #swagger.description = 'Retrieves a paginated list of tournaments. Can be filtered and sorted.'

@@ -17,6 +17,8 @@ class BracketLogic {
 
   static generate(bracketType, tournamentId, participantIdsOrObjects, options = {}) {
     switch (bracketType) {
+      case 'SINGLE_MATCH':
+        return this.generateSingleMatch(tournamentId, participantIdsOrObjects, options);
       case this.Brackets.SINGLE_ELIMINATION:
         return this.generateSingleElimination(tournamentId, participantIdsOrObjects, options);
       case this.Brackets.DOUBLE_ELIMINATION:
@@ -26,6 +28,25 @@ class BracketLogic {
       default:
         throw new Error(`Unsupported bracket type: ${bracketType}`);
     }
+  }
+
+  static generateSingleMatch(tournamentId, participantIdsOrObjects, options = {}) {
+    if (!participantIdsOrObjects || participantIdsOrObjects.length !== 2) {
+      throw new Error('Single match tournaments must have exactly 2 participants.');
+    }
+    const participants = participantIdsOrObjects.map(p => (typeof p === 'string' ? { id: p } : p));
+    const matchId = uuidv4();
+    const match = new Match(
+      matchId,
+      tournamentId,
+      1, // roundNumber
+      1, // matchNumberInRound
+      participants[0].id,
+      participants[1].id,
+      'SCHEDULED',
+      options.defaultMatchTime || new Date()
+    );
+    return [match];
   }
 
   /**

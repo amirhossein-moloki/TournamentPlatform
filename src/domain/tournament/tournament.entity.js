@@ -56,7 +56,8 @@ class Tournament {
     bannerImageUrl = null,
     bracketType = Tournament.BracketType.SINGLE_ELIMINATION,
     settings = {},
-    images = []
+    images = [],
+    rankRestriction = {}
   ) {
     if (!id) throw new Error('Tournament ID is required.');
     if (!name) throw new Error('Tournament name is required.');
@@ -105,6 +106,7 @@ class Tournament {
     this.bracketType = bracketType;
     this.settings = settings;
     this.images = images;
+    this.rankRestriction = rankRestriction;
 
     this.participants = []; // Initialized as empty, populated from persistence
     // this._matches = matches;           // Store as internal, manage via methods
@@ -156,6 +158,7 @@ class Tournament {
   static validStatuses = Object.values(Tournament.Status);
 
   static BracketType = {
+    SINGLE_MATCH: 'SINGLE_MATCH',
     SINGLE_ELIMINATION: 'SINGLE_ELIMINATION',
     DOUBLE_ELIMINATION: 'DOUBLE_ELIMINATION',
     ROUND_ROBIN: 'ROUND_ROBIN',
@@ -232,8 +235,28 @@ class Tournament {
   }
 
   // --- Participant Management ---
-  canRegister() {
-    return this.status === Tournament.Status.REGISTRATION_OPEN && this.currentParticipants < this.maxParticipants;
+  canRegister(user) {
+    if (this.status !== Tournament.Status.REGISTRATION_OPEN) return false;
+    if (this.isFull()) return false;
+    if (!this.isUserRankAllowed(user)) return false;
+    return true;
+  }
+
+  isUserRankAllowed(user) {
+    if (!this.rankRestriction || (!this.rankRestriction.minRank && !this.rankRestriction.maxRank)) {
+      return true;
+    }
+
+    const userRank = user.rankId;
+    if (!userRank) return false; // Or handle as per requirements for unranked users
+
+    const minRank = this.rankRestriction.minRank;
+    const maxRank = this.rankRestriction.maxRank;
+
+    if (minRank && userRank < minRank) return false;
+    if (maxRank && userRank > maxRank) return false;
+
+    return true;
   }
 
   addParticipant(/* participantId */) {
