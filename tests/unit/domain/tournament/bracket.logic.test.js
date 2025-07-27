@@ -250,4 +250,29 @@ describe('BracketLogic', () => {
     // it('should identify incorrect number of matches', () => { ... });
     // it('should identify incorrect number of final matches', () => { ... });
   });
+
+  describe('generateSingleMatch', () => {
+    const tournamentId = uuidv4();
+    const defaultMatchTime = new Date('2024-01-01T10:00:00.000Z');
+    const options = { defaultMatchTime };
+
+    it('should generate a single match for 2 participants', () => {
+      const participants = [{ id: 'p1' }, { id: 'p2' }];
+      const matches = BracketLogic.generate('SINGLE_MATCH', tournamentId, participants, options);
+
+      expect(matches).toHaveLength(1);
+      const match = matches[0];
+      expect(match).toBeInstanceOf(Match);
+      expect(match.roundNumber).toBe(1);
+      expect(match.participant1Id).toBe('p1');
+      expect(match.participant2Id).toBe('p2');
+      expect(match.status).toBe('SCHEDULED');
+      expect(match.nextMatchId).toBeNull();
+    });
+
+    it('should throw an error if not exactly 2 participants are provided', () => {
+      expect(() => BracketLogic.generate('SINGLE_MATCH', tournamentId, ['p1'])).toThrow('Single match tournaments must have exactly 2 participants.');
+      expect(() => BracketLogic.generate('SINGLE_MATCH', tournamentId, ['p1', 'p2', 'p3'])).toThrow('Single match tournaments must have exactly 2 participants.');
+    });
+  });
 });

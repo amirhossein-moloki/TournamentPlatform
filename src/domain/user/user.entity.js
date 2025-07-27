@@ -30,7 +30,9 @@ class User {
     createdAt = new Date(),
     updatedAt = new Date(),
     verificationToken = null,
-    tokenVersion = 0
+    tokenVersion = 0,
+    rankId = null,
+    points = 0
   ) {
     if (!id) throw new Error('User ID is required.');
     if (!username) throw new Error('Username is required.');
@@ -57,6 +59,8 @@ class User {
     this.updatedAt = updatedAt;
     this.verificationToken = verificationToken; // For email verification process
     this.tokenVersion = tokenVersion; // For advanced token invalidation strategies
+    this.rankId = rankId;
+    this.points = points;
   }
 
   /**
@@ -204,8 +208,21 @@ class User {
       roles: [...this.roles], // Return a copy of the roles array
       isVerified: this.isVerified,
       lastLogin: this.lastLogin,
+      rankId: this.rankId,
+      points: this.points,
       // Do NOT include passwordHash, refreshToken, verificationToken, tokenVersion, email
     };
+  }
+
+  /**
+   * Updates the user's points and rank.
+   * @param {number} newPoints - The new total points for the user.
+   * @param {string|null} newRankId - The new rank ID for the user.
+   */
+  updateRank(newPoints, newRankId) {
+    this.points = newPoints;
+    this.rankId = newRankId;
+    this.updatedAt = new Date();
   }
 }
 
