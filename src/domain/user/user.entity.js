@@ -30,7 +30,10 @@ class User {
     createdAt = new Date(),
     updatedAt = new Date(),
     verificationToken = null,
-    tokenVersion = 0
+    tokenVersion = 0,
+    verificationLevel = VerificationLevel.LEVEL_1,
+    idCardPhotoUrl = null,
+    verificationVideoUrl = null
   ) {
     if (!id) throw new Error('User ID is required.');
     if (!username) throw new Error('Username is required.');
@@ -57,6 +60,9 @@ class User {
     this.updatedAt = updatedAt;
     this.verificationToken = verificationToken; // For email verification process
     this.tokenVersion = tokenVersion; // For advanced token invalidation strategies
+    this.verificationLevel = verificationLevel;
+    this.idCardPhotoUrl = idCardPhotoUrl;
+    this.verificationVideoUrl = verificationVideoUrl;
   }
 
   /**
@@ -219,11 +225,18 @@ const UserRoles = Object.freeze({
   // Add other roles as needed (e.g., FINANCE_MANAGER, CONTENT_CREATOR)
 });
 
+const VerificationLevel = Object.freeze({
+  LEVEL_1: 1,
+  LEVEL_2: 2,
+  LEVEL_3: 3,
+});
+
 // Define static enums on the User class
 User.UserRoles = UserRoles;
+User.VerificationLevel = VerificationLevel;
 
 // Export the User class
-module.exports = { User, UserRoles };
+module.exports = { User, UserRoles, VerificationLevel };
 
 // Default roles for new users - ensure PLAYER is the base role.
 User.DEFAULT_ROLES = [User.UserRoles.PLAYER];

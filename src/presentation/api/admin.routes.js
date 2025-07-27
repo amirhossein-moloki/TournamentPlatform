@@ -123,5 +123,33 @@ router.post('/withdrawals/:id/reject', authenticateToken, authorizeRole([UserRol
     #swagger.responses[403] = { $ref: '#/components/responses/ForbiddenError' }
     #swagger.responses[404] = { $ref: '#/components/responses/NotFoundError' }
 */
+
+    // --- Verification Management ---
+    router.post('/verifications/approve/:userId', authenticateToken, authorizeRole([UserRoles.ADMIN]), adminController.approveVerification);
+    /*  #swagger.tags = ['Admin']
+        #swagger.summary = 'Approve a user verification'
+        #swagger.description = 'Approves a user for the next verification level.'
+        #swagger.security = [{ "bearerAuth": [] }]
+        #swagger.parameters['userId'] = { in: 'path', required: true, schema: { type: 'string', format: 'uuid' } }
+        #swagger.responses[200] = { description: 'User verification approved successfully.' }
+        #swagger.responses[400] = { $ref: '#/components/responses/BadRequestError' }
+        #swagger.responses[401] = { $ref: '#/components/responses/UnauthorizedError' }
+        #swagger.responses[403] = { $ref: '#/components/responses/ForbiddenError' }
+        #swagger.responses[404] = { $ref: '#/components/responses/NotFoundError' }
+    */
+
+    router.post('/verifications/reject/:userId', authenticateToken, authorizeRole([UserRoles.ADMIN]), adminController.rejectVerification);
+    /*  #swagger.tags = ['Admin']
+        #swagger.summary = 'Reject a user verification'
+        #swagger.description = 'Rejects a user verification.'
+        #swagger.security = [{ "bearerAuth": [] }]
+        #swagger.parameters['userId'] = { in: 'path', required: true, schema: { type: 'string', format: 'uuid' } }
+        #swagger.responses[200] = { description: 'User verification rejected successfully.' }
+        #swagger.responses[400] = { $ref: '#/components/responses/BadRequestError' }
+        #swagger.responses[401] = { $ref: '#/components/responses/UnauthorizedError' }
+        #swagger.responses[403] = { $ref: '#/components/responses/ForbiddenError' }
+        #swagger.responses[404] = { $ref: '#/components/responses/NotFoundError' }
+    */
+
     return router;
 };

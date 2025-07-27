@@ -10,6 +10,8 @@ class UserController {
     adminDeleteUserUseCase,
     assignRoleUseCase,
     removeRoleUseCase,
+    submitIdCardUseCase,
+    submitVerificationVideoUseCase,
   }) {
     this.getUserProfileUseCase = getUserProfileUseCase;
     this.updateUserProfileUseCase = updateUserProfileUseCase;
@@ -18,6 +20,8 @@ class UserController {
     this.adminDeleteUserUseCase = adminDeleteUserUseCase;
     this.assignRoleUseCase = assignRoleUseCase;
     this.removeRoleUseCase = removeRoleUseCase;
+    this.submitIdCardUseCase = submitIdCardUseCase;
+    this.submitVerificationVideoUseCase = submitVerificationVideoUseCase;
   }
 
   async getCurrentUserProfile(req, res, next) {
@@ -66,6 +70,26 @@ class UserController {
       const { id: userId, role } = req.params;
       const updatedUser = await this.removeRoleUseCase.execute({ userId, role });
       res.status(httpStatusCodes.OK).json(updatedUser);
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  async submitIdCard(req, res, next) {
+    try {
+      const { id: userId } = req.user;
+      const result = await this.submitIdCardUseCase.execute(userId, req.file);
+      res.status(httpStatusCodes.OK).json(result);
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  async submitVerificationVideo(req, res, next) {
+    try {
+      const { id: userId } = req.user;
+      const result = await this.submitVerificationVideoUseCase.execute(userId, req.file);
+      res.status(httpStatusCodes.OK).json(result);
     } catch (error) {
       next(error);
     }

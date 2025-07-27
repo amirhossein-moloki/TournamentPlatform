@@ -1,30 +1,33 @@
 const ApiResponse = require('../../utils/ApiResponse');
 const httpStatusCodes = require('http-status-codes');
 
-const listDisputes = (req, res, next) => {
-  res.status(httpStatusCodes.OK).json(new ApiResponse(httpStatusCodes.OK, [], 'Disputes fetched successfully.'));
-};
+class AdminController {
+  constructor({ approveVerificationUseCase, rejectVerificationUseCase }) {
+    this.approveVerificationUseCase = approveVerificationUseCase;
+    this.rejectVerificationUseCase = rejectVerificationUseCase;
+  }
 
-const resolveDispute = (req, res, next) => {
-  res.status(httpStatusCodes.OK).json(new ApiResponse(httpStatusCodes.OK, {}, 'Dispute resolved successfully.'));
-};
+  async approveVerification(req, res, next) {
+    try {
+      const { id: adminId } = req.user;
+      const { userId } = req.params;
+      const result = await this.approveVerificationUseCase.execute(adminId, userId);
+      res.status(httpStatusCodes.OK).json(result);
+    } catch (error) {
+      next(error);
+    }
+  }
 
-const listWithdrawals = (req, res, next) => {
-  res.status(httpStatusCodes.OK).json(new ApiResponse(httpStatusCodes.OK, [], 'Withdrawals fetched successfully.'));
-};
+  async rejectVerification(req, res, next) {
+    try {
+      const { id: adminId } = req.user;
+      const { userId } = req.params;
+      const result = await this.rejectVerificationUseCase.execute(adminId, userId);
+      res.status(httpStatusCodes.OK).json(result);
+    } catch (error) {
+      next(error);
+    }
+  }
+}
 
-const approveWithdrawal = (req, res, next) => {
-  res.status(httpStatusCodes.OK).json(new ApiResponse(httpStatusCodes.OK, {}, 'Withdrawal approved successfully.'));
-};
-
-const rejectWithdrawal = (req, res, next) => {
-  res.status(httpStatusCodes.OK).json(new ApiResponse(httpStatusCodes.OK, {}, 'Withdrawal rejected successfully.'));
-};
-
-module.exports = {
-  listDisputes,
-  resolveDispute,
-  listWithdrawals,
-  approveWithdrawal,
-  rejectWithdrawal,
-};
+module.exports = AdminController;

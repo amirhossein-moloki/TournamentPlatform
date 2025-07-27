@@ -27,6 +27,12 @@ const RemoveRoleUseCase = require('../application/use-cases/user/remove-role.use
 const UpsertUserGameProfileUseCase = require('../application/use-cases/user/upsertUserGameProfile.useCase.js');
 const GetUserGameProfilesUseCase = require('../application/use-cases/user/getUserGameProfiles.useCase.js');
 const GetUserGameProfileForGameUseCase = require('../application/use-cases/user/getUserGameProfileForGame.useCase.js');
+const SubmitIdCardUseCase = require('../application/use-cases/user/submitIdCard.js');
+const SubmitVerificationVideoUseCase = require('../application/use-cases/user/submitVerificationVideo.js');
+
+// Admin Use Cases
+const ApproveVerificationUseCase = require('../application/use-cases/admin/approveVerification.js');
+const RejectVerificationUseCase = require('../application/use-cases/admin/rejectVerification.js');
 
 // Tournament Use Cases
 const CreateTournamentUseCase = require('../application/use-cases/tournament/create-tournament.usecase.js');
@@ -116,6 +122,18 @@ function initializeDependencies(redisClient) {
     const adminDeleteUserUseCase = new AdminDeleteUserUseCase(repositories.userRepository);
     const assignRoleUseCase = new AssignRoleUseCase(repositories.userRepository);
     const removeRoleUseCase = new RemoveRoleUseCase(repositories.userRepository);
+
+    const submitIdCardUseCase = new SubmitIdCardUseCase({
+        userRepository: repositories.userRepository,
+        fileUploader: new LocalFileUploader(),
+    });
+    const submitVerificationVideoUseCase = new SubmitVerificationVideoUseCase({
+        userRepository: repositories.userRepository,
+        fileUploader: new LocalFileUploader(),
+    });
+
+    const approveVerificationUseCase = new ApproveVerificationUseCase({ userRepository: repositories.userRepository });
+    const rejectVerificationUseCase = new RejectVerificationUseCase({ userRepository: repositories.userRepository });
 
     const upsertUserGameProfileUseCase = new UpsertUserGameProfileUseCase(repositories.userGameProfileRepository, repositories.gameRepository);
     const getUserGameProfilesUseCase = new GetUserGameProfilesUseCase(repositories.userGameProfileRepository);
@@ -214,8 +232,6 @@ function initializeDependencies(redisClient) {
         uploadFileUseCase,
     });
 
-    const adminController = require('../presentation/controllers/admin.controller.js');
-
     const userController = new UserController({
         getUserProfileUseCase,
         updateUserProfileUseCase,
@@ -224,6 +240,13 @@ function initializeDependencies(redisClient) {
         adminDeleteUserUseCase,
         assignRoleUseCase,
         removeRoleUseCase,
+        submitIdCardUseCase,
+        submitVerificationVideoUseCase,
+    });
+
+    const adminController = new AdminController({
+        approveVerificationUseCase,
+        rejectVerificationUseCase,
     });
 
     const leaderboardController = new LeaderboardController({

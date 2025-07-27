@@ -29,5 +29,29 @@ router.put('/me', authenticateToken, validate(updateUserProfileSchema), userCont
     #swagger.responses[401] = { $ref: '#/components/responses/UnauthorizedError' }
 */
 
+const multer = require('multer');
+const upload = multer({ dest: 'uploads/' });
+
+router.post('/me/submit-id-card', authenticateToken, upload.single('idCard'), userController.submitIdCard);
+/*  #swagger.tags = ['Users']
+    #swagger.summary = "Submit ID card for verification"
+    #swagger.description = "Allows the authenticated user to submit their ID card for level 2 verification."
+    #swagger.security = [{ "bearerAuth": [] }]
+    #swagger.requestBody = { required: true, content: { "multipart/form-data": { schema: { type: 'object', properties: { idCard: { type: 'string', format: 'binary' } } } } } }
+    #swagger.responses[200] = { description: 'ID card submitted successfully.' }
+    #swagger.responses[400] = { $ref: '#/components/responses/BadRequestError' }
+    #swagger.responses[401] = { $ref: '#/components/responses/UnauthorizedError' }
+*/
+
+router.post('/me/submit-verification-video', authenticateToken, upload.single('video'), userController.submitVerificationVideo);
+/*  #swagger.tags = ['Users']
+    #swagger.summary = "Submit verification video"
+    #swagger.description = "Allows the authenticated user to submit a verification video for level 3 verification."
+    #swagger.security = [{ "bearerAuth": [] }]
+    #swagger.requestBody = { required: true, content: { "multipart/form-data": { schema: { type: 'object', properties: { video: { type: 'string', format: 'binary' } } } } } }
+    #swagger.responses[200] = { description: 'Verification video submitted successfully.' }
+    #swagger.responses[400] = { $ref: '#/components/responses/BadRequestError' }
+    #swagger.responses[401] = { $ref: '#/components/responses/UnauthorizedError' }
+*/
 
 module.exports = router;
