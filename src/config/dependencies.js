@@ -39,6 +39,9 @@ const CreateTournamentUseCase = require('../application/use-cases/tournament/cre
 const ListTournamentsUseCase = require('../application/use-cases/tournament/list-tournaments.usecase.js');
 const RegisterForTournamentUseCase = require('../application/use-cases/tournament/registerForTournament.useCase.js');
 const GetTournamentUseCase = require('../application/use-cases/tournament/get-tournament.usecase.js');
+const DecideTournamentUseCase = require('../application/use-cases/tournament/decideTournament.js');
+const StartSingleMatchUseCase = require('../application/use-cases/tournament/startSingleMatch.js');
+const RefundEntryFeesUseCase = require('../application/use-cases/tournament/refundEntryFees.js');
 
 // Match Use Cases
 const GetMatchUseCase = require('../application/use-cases/match/get-match.usecase.js');
@@ -143,6 +146,21 @@ function initializeDependencies(redisClient) {
     const listTournamentsUseCase = new ListTournamentsUseCase(repositories.tournamentRepository);
     const getTournamentUseCase = new GetTournamentUseCase(repositories.tournamentRepository);
     const registerForTournamentUseCase = new RegisterForTournamentUseCase(repositories.tournamentRepository, repositories.tournamentParticipantRepository, repositories.userGameProfileRepository, walletRepository);
+    const refundEntryFeesUseCase = new RefundEntryFeesUseCase({
+        tournamentParticipantRepository: repositories.tournamentParticipantRepository,
+        walletRepository: repositories.walletRepository,
+    });
+    const startSingleMatchUseCase = new StartSingleMatchUseCase({
+        matchRepository: repositories.matchRepository,
+        tournamentParticipantRepository: repositories.tournamentParticipantRepository,
+    });
+    const decideTournamentUseCase = new DecideTournamentUseCase({
+        tournamentRepository: repositories.tournamentRepository,
+        matchRepository: repositories.matchRepository,
+        userRepository: repositories.userRepository,
+        startSingleMatch: startSingleMatchUseCase,
+        refundEntryFees: refundEntryFeesUseCase,
+    });
 
     const getMatchUseCase = new GetMatchUseCase(repositories.tournamentRepository, repositories.userGameProfileRepository, repositories.matchRepository);
     const getMatchUploadUrlUseCase = new GetMatchUploadUrlUseCase(repositories.matchRepository);
@@ -208,6 +226,7 @@ function initializeDependencies(redisClient) {
         listTournamentsUseCase,
         getTournamentUseCase,
         registerForTournamentUseCase,
+        decideTournamentUseCase,
     });
 
     const teamController = new TeamController({

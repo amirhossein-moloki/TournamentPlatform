@@ -82,5 +82,31 @@ module.exports = ({ tournamentController }) => {
         #swagger.responses[404] = { $ref: '#/components/responses/NotFoundError' }
     */
 
+    router.post('/:id/decide', authenticateToken, checkRole(UserRoles.TOURNAMENT_MANAGER), tournamentController.decideTournament);
+    /*  #swagger.tags = ['Tournaments']
+        #swagger.summary = 'Decide on a tournament (Tournament Manager)'
+        #swagger.description = 'Allows a tournament manager to start or cancel a tournament that is awaiting decision.'
+        #swagger.security = [{ "bearerAuth": [] }]
+        #swagger.parameters['id'] = { $ref: '#/components/parameters/TournamentIdPath' }
+        #swagger.requestBody = {
+            required: true,
+            content: {
+                "application/json": {
+                    schema: {
+                        type: "object",
+                        properties: {
+                            decision: { type: "string", enum: ["start", "cancel"] }
+                        }
+                    }
+                }
+            }
+        }
+        #swagger.responses[200] = { description: 'Decision processed successfully.' }
+        #swagger.responses[400] = { $ref: '#/components/responses/BadRequestError' }
+        #swagger.responses[401] = { $ref: '#/components/responses/UnauthorizedError' }
+        #swagger.responses[403] = { $ref: '#/components/responses/ForbiddenError' }
+        #swagger.responses[404] = { $ref: '#/components/responses/NotFoundError' }
+    */
+
     return router;
 };

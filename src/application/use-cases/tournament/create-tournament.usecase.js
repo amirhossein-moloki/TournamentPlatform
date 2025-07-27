@@ -77,7 +77,7 @@ class CreateTournamentUseCase {
     const {
         name, gameId, description, rules, entryFee, prizePool, maxParticipants, startDate, endDate, organizerId,
         entryFeeType, prizeType, prizeDetails, managed_by, supported_by, entryConditions,
-        bannerImageUrl, bracketType, settings // Keep existing optional fields
+        bannerImageUrl, bracketType, settings, isSingleMatch // Keep existing optional fields
     } = tournamentData;
 
     if (managed_by && !Array.isArray(managed_by)) {
@@ -112,7 +112,8 @@ class CreateTournamentUseCase {
       new Date(),  // updatedAt
       bannerImageUrl || null, // Pass existing optional field
       bracketType,          // Pass existing optional field (or its default from Tournament entity)
-      settings || {}        // Pass existing optional field
+      settings || {},        // Pass existing optional field
+      isSingleMatch || false
     );
 
     // Persist the new tournament

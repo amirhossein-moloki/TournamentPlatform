@@ -56,7 +56,8 @@ class Tournament {
     bannerImageUrl = null,
     bracketType = Tournament.BracketType.SINGLE_ELIMINATION,
     settings = {},
-    images = []
+    images = [],
+    isSingleMatch = false
   ) {
     if (!id) throw new Error('Tournament ID is required.');
     if (!name) throw new Error('Tournament name is required.');
@@ -105,6 +106,7 @@ class Tournament {
     this.bracketType = bracketType;
     this.settings = settings;
     this.images = images;
+    this.isSingleMatch = isSingleMatch;
 
     this.participants = []; // Initialized as empty, populated from persistence
     // this._matches = matches;           // Store as internal, manage via methods
@@ -139,7 +141,8 @@ class Tournament {
       data.bannerImageUrl,
       data.bracketType,
       data.settings,
-      data.images
+      data.images,
+      data.isSingleMatch
     );
   }
 
@@ -147,6 +150,7 @@ class Tournament {
   static Status = {
     PENDING: 'PENDING',
     UPCOMING: 'UPCOMING',
+    AWAITING_DECISION: 'AWAITING_DECISION',
     REGISTRATION_OPEN: 'REGISTRATION_OPEN',
     REGISTRATION_CLOSED: 'REGISTRATION_CLOSED',
     ONGOING: 'ONGOING',
@@ -331,6 +335,7 @@ class Tournament {
     }
     if (details.settings !== undefined) this.settings = details.settings;
     if (details.images !== undefined) this.images = details.images;
+    if (details.isSingleMatch !== undefined) this.isSingleMatch = details.isSingleMatch;
 
     this.updatedAt = new Date();
   }
